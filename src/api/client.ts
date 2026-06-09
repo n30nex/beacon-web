@@ -1,8 +1,8 @@
 import { API_BASE, DEFAULT_PAGE_SIZE } from "../lib/constants";
-import type { CursorPage, PacketSummary, PacketDetail, IataCode, RegionSummary, Region, BrokerStatus, KnownRoute, TraceTagSummary, TraceDetail } from "../types/api";
+import type { CursorPage, PacketSummary, PacketDetail, IataCode, RegionSummary, Region, BrokerStatus, KnownRoute, CrossIATARoute, TraceTagSummary, TraceDetail } from "../types/api";
 import type { ChannelSummary, ChannelMessage } from "../features/channels/types";
-import type { ObserverSummary, Observer } from "../features/observers/types";
-import type { NodeSummary, Node, NodeObservation } from "../features/nodes/types";
+import type { ObserverSummary, Observer, AdvertObservation } from "../features/observers/types";
+import type { NodeSummary, Node, NodeObservation, NodeNeighbor } from "../features/nodes/types";
 
 // typed fetch wrapper with query params
 
@@ -47,13 +47,12 @@ function iatasParam(iatas?: string[]): string | undefined {
 
 export function getPackets(
   iatas: string[] | undefined,
-  params?: { cursor?: number; limit?: number; afterId?: number },
+  params?: { cursor?: number; limit?: number },
 ): Promise<CursorPage<PacketSummary>> {
   return request("/packets", {
     iatas: iatasParam(iatas),
     cursor: params?.cursor,
     limit: params?.limit ?? DEFAULT_PAGE_SIZE,
-    afterId: params?.afterId,
   });
 }
 
@@ -137,6 +136,17 @@ export function searchKnownRoutes(iata: string, from: string, to: string): Promi
   return request("/routes/search", { iata, from, to });
 }
 
+// Search routes that cross IATA boundaries, from a hash in one IATA to a hash in another. All four
+// params are required by the server.
+export function searchCrossIATARoutes(
+  fromHash: string,
+  fromIata: string,
+  toHash: string,
+  toIata: string,
+): Promise<CrossIATARoute[]> {
+  return request("/routes/cross", { fromHash, fromIata, toHash, toIata });
+}
+
 // Trace tags. /traces returns a bare array of per-tag summaries (ordered newest-heard first, cursor is
 // the last item's lastHeardAt); /traces/{tag} returns the tag's packets with resolved routes.
 export function getTraces(
@@ -159,6 +169,16 @@ export function getTraceDetail(tag: string): Promise<TraceDetail> {
 
 export function getObserver(observerId: string): Promise<Observer> {
   return request(`/observers/${observerId}`);
+}
+
+export function getObserverAdverts(
+  observerId: string,
+  params?: { cursor?: number; limit?: number },
+): Promise<CursorPage<AdvertObservation>> {
+  return request(`/observers/${observerId}/adverts`, {
+    cursor: params?.cursor,
+    limit: params?.limit ?? DEFAULT_PAGE_SIZE,
+  });
 }
 
 // Paginated /nodes: returns the full cursor page so the caller can chain pages (cursor = the last
@@ -213,6 +233,10 @@ export function getNodeObservations(
     cursor: params?.cursor,
     limit: params?.limit ?? DEFAULT_PAGE_SIZE,
   });
+}
+
+export function getNodeNeighbors(nodeId: string): Promise<NodeNeighbor[]> {
+  return request(`/nodes/${nodeId}/neighbors`);
 }
 
 export { ApiError };

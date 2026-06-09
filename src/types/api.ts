@@ -41,8 +41,9 @@ export interface ResolvedNode {
 export interface ResolvedHop {
   confidence: PathConfidence;
   nodes: ResolvedNode[]; // empty when confidence is "none"
-  hashBytes?: string; // hex per-hop path-hash prefix. Not yet sent on trace hops (only RouteHop carries
-  // it); reserved for when the backend populates it — unresolved trace hops fall back to #position labels.
+  snr?: number; // per-hop link SNR (dB) when the backend resolved it
+  hashBytes?: string; // hex per-hop path-hash prefix. Not sent on trace hops (only RouteHop carries it);
+  // unresolved trace hops fall back to #position labels.
 }
 
 export interface PathLength {
@@ -140,7 +141,7 @@ export interface BrokerStatus {
 export interface RouteHop {
   nodeId: string; // uuid of the resolved node
   hashBytes: string; // hex-encoded path-hash prefix for this hop
-  node?: ResolvedNode; // node detail when the server populates it (currently omitted)
+  node?: ResolvedNode; // resolved node detail for this hop
 }
 
 export interface KnownRoute {
@@ -150,6 +151,26 @@ export interface KnownRoute {
   hops: RouteHop[];
   firstSeen: number; // epoch ms
   lastSeen: number; // epoch ms
+  observationCount: number;
+}
+
+// the boundary hop in a cross-IATA route: the link from the last node in the source IATA to the
+// first node in the target IATA.
+export interface CrossIATAHop {
+  fromNode: ResolvedNode;
+  toNode: ResolvedNode;
+  fromIata: string;
+  toIata: string;
+  lastSeen: number; // epoch ms
+}
+
+// a route spanning two IATAs: a segment in the source IATA, the boundary hop, then a segment in the
+// target IATA. From GET /routes/cross.
+export interface CrossIATARoute {
+  sourceSegment: RouteHop[];
+  crossHop: CrossIATAHop;
+  targetSegment: RouteHop[];
+  totalHops: number;
 }
 
 // trace tags — a trace series groups the packets that share a 4-byte trace tag. The list endpoint

@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useLayoutEffect, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useHasHover } from "../../hooks/useMediaQuery";
+import { formatSnr, snrLevel, SIGNAL_LEVEL_CLASSES } from "../../lib/formatters";
 import type { ResolvedHop, ResolvedNode } from "../../types/api";
 import type { PathConfidence } from "../../types/enums";
 
@@ -124,6 +125,11 @@ function HopPopover({ hop, onViewNode, children }: {
               ))
             ) : (
               nodes.map((node) => <span key={node.id}>{nodeLabel(node)}</span>)
+            )}
+            {hop?.snr != null && (
+              <span className="text-text-dim">
+                SNR <span className={SIGNAL_LEVEL_CLASSES[snrLevel(hop.snr) ?? "bad"]}>{formatSnr(hop.snr)}</span>
+              </span>
             )}
           </span>,
           document.body,

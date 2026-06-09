@@ -25,6 +25,23 @@ const singleHop: ResolvedHop = {
   nodes: [{ id: "node-1", name: "Repeater A", publicKey: "deadbeefcafe" }],
 };
 
+describe("ResolvedHopBlock per-hop SNR", () => {
+  it("shows the formatted SNR in the popover when the hop carries one", () => {
+    setMobile(true);
+    render(<ResolvedHopBlock hop={{ ...singleHop, snr: 10.75 }} label="ABC1" />);
+    fireEvent.click(screen.getByText("ABC1"));
+    expect(screen.getByText(/SNR/)).toBeInTheDocument();
+    expect(screen.getByText("10.75")).toBeInTheDocument();
+  });
+
+  it("shows no SNR line when the hop has none", () => {
+    setMobile(true);
+    render(<ResolvedHopBlock hop={singleHop} label="ABC1" />);
+    fireEvent.click(screen.getByText("ABC1"));
+    expect(screen.queryByText(/SNR/)).not.toBeInTheDocument();
+  });
+});
+
 describe("ResolvedHopBlock (desktop)", () => {
   it("opens the node directly when the single-match block is clicked", () => {
     setMobile(false);

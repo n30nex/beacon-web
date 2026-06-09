@@ -33,3 +33,18 @@ export interface ObserverBroker {
   lastSeenAt: number;
   lastPacketAt: number;
 }
+
+// An advert packet heard by an observer, from GET /observers/{id}/adverts.
+export interface AdvertObservation {
+  id: number;
+  packetHash: string;
+  payloadType: number;
+  payloadTypeName: string;
+  iata: string;
+  heardAt: number; // epoch ms
+  rssi?: number;
+  snr?: number;
+  hopCount?: number;
+  nodeName?: string;
+  nodePublicKey?: string;
+}

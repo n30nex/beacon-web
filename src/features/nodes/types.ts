@@ -31,6 +31,20 @@ export interface Node extends NodeSummary {
   metadata: Record<string, unknown> | null;
 }
 
+// First-hop neighbor of a node, from GET /nodes/{id}/neighbors (bare array, no pagination).
+export interface NodeNeighbor {
+  id: string;
+  name?: string;
+  nodeType: number;
+  nodeTypeName: string;
+  lat?: number;
+  lng?: number;
+  iata: string;
+  observationCount: number;
+  firstSeen: number; // epoch ms
+  lastSeen: number; // epoch ms
+}
+
 export interface NodeObservation {
   id: number;
   packetHash: string;

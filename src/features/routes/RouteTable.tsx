@@ -1,16 +1,17 @@
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getKnownRoutesPage, searchKnownRoutes, getIatas } from "../../api/client";
+import { getKnownRoutesPage, searchKnownRoutes, searchCrossIATARoutes, getIatas } from "../../api/client";
 import { useRegion } from "../../hooks/useRegion";
 import { useInfinitePages } from "../../hooks/useInfinitePages";
 import { Badge } from "../../components/Badge";
 import { Timestamp } from "../../components/Timestamp";
 import { DataTable, type Column } from "../../components/DataTable";
 import { LoadingPill } from "../../components/LoadingPill";
-import { SelectDropdown } from "../../components/SelectDropdown";
+import { MultiSelectDropdown } from "../../components/MultiSelectDropdown";
 import { RouteDetailPanel } from "./RouteDetailPanel";
 import { ResolvedHopBlock } from "../packets/PathData";
-import type { KnownRoute, ResolvedHop } from "../../types/api";
+import { formatHex } from "../../lib/formatters";
+import type { KnownRoute, CrossIATARoute, ResolvedHop, ResolvedNode, RouteHop } from "../../types/api";
 
 const inputClass =
   "text-[11px] font-mono bg-bg-surface border border-border rounded-sm px-2 py-1 text-text-bright " +
@@ -19,12 +20,13 @@ const inputClass =
 // stable id accessor for the paginator's dedup (module-level so the memo isn't rebuilt each render)
 const routeId = (r: KnownRoute) => String(r.id);
 
-// A route's hops as a hash chain (reusing the packet path renderer); hops are high-confidence by definition.
-// Memoized so the 10s <Timestamp> ticks in sibling columns don't re-reconcile the chain and its popovers.
-const RouteHopChain = memo(function RouteHopChain({ route }: { route: KnownRoute }) {
+const nodeLabel = (n: ResolvedNode) => n.name ?? formatHex(n.publicKey);
+
+// A run of route hops as a hash chain (reusing the packet path renderer); hops are high-confidence.
+function HopChain({ hops }: { hops: RouteHop[] }) {
   return (
-    <div className="flex flex-wrap items-center gap-1 font-mono text-[13px]">
-      {route.hops.map((hop, i) => {
+    <>
+      {hops.map((hop, i) => {
         const resolved: ResolvedHop = { confidence: "high", nodes: hop.node ? [hop.node] : [] };
         return (
           <span key={i} className="contents">
@@ -33,9 +35,44 @@ const RouteHopChain = memo(function RouteHopChain({ route }: { route: KnownRoute
           </span>
         );
       })}
+    </>
+  );
+}
+
+// Memoized so the 10s <Timestamp> ticks in sibling columns don't re-reconcile the chain and its popovers.
+const RouteHopChain = memo(function RouteHopChain({ route }: { route: KnownRoute }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1 font-mono text-[13px]">
+      <HopChain hops={route.hops} />
     </div>
   );
 });
+
+// A cross-IATA route: source segment → boundary hop (the two nodes that bridge the IATAs) → target segment.
+function CrossRouteCard({ route }: { route: CrossIATARoute }) {
+  const { crossHop } = route;
+  return (
+    <div className="bg-bg-base border border-border rounded px-3 py-2 flex flex-col gap-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <Badge variant="default">{crossHop.fromIata}</Badge>
+          <span className="text-text-dim" aria-hidden>→</span>
+          <Badge variant="default">{crossHop.toIata}</Badge>
+        </div>
+        <span className="font-mono text-[11px] text-text-dim">{route.totalHops} hops</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-1 font-mono text-[13px]">
+        <HopChain hops={route.sourceSegment} />
+        {route.sourceSegment.length > 0 && <span className="text-warn" aria-hidden>⇒</span>}
+        <span className="text-primary font-semibold">{nodeLabel(crossHop.fromNode)}</span>
+        <span className="text-warn" aria-hidden>⇒</span>
+        <span className="text-primary font-semibold">{nodeLabel(crossHop.toNode)}</span>
+        {route.targetSegment.length > 0 && <span className="text-warn" aria-hidden>⇒</span>}
+        <HopChain hops={route.targetSegment} />
+      </div>
+    </div>
+  );
+}
 
 const COLUMNS: Column<KnownRoute>[] = [
   {
@@ -51,6 +88,12 @@ const COLUMNS: Column<KnownRoute>[] = [
   {
     header: "Route",
     cell: (r) => <RouteHopChain route={r} />,
+  },
+  {
+    header: "Obs",
+    className: "text-text-muted",
+    sortValue: (r) => r.observationCount,
+    cell: (r) => r.observationCount.toLocaleString(),
   },
   {
     header: "First seen",
@@ -71,7 +114,7 @@ function renderRouteCard(r: KnownRoute) {
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2">
         <Badge variant="default">{r.iata}</Badge>
-        <span className="font-mono text-[11px] text-text-dim">{r.hopCount} hops</span>
+        <span className="font-mono text-[11px] text-text-dim">{r.hopCount} hops · {r.observationCount.toLocaleString()} obs</span>
       </div>
       <RouteHopChain route={r} />
       <div className="flex items-center gap-2 font-mono text-[11px] text-text-muted">
@@ -81,6 +124,20 @@ function renderRouteCard(r: KnownRoute) {
       </div>
     </div>
   );
+}
+
+interface SearchParams {
+  from: string;
+  to: string;
+  iatas: string[];
+}
+
+// every directed (a,b), a≠b pair of the selected IATAs — we don't know which IATA holds the source
+// vs dest hash, so we try all directions and flatten.
+function directedPairs(iatas: string[]): [string, string][] {
+  const pairs: [string, string][] = [];
+  for (const a of iatas) for (const b of iatas) if (a !== b) pairs.push([a, b]);
+  return pairs;
 }
 
 export function RouteTable() {
@@ -97,11 +154,13 @@ export function RouteTable() {
     }
   }, [regionKey]);
 
-  // path search form (all three fields required by the server)
+  // path search form: source→dest hashes, scoped to a multi-select of IATAs. One IATA → within-IATA
+  // /routes/search; two+ → /routes/cross across the directed pairs. Hashes + ≥1 IATA required.
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [searchIata, setSearchIata] = useState("");
-  const [search, setSearch] = useState<{ iata: string; from: string; to: string } | null>(null);
+  const [searchIatas, setSearchIatas] = useState<string[]>([]);
+  const [search, setSearch] = useState<SearchParams | null>(null);
+  const isCross = search != null && search.iatas.length >= 2;
 
   // /routes filters by a single IATA only, so when the region resolves to exactly one IATA push the
   // filter to the server for true server-side paging; otherwise page unfiltered and filter the region
@@ -120,47 +179,57 @@ export function RouteTable() {
     });
 
   const { data: searchRoutes, isLoading: searchLoading } = useQuery({
-    queryKey: ["routes-search", search?.iata, search?.from, search?.to],
-    queryFn: () => searchKnownRoutes(search!.iata, search!.from, search!.to),
-    enabled: search !== null,
+    queryKey: ["routes-search", search?.iatas[0], search?.from, search?.to],
+    queryFn: () => searchKnownRoutes(search!.iatas[0]!, search!.from, search!.to),
+    enabled: search !== null && !isCross,
     staleTime: 60_000,
   });
 
-  // IATA options for the path-search dropdown, from /iatas (shares the region picker's cached query).
+  const { data: crossRoutes, isLoading: crossLoading } = useQuery({
+    queryKey: ["routes-cross", [...(search?.iatas ?? [])].sort().join(","), search?.from, search?.to],
+    queryFn: async () => {
+      const results = await Promise.all(
+        directedPairs(search!.iatas).map(([a, b]) => searchCrossIATARoutes(search!.from, a, search!.to, b)),
+      );
+      return results.flat();
+    },
+    enabled: search !== null && isCross,
+    staleTime: 60_000,
+  });
+
+  // IATA options for the path-search multi-select, from /iatas (shares the region picker's cached
+  // query). The label carries the display name so the dropdown's search filter matches on it.
   const { data: iataCodes } = useQuery({
     queryKey: ["iatas"],
     queryFn: getIatas,
     staleTime: 5 * 60_000,
   });
   const iataOptions = useMemo(
-    () => (iataCodes ?? []).map((i) => ({
-      value: i.iata,
-      label: i.displayName ? `${i.iata} — ${i.displayName}` : i.iata,
-    })),
+    () => (iataCodes ?? []).map((i) => ({ value: i.iata, label: i.displayName ? `${i.iata} — ${i.displayName}` : i.iata })),
     [iataCodes],
   );
 
   // searching shows the server's matches as-is; otherwise show the region-filtered full list (empty
   // region = all). Filtering by IATA stays client-side, consistent with the other tabs.
   const rows = useMemo(() => {
-    if (search) return searchRoutes;
+    if (search) return isCross ? [] : searchRoutes;
     if (!iatas || iatas.length === 0) return listRoutes;
     const set = new Set(iatas);
     return listRoutes.filter((r) => set.has(r.iata));
-  }, [search, searchRoutes, listRoutes, iatas]);
+  }, [search, isCross, searchRoutes, listRoutes, iatas]);
 
   const selectedRoute = useMemo(
     () => rows?.find((r) => String(r.id) === selectedKey),
     [rows, selectedKey],
   );
 
-  const canSearch = !!(from.trim() && to.trim() && searchIata);
+  const canSearch = !!(from.trim() && to.trim() && searchIatas.length >= 1);
   // clear any selection when the visible list changes out from under it (search submit/clear)
   const submitSearch = useCallback(() => {
-    if (!from.trim() || !to.trim() || !searchIata) return;
-    setSearch({ iata: searchIata, from: from.trim(), to: to.trim() });
+    if (!from.trim() || !to.trim() || searchIatas.length < 1) return;
+    setSearch({ from: from.trim(), to: to.trim(), iatas: searchIatas });
     setSelectedKey(null);
-  }, [from, to, searchIata]);
+  }, [from, to, searchIatas]);
   const clearSearch = useCallback(() => {
     setSearch(null);
     setSelectedKey(null);
@@ -177,7 +246,7 @@ export function RouteTable() {
         <div className="flex items-center gap-1.5">
           <span className="text-text-muted text-[11px] uppercase tracking-wider mr-1 shrink-0">Find path</span>
           <input
-            className={`${inputClass} flex-1 min-w-0 md:flex-none md:w-28`}
+            className={`${inputClass} flex-1 min-w-0 md:flex-none md:w-24`}
             placeholder="from hash"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
@@ -185,7 +254,7 @@ export function RouteTable() {
           />
           <span className="text-text-dim text-xs shrink-0" aria-hidden>→</span>
           <input
-            className={`${inputClass} flex-1 min-w-0 md:flex-none md:w-28`}
+            className={`${inputClass} flex-1 min-w-0 md:flex-none md:w-24`}
             placeholder="to hash"
             value={to}
             onChange={(e) => setTo(e.target.value)}
@@ -193,14 +262,12 @@ export function RouteTable() {
           />
         </div>
         <div className="flex items-center gap-1.5">
-          <SelectDropdown
-            label="in"
+          <MultiSelectDropdown
+            label="IATA"
             options={iataOptions}
-            value={searchIata}
-            onChange={setSearchIata}
+            selected={searchIatas}
+            onChange={setSearchIatas}
             align="left"
-            allLabel="IATA"
-            hideAll
           />
           <button
             type="button"
@@ -223,23 +290,35 @@ export function RouteTable() {
       </div>
 
       <div className="flex flex-1 min-h-0">
-        <div className="relative flex-1 min-w-0 flex flex-col min-h-0">
-          <DataTable
-            columns={COLUMNS}
-            rows={rows}
-            rowKey={(r) => String(r.id)}
-            selectedKey={selectedKey}
-            onSelect={setSelectedKey}
-            isLoading={search ? searchLoading : listLoading}
-            emptyLabel={search ? "No matching routes" : "No routes"}
-            defaultSort={{ header: "Last seen", direction: "desc" }}
-            onEndReached={search ? undefined : loadMore}
-            renderCard={renderRouteCard}
-          />
-          {!search && (
-            <LoadingPill loading={isPaging} error={isError} count={loadedCount} noun="routes" position="bottom-3 right-3" />
-          )}
-        </div>
+        {isCross ? (
+          <div className="flex-1 min-w-0 overflow-y-auto p-3 flex flex-col gap-2">
+            {crossLoading ? (
+              <div className="font-mono text-[13px] text-text-dim">Searching…</div>
+            ) : crossRoutes && crossRoutes.length > 0 ? (
+              crossRoutes.map((r, i) => <CrossRouteCard key={i} route={r} />)
+            ) : (
+              <div className="font-mono text-[13px] text-text-dim">No cross-IATA routes</div>
+            )}
+          </div>
+        ) : (
+          <div className="relative flex-1 min-w-0 flex flex-col min-h-0">
+            <DataTable
+              columns={COLUMNS}
+              rows={rows}
+              rowKey={(r) => String(r.id)}
+              selectedKey={selectedKey}
+              onSelect={setSelectedKey}
+              isLoading={search ? searchLoading : listLoading}
+              emptyLabel={search ? "No matching routes" : "No routes"}
+              defaultSort={{ header: "Last seen", direction: "desc" }}
+              onEndReached={search ? undefined : loadMore}
+              renderCard={renderRouteCard}
+            />
+            {!search && (
+              <LoadingPill loading={isPaging} error={isError} count={loadedCount} noun="routes" position="bottom-3 right-3" />
+            )}
+          </div>
+        )}
         {selectedRoute && (
           <RouteDetailPanel route={selectedRoute} onClose={() => setSelectedKey(null)} />
         )}

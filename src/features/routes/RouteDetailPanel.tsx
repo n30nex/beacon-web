@@ -16,9 +16,10 @@ export function RouteDetailPanel({ route, onClose }: RouteDetailPanelProps) {
   return (
     <DetailPanel title="Route Detail" onClose={onClose}>
       <Section title="Summary" first>
-        <div className="flex items-center gap-2 font-mono text-[13px]">
+        <div className="flex items-center gap-3 font-mono text-[13px]">
           <Badge variant="default">{route.iata}</Badge>
           <Field label="Hops" value={route.hopCount} />
+          <Field label="Obs" value={route.observationCount.toLocaleString()} />
         </div>
       </Section>
 

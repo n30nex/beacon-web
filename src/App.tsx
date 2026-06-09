@@ -186,7 +186,7 @@ function AppInner() {
   const tabContent: Record<string, React.ReactNode> = {
     Packets: <PacketList wsManager={wsManager} onAnalyze={handleAnalyze} />,
     Nodes: <NodeTable wsManager={wsManager} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />,
-    Observers: <ObserverTable wsManager={wsManager} selectedObserverId={selectedObserverId} onSelectObserver={setSelectedObserverId} />,
+    Observers: <ObserverTable wsManager={wsManager} selectedObserverId={selectedObserverId} onSelectObserver={setSelectedObserverId} onAnalyzePacket={setOverlayPacketHash} />,
     Routes: <RouteTable />,
     // analyze opens the packet overlay (modal) rather than the side drawer, which suits the
     // master/detail layout and renders on any tab — same path NodeDetailPanel's onAnalyzePacket uses
@@ -226,6 +226,7 @@ function AppInner() {
                 handleTabChange("Observers");
                 setSelectedObserverId(observerId);
               }}
+              onViewNode={setSelectedNodeId}
               onAnalyzePacket={setOverlayPacketHash}
             />
           )}
@@ -237,6 +238,7 @@ function AppInner() {
                 handleTabChange("Observers");
                 setSelectedObserverId(observerId);
               }}
+              onViewNode={setOverlayNodeId}
             />
           )}
           {overlayPacketHash && (

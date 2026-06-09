@@ -1,13 +1,45 @@
-import type { Observer } from "./types";
+import type { Observer, AdvertObservation } from "./types";
 import { useQuery } from "@tanstack/react-query";
-import { getObserver } from "../../api/client";
+import { getObserver, getObserverAdverts } from "../../api/client";
 import { Badge } from "../../components/Badge";
 import { DetailPanel, Section, Field } from "../../components/DetailPanel";
-import { formatUptime, formatBattery } from "../../lib/formatters";
+import { formatUptime, formatBattery, formatHex, formatSnr, snrLevel, SIGNAL_LEVEL_CLASSES } from "../../lib/formatters";
 import { Timestamp } from "../../components/Timestamp";
 import type { BadgeVariant } from "../../components/badge-utils";
 import { IataChip } from "../../components/IataChip";
 import { ScopeTag } from "../../components/ScopeTag";
+
+function AdvertRow({ advert, onClick }: { advert: AdvertObservation; onClick?: () => void }) {
+  const level = snrLevel(advert.snr);
+  return (
+    <div
+      className={`bg-bg-base border border-border rounded px-3 py-2 border-l-2 border-l-primary ${onClick ? "cursor-pointer hover:bg-white/3" : ""}`}
+      onClick={onClick}
+    >
+      <div className="flex items-center gap-2 text-[11px] mb-1.5">
+        <span className={`font-mono font-semibold tracking-wider truncate ${advert.nodeName ? "text-primary" : "text-text-dim italic"}`}>
+          {advert.nodeName ?? (advert.nodePublicKey ? formatHex(advert.nodePublicKey) : "unknown")}
+        </span>
+        <IataChip>{advert.iata}</IataChip>
+        <Timestamp value={advert.heardAt} className="text-text-dim ml-auto font-mono text-[11px]" />
+      </div>
+      <div className="flex gap-5 font-mono text-xs">
+        <div className="flex flex-col">
+          <span className="text-text-dim text-[10px] font-medium uppercase tracking-wider">SNR</span>
+          <span className={`font-medium ${level ? SIGNAL_LEVEL_CLASSES[level] : "text-text-normal"}`}>{formatSnr(advert.snr)}</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-text-dim text-[10px] font-medium uppercase tracking-wider">RSSI</span>
+          <span className={`font-medium ${level ? SIGNAL_LEVEL_CLASSES[level] : "text-text-normal"}`}>{advert.rssi ?? "—"}</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-text-dim text-[10px] font-medium uppercase tracking-wider">Hops</span>
+          <span className="font-medium text-text-normal">{advert.hopCount ?? "—"}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface Stats {
   noise_floor?: number;
@@ -65,12 +97,19 @@ function RadioSection({ observer, noiseFloor }: { observer: Observer; noiseFloor
 interface ObserverDetailPanelProps {
   observerId: string;
   onClose: () => void;
+  onAnalyzePacket?: (hash: string) => void;
 }
 
-export function ObserverDetailPanel({ observerId, onClose }: ObserverDetailPanelProps) {
+export function ObserverDetailPanel({ observerId, onClose, onAnalyzePacket }: ObserverDetailPanelProps) {
   const { data: observer, isLoading } = useQuery({
     queryKey: ["observer", observerId],
     queryFn: () => getObserver(observerId),
+    staleTime: 30_000,
+  });
+
+  const { data: adverts } = useQuery({
+    queryKey: ["observer-adverts", observerId],
+    queryFn: () => getObserverAdverts(observerId, { limit: 50 }),
     staleTime: 30_000,
   });
 
@@ -176,6 +215,22 @@ export function ObserverDetailPanel({ observerId, onClose }: ObserverDetailPanel
                 </div>
               </Section>
             )}
+
+            <Section title="Adverts heard">
+              {adverts && adverts.items.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  {adverts.items.map((a) => (
+                    <AdvertRow
+                      key={a.id}
+                      advert={a}
+                      onClick={onAnalyzePacket ? () => onAnalyzePacket(a.packetHash) : undefined}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="font-mono text-[13px] text-text-dim">No adverts heard</div>
+              )}
+            </Section>
 
             <Section title="Timestamps">
               <div className="flex items-center gap-3 font-mono text-[13px]">

@@ -1,11 +1,32 @@
 import { useQuery } from "@tanstack/react-query";
-import { getNode, getNodeObservations } from "../../api/client";
+import { getNode, getNodeObservations, getNodeNeighbors } from "../../api/client";
 import { Badge } from "../../components/Badge";
 import { DetailPanel, Section, Field } from "../../components/DetailPanel";
 import { IataChip } from "../../components/IataChip";
 import { formatHex, formatSnr, snrLevel, microToDeg, formatRadio, SIGNAL_LEVEL_CLASSES } from "../../lib/formatters";
 import { Timestamp } from "../../components/Timestamp";
-import type { NodeObservation } from "./types";
+import type { NodeObservation, NodeNeighbor } from "./types";
+
+function NodeNeighborRow({ neighbor, onClick }: { neighbor: NodeNeighbor; onClick?: () => void }) {
+  return (
+    <div
+      className={`bg-bg-base border border-border rounded px-3 py-2 ${onClick ? "cursor-pointer hover:bg-white/3" : ""}`}
+      onClick={onClick}
+    >
+      <div className="flex items-center gap-2 text-[11px]">
+        <span className={`font-mono font-semibold tracking-wider truncate ${neighbor.name ? "text-primary" : "text-text-dim italic"}`}>
+          {neighbor.name ?? formatHex(neighbor.id)}
+        </span>
+        <Badge variant="default">{neighbor.nodeTypeName}</Badge>
+        <IataChip>{neighbor.iata}</IataChip>
+        <Timestamp value={neighbor.lastSeen} className="text-text-dim ml-auto font-mono text-[11px]" />
+      </div>
+      <div className="font-mono text-[11px] text-text-muted mt-1">
+        {neighbor.observationCount.toLocaleString()} obs
+      </div>
+    </div>
+  );
+}
 
 function NodeObservationRow({ obs, onClick }: { obs: NodeObservation; onClick?: () => void }) {
   const level = snrLevel(obs.snr);
@@ -45,10 +66,11 @@ interface NodeDetailPanelProps {
   nodeId: string;
   onClose: () => void;
   onViewObserver: (observerId: string) => void;
+  onViewNode?: (nodeId: string) => void;
   onAnalyzePacket?: (hash: string) => void;
 }
 
-export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onAnalyzePacket }: NodeDetailPanelProps) {
+export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, onAnalyzePacket }: NodeDetailPanelProps) {
   const { data: node, isLoading } = useQuery({
     queryKey: ["node", nodeId],
     queryFn: () => getNode(nodeId),
@@ -58,6 +80,12 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onAnalyzePack
   const { data: observations } = useQuery({
     queryKey: ["node-observations", nodeId],
     queryFn: () => getNodeObservations(nodeId, { limit: 50 }),
+    staleTime: 30_000,
+  });
+
+  const { data: neighbors } = useQuery({
+    queryKey: ["node-neighbors", nodeId],
+    queryFn: () => getNodeNeighbors(nodeId),
     staleTime: 30_000,
   });
 
@@ -125,6 +153,22 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onAnalyzePack
                 <Field label="Last" value={<Timestamp value={node.lastSeen} />} />
                 {node.lastAdvertAt != null && <Field label="Advert" value={<Timestamp value={node.lastAdvertAt} />} />}
               </div>
+            </Section>
+
+            <Section title="Neighbors">
+              {neighbors && neighbors.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  {neighbors.map((n) => (
+                    <NodeNeighborRow
+                      key={n.id}
+                      neighbor={n}
+                      onClick={onViewNode ? () => onViewNode(n.id) : undefined}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="font-mono text-[13px] text-text-dim">No known neighbors</div>
+              )}
             </Section>
 
             <Section title="Observations">
