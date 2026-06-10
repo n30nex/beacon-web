@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { Badge } from "../../components/Badge";
 import { EmptyState } from "../../components/EmptyState";
 import { formatBattery, formatCount, formatUptime } from "../../lib/formatters";
+import { getObserversPage } from "../../api/client";
+import { useRegion } from "../../hooks/useRegion";
 import { useChartColors } from "./chartTheme";
 import { useTopObservers } from "./useStats";
 import { useObserver, useObserverTelemetry } from "./useTelemetry";
@@ -22,15 +25,30 @@ function ObserverList({
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
-  const { data, isLoading } = useTopObservers(range, 15);
-  const max = useMemo(() => Math.max(1, ...(data ?? []).map((o) => o.observationCount)), [data]);
+  const { iatas, regionKey } = useRegion();
   const [query, setQuery] = useState("");
+  const q = query.trim();
+  const searching = q.length > 0;
 
-  const nameOf = (o: { displayName: string | null; observerId: string }) => o.displayName ?? o.observerId.slice(0, 8);
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return q ? (data ?? []).filter((o) => nameOf(o).toLowerCase().includes(q)) : (data ?? []);
-  }, [data, query]);
+  // default: top observers by activity (with count + activity bar). Searching swaps to a server-side
+  // name lookup across ALL observers in the region, not just the loaded top rows.
+  const top = useTopObservers(range, 15);
+  const max = useMemo(() => Math.max(1, ...(top.data ?? []).map((o) => o.observationCount)), [top.data]);
+
+  const search = useQuery({
+    queryKey: ["observer-search", regionKey, q],
+    queryFn: () => getObserversPage(iatas, { name: q, limit: 50 }),
+    enabled: searching,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  });
+
+  type Row = { id: string; name: string; count?: number; iata?: string; online?: boolean };
+  const rows: Row[] = searching
+    ? (search.data?.items ?? []).map((o) => ({ id: o.id, name: o.displayName ?? o.id.slice(0, 8), iata: o.iata, online: o.status === "online" }))
+    : (top.data ?? []).map((o) => ({ id: o.observerId, name: o.displayName ?? o.observerId.slice(0, 8), count: o.observationCount }));
+
+  const loading = searching ? search.isLoading : top.isLoading;
 
   return (
     <Card title="Observers" className="w-full">
@@ -42,33 +60,38 @@ function ObserverList({
         className="mb-2 w-full rounded border border-border bg-bg-base px-2 py-1 font-mono text-[12px] text-text-normal placeholder:text-text-dim"
       />
       <div className="flex flex-col gap-0.5">
-        {isLoading && <div className="py-6 text-center font-mono text-[11px] text-text-dim">Loading…</div>}
-        {!isLoading && (data ?? []).length === 0 && (
-          <div className="py-6 text-center font-mono text-[11px] text-text-dim">No observers</div>
+        {loading && <div className="py-6 text-center font-mono text-[11px] text-text-dim">{searching ? "Searching…" : "Loading…"}</div>}
+        {!loading && rows.length === 0 && (
+          <div className="py-6 text-center font-mono text-[11px] text-text-dim">{searching ? "No matches" : "No observers"}</div>
         )}
-        {!isLoading && (data ?? []).length > 0 && filtered.length === 0 && (
-          <div className="py-6 text-center font-mono text-[11px] text-text-dim">No matches</div>
-        )}
-        {filtered.map((o) => {
-          const active = o.observerId === selectedId;
-          const name = o.displayName ?? o.observerId.slice(0, 8);
+        {rows.map((r) => {
+          const active = r.id === selectedId;
           return (
             <button
-              key={o.observerId}
+              key={r.id}
               type="button"
-              onClick={() => onSelect(o.observerId)}
+              onClick={() => onSelect(r.id)}
               className={`relative overflow-hidden rounded border-l-2 px-2.5 py-1.5 text-left transition-colors cursor-pointer ${
                 active ? "border-primary bg-primary/10" : "border-transparent hover:bg-white/3"
               }`}
             >
-              <div
-                className="absolute inset-y-0 left-0 bg-secondary/10"
-                style={{ width: `${(o.observationCount / max) * 100}%` }}
-                aria-hidden
-              />
+              {r.count != null && (
+                <div
+                  className="absolute inset-y-0 left-0 bg-secondary/10"
+                  style={{ width: `${(r.count / max) * 100}%` }}
+                  aria-hidden
+                />
+              )}
               <div className="relative flex items-center justify-between gap-2">
-                <span className={`truncate font-mono text-[12px] ${active ? "text-text-bright" : "text-text-normal"}`}>{name}</span>
-                <span className="shrink-0 font-mono text-[11px] tabular-nums text-text-muted">{formatCount(o.observationCount)}</span>
+                <span className={`truncate font-mono text-[12px] ${active ? "text-text-bright" : "text-text-normal"}`}>{r.name}</span>
+                {r.count != null ? (
+                  <span className="shrink-0 font-mono text-[11px] tabular-nums text-text-muted">{formatCount(r.count)}</span>
+                ) : (
+                  <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] text-text-muted">
+                    {r.iata}
+                    <span className={`h-1.5 w-1.5 rounded-full ${r.online ? "bg-green" : "bg-text-dim/30"}`} aria-hidden />
+                  </span>
+                )}
               </div>
             </button>
           );
