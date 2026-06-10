@@ -33,7 +33,8 @@ export function useFocusTrap<T extends HTMLElement>(ref: RefObject<T | null>): v
         e.preventDefault(); // nothing focusable inside — don't let Tab escape the modal
         return;
       }
-      if (e.shiftKey && document.activeElement === first) {
+      // node itself holds focus right after open — Shift+Tab from there must wrap, not escape
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === node)) {
         e.preventDefault();
         last.focus();
       } else if (!e.shiftKey && document.activeElement === last) {

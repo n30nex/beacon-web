@@ -18,7 +18,9 @@ export function Dropdown({ renderTrigger, align = "right", width = "w-48", fullW
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") close();
+      if (e.key !== "Escape") return;
+      e.stopPropagation(); // innermost layer wins — don't let an enclosing sheet/modal close too
+      close();
     }
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);

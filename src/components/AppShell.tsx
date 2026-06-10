@@ -9,9 +9,8 @@ import { Dropdown } from "./Dropdown";
 import { BottomNav } from "./BottomNav";
 import { BeaconWordmark } from "./BeaconWordmark";
 import { getIatas } from "../api/client";
+import { TABS } from "../lib/constants";
 import type { WsManager } from "../api/ws-manager";
-
-export const TABS = ["Packets", "Channels", "Map", "Nodes", "Observers", "Routes", "Traces", "Stats"] as const;
 
 // header widgets: WS status, region picker, theme picker
 
@@ -88,7 +87,7 @@ function RegionSelector() {
   const { selection, setSelection } = useRegionSelection();
   const { regions } = useRegions();
 
-  const { data: iatas } = useQuery({
+  const { data: iatas, isError: iatasError } = useQuery({
     queryKey: ["iatas"],
     queryFn: getIatas,
     staleTime: 60_000,
@@ -183,6 +182,8 @@ function RegionSelector() {
                 </button>
               );
             })
+          ) : iatasError ? (
+            <div className="px-3 py-1.5 text-[11px] font-mono text-text-dim">Failed to load</div>
           ) : (
             <div className="px-3 py-1.5 text-[11px] font-mono text-text-dim">Loading…</div>
           )}
@@ -286,7 +287,7 @@ export function AppShell({ activeTab, onTabChange, wsManager, children }: AppShe
       </main>
 
       <footer className="hidden md:flex items-center px-4 py-1.5 bg-bg-surface border-t border-border font-mono text-[11px] text-text-dim shrink-0">
-        <span>BEACON v0.1</span>
+        <span>BEACON v{__APP_VERSION__}</span>
       </footer>
 
       <BottomNav activeTab={activeTab} onTabChange={onTabChange} />

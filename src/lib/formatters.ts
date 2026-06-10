@@ -59,17 +59,13 @@ export function formatBattery(volts: number): string {
 // Compact large counts for KPI/stat displays: 932 -> "932", 14732 -> "14.7k", 8_900_000 -> "8.9M".
 export function formatCount(n: number | null | undefined): string {
   if (n == null) return "—";
-  const abs = Math.abs(n);
-  if (abs < 1000) return String(n);
-  if (abs < 1_000_000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
-  if (abs < 1_000_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
-  return `${(n / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}B`;
-}
-
-// /nodes sends lat/lng as integer microdegrees (45141660 = 45.141660); scale those to decimal.
-// Values that are already decimal pass through untouched — the integer check tells them apart.
-export function microToDeg(v: number): number {
-  return Number.isInteger(v) ? v / 1e6 : v;
+  if (Math.abs(n) < 1000) return String(n);
+  const fmt = (div: number, suffix: string) => `${(n / div).toFixed(1).replace(/\.0$/, "")}${suffix}`;
+  // pick the unit from the rounded value so 999_999 rolls to "1M" instead of "1000k"
+  const fits = (div: number) => Math.abs(Math.round((n / div) * 10)) < 10_000;
+  if (fits(1_000)) return fmt(1_000, "k");
+  if (fits(1_000_000)) return fmt(1_000_000, "M");
+  return fmt(1_000_000_000, "B");
 }
 
 // clamp negative values from clock skew

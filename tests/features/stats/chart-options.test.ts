@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- poking into loose ECharts option shapes */
 import { describe, it, expect } from "vitest";
 import { typeBarOption, leaderboardOption, donutOption } from "../../../src/features/stats/chartOptions";
 import type { ChartColors } from "../../../src/features/stats/chartTheme";

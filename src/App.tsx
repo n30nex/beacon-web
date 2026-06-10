@@ -13,7 +13,7 @@ import {
 } from "./hooks/region-selection";
 import { ThemeProvider } from "./hooks/useTheme";
 import { useIsMobile } from "./hooks/useMediaQuery";
-import { AppShell, TABS } from "./components/AppShell";
+import { AppShell } from "./components/AppShell";
 import { SplashScreen } from "./components/SplashScreen";
 import { PacketList } from "./features/packets/PacketList";
 import { PacketAnalyzerDrawer } from "./features/packets/PacketAnalyzerDrawer";
@@ -28,7 +28,7 @@ import { ChannelList } from "./features/channels/ChannelList";
 import { EmptyState } from "./components/EmptyState";
 import { getPacketDetail } from "./api/client";
 import { WsManager } from "./api/ws-manager";
-import { WS_URL } from "./lib/constants";
+import { WS_URL, TABS } from "./lib/constants";
 
 // Map is the only heavy tab (maplibre-gl is ~1MB), so lazy-load it — its chunk is fetched the
 // first time someone opens the Map tab instead of bloating the initial bundle.

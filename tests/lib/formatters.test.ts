@@ -6,29 +6,8 @@ import {
   formatSnr,
   snrLevel,
   formatPropagation,
-  microToDeg,
+  formatCount,
 } from "../../src/lib/formatters";
-
-describe("microToDeg", () => {
-  it("scales integer microdegrees to decimal degrees", () => {
-    expect(microToDeg(45141660)).toBeCloseTo(45.14166, 5);
-    expect(microToDeg(-76049320)).toBeCloseTo(-76.04932, 5);
-  });
-
-  it("passes through non-integer decimal degrees untouched", () => {
-    expect(microToDeg(45.14)).toBe(45.14);
-    expect(microToDeg(-76.05)).toBe(-76.05);
-    expect(microToDeg(0)).toBe(0);
-  });
-
-  it("scales small/near-zero integer microdegrees instead of mistaking them for degrees", () => {
-    // regression: a coordinate within ~0.00018° of the equator/prime meridian (e.g. +0.00015° -> the
-    // integer 150 microdegrees) must scale to decimal, not pass through as an impossible 150°
-    expect(microToDeg(150)).toBeCloseTo(0.00015, 6);
-    expect(microToDeg(180)).toBeCloseTo(0.00018, 6);
-    expect(microToDeg(-150)).toBeCloseTo(-0.00015, 6);
-  });
-});
 
 describe("formatHex", () => {
   it("truncates to 8 chars uppercase", () => {
@@ -92,6 +71,26 @@ describe("formatSnr", () => {
 
   it("returns dash for null", () => {
     expect(formatSnr(null)).toBe("—");
+  });
+});
+
+describe("formatCount", () => {
+  it("passes small counts through and abbreviates k/M", () => {
+    expect(formatCount(932)).toBe("932");
+    expect(formatCount(14732)).toBe("14.7k");
+    expect(formatCount(8_900_000)).toBe("8.9M");
+  });
+
+  it("returns dash for null", () => {
+    expect(formatCount(null)).toBe("—");
+  });
+
+  it("rolls over to the next unit when rounding reaches 1000", () => {
+    // regression: 999_999 used to render as "1000k" instead of rolling to "1M"
+    expect(formatCount(999_949)).toBe("999.9k");
+    expect(formatCount(999_999)).toBe("1M");
+    expect(formatCount(999_999_999)).toBe("1B");
+    expect(formatCount(-999_999)).toBe("-1M");
   });
 });
 

@@ -47,6 +47,14 @@ describe("useFocusTrap", () => {
     expect(document.activeElement).toBe(screen.getByTestId("last"));
   });
 
+  it("wraps Shift+Tab to the last element while the container itself is focused", () => {
+    // regression: right after open, focus sits on the container — Shift+Tab escaped behind the overlay
+    render(<Harness trapped={true} />);
+    expect(document.activeElement).toBe(screen.getByTestId("dialog"));
+    fireEvent.keyDown(screen.getByTestId("dialog"), { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(screen.getByTestId("last"));
+  });
+
   it("does not yank focus to <body> on unmount when nothing was focused on open", () => {
     // Opened from a click that left focus on <body> (e.g. a Safari/Firefox button or a non-focusable
     // row). On close we must not call body.focus() and blur whatever the user moved to next.
