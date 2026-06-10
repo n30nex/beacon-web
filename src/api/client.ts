@@ -82,9 +82,13 @@ export function getRegion(regionId: number): Promise<Region> {
   return request(`/regions/${regionId}`);
 }
 
+// /channels only honors a singular `iata`, so a one-IATA region goes through it; multi-IATA regions
+// still send `iatas` (ignored server-side, effectively global) until the backend supports it.
 export async function getChannels(params?: { iatas?: string[]; limit?: number }): Promise<ChannelSummary[]> {
+  const iatas = params?.iatas ?? [];
   const page = await request<{ items: ChannelSummary[] }>("/channels", {
-    iatas: iatasParam(params?.iatas),
+    iata: iatas.length === 1 ? iatas[0] : undefined,
+    iatas: iatas.length > 1 ? iatasParam(iatas) : undefined,
     limit: params?.limit,
   });
   return page.items;

@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getNodesPage, getObserversPage, getScopes, getKnownRoutesPage, searchKnownRoutes, getChannelMessagesPage, getTraces, getTraceDetail } from "../../src/api/client";
+import { getNodesPage, getObserversPage, getScopes, getKnownRoutesPage, searchKnownRoutes, getChannels, getChannelMessagesPage, getTraces, getTraceDetail } from "../../src/api/client";
 import type { NodeSummary } from "../../src/features/nodes/types";
 import type { ObserverSummary } from "../../src/features/observers/types";
-import type { ChannelMessage } from "../../src/features/channels/types";
+import type { ChannelMessage, ChannelSummary } from "../../src/features/channels/types";
 import type { KnownRoute, TraceTagSummary, TraceDetail } from "../../src/types/api";
 
 // Capture the URL the client fetches and hand back a canned CursorPage.
@@ -158,6 +158,49 @@ describe("searchKnownRoutes", () => {
     expect(url).toContain("iata=YYC");
     expect(url).toContain("from=6d");
     expect(url).toContain("to=be");
+  });
+});
+
+describe("getChannels", () => {
+  const channel: ChannelSummary = {
+    id: 1,
+    name: "Public",
+    channelHash: "8b",
+    lastSeen: 1000,
+    isHashtag: false,
+    keyKnown: true,
+  };
+
+  it("sends a single-IATA region as the singular iata param the server honors", async () => {
+    const getUrl = mockFetchOnce({ items: [channel] });
+
+    const channels = await getChannels({ iatas: ["YYZ"] });
+
+    const url = new URL(getUrl());
+    expect(url.pathname).toContain("/channels");
+    expect(url.searchParams.get("iata")).toBe("YYZ");
+    expect(url.searchParams.has("iatas")).toBe(false);
+    expect(channels).toEqual([channel]);
+  });
+
+  it("keeps the comma-joined iatas param for multi-IATA regions", async () => {
+    const getUrl = mockFetchOnce({ items: [] });
+
+    await getChannels({ iatas: ["YOW", "YYZ"] });
+
+    const url = new URL(getUrl());
+    expect(url.searchParams.get("iatas")).toBe("YOW,YYZ");
+    expect(url.searchParams.has("iata")).toBe(false);
+  });
+
+  it("omits both iata params for all regions", async () => {
+    const getUrl = mockFetchOnce({ items: [] });
+
+    await getChannels();
+
+    const url = new URL(getUrl());
+    expect(url.searchParams.has("iata")).toBe(false);
+    expect(url.searchParams.has("iatas")).toBe(false);
   });
 });
 
