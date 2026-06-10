@@ -43,11 +43,6 @@ export function PacketRow({ packet, expanded, isFresh, onToggle }: PacketRowProp
         <Badge variant={payloadTypeVariant(packet.payloadType)}>
           {PAYLOAD_TYPE_NAMES[packet.payloadType as PayloadTypeValue] ?? packet.payloadTypeName}
         </Badge>
-        {packet.summary && (
-          <span className="flex-1 text-text-bright text-xs whitespace-nowrap overflow-hidden text-ellipsis">
-            {packet.summary}
-          </span>
-        )}
         <Tooltip label={`Heard by ${packet.observationCount} observer${packet.observationCount === 1 ? "" : "s"}`}>
           <span
             className="font-mono text-[11px] text-primary font-semibold whitespace-nowrap bg-primary/6 px-1.5 rounded-sm"

@@ -27,7 +27,6 @@ export interface PacketSummary {
   observationCount: number;
   latestObserver?: LatestObserver;
   scope?: string; // matched transport scope name, e.g. "#bc"
-  summary?: string;
 }
 
 export interface ResolvedNode {

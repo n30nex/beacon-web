@@ -1,8 +1,9 @@
-import { useRef, useState, useCallback, useEffect, useLayoutEffect } from "react";
+import { useRef, useCallback, useEffect, useLayoutEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { PacketSummary } from "../../types/api";
 import { PacketRow } from "./PacketRow";
-import { LIVE_BUFFER_CAP, SCROLL_TOP_THRESHOLD_PX, SCROLL_BOTTOM_THRESHOLD_PX } from "../../lib/constants";
+import { useFreshHashes } from "./useFreshHashes";
+import { SCROLL_TOP_THRESHOLD_PX, SCROLL_BOTTOM_THRESHOLD_PX } from "../../lib/constants";
 
 interface PacketVirtualListProps {
   packets: PacketSummary[];
@@ -28,9 +29,7 @@ export function PacketVirtualList({
   onToggleExpand,
 }: PacketVirtualListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
-  const knownHashes = useRef<Set<string>>(new Set());
-  const [freshHashes, setFreshHashes] = useState<Set<string>>(new Set());
-  const freshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const freshHashes = useFreshHashes(packets);
   const isAtTopRef = useRef(true);
   const prevCountRef = useRef(packets.length);
   const prevFirstKeyRef = useRef<string | undefined>(packets[0]?.packetHash);
@@ -60,58 +59,6 @@ export function PacketVirtualList({
     overscan: 10,
     getItemKey: (index) => packets[index]?.packetHash ?? index,
   });
-
-  const hadDataRef = useRef(false);
-
-  useEffect(() => {
-    if (!hadDataRef.current) {
-      if (packets.length === 0) return;
-      hadDataRef.current = true;
-      for (const p of packets) {
-        knownHashes.current.add(p.packetHash);
-      }
-      return;
-    }
-
-    const newFresh: string[] = [];
-    for (const p of packets) {
-      if (knownHashes.current.has(p.packetHash)) break;
-      newFresh.push(p.packetHash);
-    }
-
-    for (const p of packets) {
-      knownHashes.current.add(p.packetHash);
-    }
-
-    if (knownHashes.current.size > LIVE_BUFFER_CAP * 2) {
-      const keep = new Set(packets.map((p) => p.packetHash));
-      knownHashes.current = keep;
-    }
-
-    if (newFresh.length > 0) {
-      setFreshHashes((prev) => {
-        const next = new Set(prev);
-        for (const h of newFresh) next.add(h);
-        return next;
-      });
-      if (freshTimerRef.current) clearTimeout(freshTimerRef.current);
-      freshTimerRef.current = setTimeout(() => {
-        freshTimerRef.current = null;
-        setFreshHashes((prev) => {
-          const next = new Set(prev);
-          for (const h of newFresh) next.delete(h);
-          return next;
-        });
-      }, 1000);
-    }
-
-    return () => {
-      if (freshTimerRef.current) {
-        clearTimeout(freshTimerRef.current);
-        freshTimerRef.current = null;
-      }
-    };
-  }, [packets]);
 
   // After commit, before paint: offset scrollTop by the height the prepended rows added so the
   // view stays anchored on the same packet. Keyed on the array (not just length) so bookkeeping

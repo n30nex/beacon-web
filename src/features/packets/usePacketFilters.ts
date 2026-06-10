@@ -16,10 +16,12 @@ function parseStringArray(value: string | null): string[] {
   return value.split(",").filter(Boolean);
 }
 
-const VALID_SEARCH_FIELDS = new Set<SearchField>(["hash", "path", "payload"]);
+// "path"/"payload" show as disabled placeholders in the filter bar — matchesFilters only
+// implements hash, so don't accept them from the URL either or the search silently does nothing
+const IMPLEMENTED_SEARCH_FIELDS = new Set<SearchField>(["hash"]);
 
 function parseSearchField(value: string | null): SearchField {
-  if (value && VALID_SEARCH_FIELDS.has(value as SearchField)) return value as SearchField;
+  if (value && IMPLEMENTED_SEARCH_FIELDS.has(value as SearchField)) return value as SearchField;
   return "hash";
 }
 

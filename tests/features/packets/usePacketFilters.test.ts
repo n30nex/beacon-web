@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { matchesFilters } from "../../../src/features/packets/usePacketFilters";
+import { renderHook } from "@testing-library/react";
+import { createElement, type ReactNode } from "react";
+import { MemoryRouter } from "react-router-dom";
+import { matchesFilters, usePacketFilters } from "../../../src/features/packets/usePacketFilters";
 import { EMPTY_FILTERS } from "../../../src/features/packets/types";
 import type { PayloadTypeValue } from "../../../src/types/enums";
 import type { PacketSummary } from "../../../src/types/api";
@@ -42,5 +45,25 @@ describe("matchesFilters — scope", () => {
     expect(matchesFilters(pkt({ scope: "#bc", payloadType: 4 }), filters)).toBe(true);
     expect(matchesFilters(pkt({ scope: "#bc", payloadType: 2 }), filters)).toBe(false); // wrong type
     expect(matchesFilters(pkt({ scope: "#west", payloadType: 4 }), filters)).toBe(false); // wrong scope
+  });
+});
+
+function routerAt(url: string) {
+  return ({ children }: { children: ReactNode }) =>
+    createElement(MemoryRouter, { initialEntries: [url] }, children);
+}
+
+describe("usePacketFilters — sf param", () => {
+  it("accepts sf=hash", () => {
+    const { result } = renderHook(() => usePacketFilters(), { wrapper: routerAt("/?sf=hash") });
+    expect(result.current.filters.searchField).toBe("hash");
+  });
+
+  it("falls back to hash for unimplemented sf values", () => {
+    // path/payload search isn't implemented — accepting them would silently match everything
+    for (const sf of ["path", "payload", "bogus"]) {
+      const { result } = renderHook(() => usePacketFilters(), { wrapper: routerAt(`/?sf=${sf}&q=ab`) });
+      expect(result.current.filters.searchField).toBe("hash");
+    }
   });
 });

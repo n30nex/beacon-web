@@ -22,6 +22,7 @@ function senderColor(name: string): string {
   return SENDER_COLORS[Math.abs(h) % SENDER_COLORS.length] ?? "text-primary";
 }
 
+// keyed on packetHash by the caller — live WS messages carry no id (REST ones do)
 function MessageRow({ msg, heardCount, onAnalyze }: { msg: ChannelMessage; heardCount?: number; onAnalyze?: (hash: string) => void }) {
   // REST carries the server-side total; the live WS counter augments it during the session
   const reach = Math.max(msg.observationCount ?? 0, heardCount ?? 0);
@@ -185,7 +186,7 @@ export function MessagePanel({ channel, heardCounts, iatas, regionKey, onAnalyze
         ) : messages && messages.length > 0 ? (
           <div className="py-2 flex flex-col divide-y divide-border/40">
             {sorted.map((msg) => (
-              <MessageRow key={msg.id} msg={msg} heardCount={heardCounts[msg.packetHash]} onAnalyze={onAnalyze} />
+              <MessageRow key={msg.packetHash || msg.id} msg={msg} heardCount={heardCounts[msg.packetHash]} onAnalyze={onAnalyze} />
             ))}
             <div ref={bottomRef} />
           </div>

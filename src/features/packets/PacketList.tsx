@@ -56,11 +56,11 @@ export function PacketList({ wsManager, onAnalyze }: PacketListProps) {
   const [isScrolledAway, setIsScrolledAway] = useState(false);
   const scrollToTopRef = useRef<(() => void) | null>(null);
 
-  const [expandedHash, setExpandedHash] = useState<string | null>(() => searchParams.get("hash"));
+  // ?hash is the source of truth — the analyzer drawer clears it on close, deselecting the row
+  const expandedHash = searchParams.get("hash");
 
   const handleToggleExpand = useCallback((hash: string) => {
     const next = expandedHash === hash ? null : hash;
-    setExpandedHash(next);
     onAnalyze(next);
     setSearchParams((p) => {
       const n = new URLSearchParams(p);

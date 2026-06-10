@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { CloseButton } from "../../components/CloseButton";
 import type { PacketDetail } from "../../types/api";
 import { PayloadType, PAYLOAD_TYPE_NAMES, ROUTE_TYPE_NAMES, type PayloadTypeValue, type RouteTypeValue } from "../../types/enums";
@@ -60,6 +61,18 @@ interface PacketAnalyzerDrawerProps {
 // side panel (full-screen on mobile) showing packet structure and payload breakdown
 
 export function PacketAnalyzerDrawer({ detail, selectedObservationId, onClose, onSelectObservation, onViewNode, loading }: PacketAnalyzerDrawerProps) {
+  const [, setSearchParams] = useSearchParams();
+
+  // drop ?hash so the closed analyzer can't reopen on reload and the packet row deselects
+  const handleClose = useCallback(() => {
+    setSearchParams((p) => {
+      const n = new URLSearchParams(p);
+      n.delete("hash");
+      return n;
+    }, { replace: true });
+    onClose();
+  }, [setSearchParams, onClose]);
+
   const selectedObs = detail?.observations.find((o) => o.id === selectedObservationId)
     ?? detail?.observations[0]
     ?? null;
@@ -79,7 +92,7 @@ export function PacketAnalyzerDrawer({ detail, selectedObservationId, onClose, o
         <span className="text-[13px] font-mono font-medium text-text-dim uppercase tracking-wider">Packet Analyzer</span>
         <div className="flex items-center gap-1.5">
           {detail && <CopyLinkButton packetHash={detail.packetHash} />}
-          <CloseButton onClose={onClose} label="Close analyzer" className="-mr-1" />
+          <CloseButton onClose={handleClose} label="Close analyzer" className="-mr-1" />
         </div>
       </div>
 
