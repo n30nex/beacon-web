@@ -147,9 +147,12 @@ export function donutOption(
     title: {
       text: centerValue,
       subtext: centerLabel,
+      // anchor the block's center exactly on the pie's center (35%, 50%) — textAlign/-VerticalAlign
+      // make left/top the anchor point instead of the block's top-left corner
       left: "35%",
-      top: "39%",
+      top: "50%",
       textAlign: "center",
+      textVerticalAlign: "middle",
       itemGap: 2,
       textStyle: { color: c.textBright, fontFamily: MONO, fontSize: 21, fontWeight: 700 },
       subtextStyle: { color: c.textMuted, fontFamily: MONO, fontSize: 9 },

@@ -57,8 +57,11 @@ describe("donutOption", () => {
     // the old graphic-text approach anchored its left edge at the ring center and clipped
     expect(opt.graphic).toBeUndefined();
     expect(opt.title.textAlign).toBe("center");
+    expect(opt.title.textVerticalAlign).toBe("middle");
     expect(opt.title.text).toBe("10");
-    expect(parseFloat(opt.title.left)).toBeCloseTo(parseFloat(opt.series[0].center[0]), 0);
+    // anchor must sit exactly on the pie's center point
+    expect(opt.title.left).toBe(opt.series[0].center[0]);
+    expect(opt.title.top).toBe(opt.series[0].center[1]);
   });
 });
 
