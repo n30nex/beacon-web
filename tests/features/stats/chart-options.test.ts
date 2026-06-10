@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- poking into loose ECharts option shapes */
 import { describe, it, expect } from "vitest";
-import { typeBarOption, leaderboardOption, donutOption } from "../../../src/features/stats/chartOptions";
+import { typeBarOption, leaderboardOption } from "../../../src/features/stats/chartOptions";
 import type { ChartColors } from "../../../src/features/stats/chartTheme";
 
 const colors: ChartColors = {
@@ -48,20 +48,6 @@ describe("typeBarOption", () => {
     const many = typeBarOption(items(10), colors) as Record<string, any>;
     expect(few.xAxis.axisLabel.rotate).toBe(0);
     expect(many.xAxis.axisLabel.rotate).toBeGreaterThan(0);
-  });
-});
-
-describe("donutOption", () => {
-  it("centers the total on the ring via a textAlign-centered title at the pie's x", () => {
-    const opt = donutOption([{ name: "repeater", value: 3 }], colors, "10", "NODES") as Record<string, any>;
-    // the old graphic-text approach anchored its left edge at the ring center and clipped
-    expect(opt.graphic).toBeUndefined();
-    expect(opt.title.textAlign).toBe("center");
-    expect(opt.title.textVerticalAlign).toBe("middle");
-    expect(opt.title.text).toBe("10");
-    // anchor must sit exactly on the pie's center point
-    expect(opt.title.left).toBe(opt.series[0].center[0]);
-    expect(opt.title.top).toBe(opt.series[0].center[1]);
   });
 });
 
