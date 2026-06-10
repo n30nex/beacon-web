@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { patchNodeSummary } from "../../../src/features/nodes/node-updates";
+import { patchNodeSummary, upsertNodePages } from "../../../src/features/nodes/node-updates";
 import type { NodeSummary } from "../../../src/features/nodes/types";
 import type { WsNodeUpdate } from "../../../src/types/ws";
+import type { InfiniteData } from "@tanstack/react-query";
+import type { CursorPage } from "../../../src/types/api";
 
 function node(overrides: Partial<NodeSummary>): NodeSummary {
   return {
@@ -63,5 +65,39 @@ describe("patchNodeSummary", () => {
     const list = [node({ id: "a", name: "Keep", lat: 10, lng: 20 })];
     const out = patchNodeSummary(list, update({ nodeId: "a", name: "", lat: 10, lng: 20 }));
     expect(out).toBe(list);
+  });
+});
+
+describe("upsertNodePages", () => {
+  const pages = (...lists: NodeSummary[][]): InfiniteData<CursorPage<NodeSummary>> => ({
+    pages: lists.map((items, i) => ({ items, nextCursor: i + 1 })),
+    pageParams: lists.map((_, i) => i),
+  });
+
+  it("patches a known node in place", () => {
+    const old = pages([node({ id: "a", name: "Old" })]);
+    const out = upsertNodePages(old, update({ nodeId: "a", name: "Renamed" }))!;
+    expect(out.pages[0]!.items[0]).toMatchObject({ id: "a", name: "Renamed" });
+  });
+
+  it("appends an unknown node to the last page — the WS event carries a full summary", () => {
+    const old = pages([node({ id: "a" })], [node({ id: "b" })]);
+    const out = upsertNodePages(
+      old,
+      update({ nodeId: "new1", name: "Fresh", nodeTypeName: "companion", publicKey: "pk2", lat: 50.5, lng: -100.25, isObserver: false, iatas: [] }),
+    )!;
+    expect(out).not.toBe(old);
+    expect(out.pages[0]).toBe(old.pages[0]); // earlier pages keep their refs
+    expect(out.pages[1]!.items.map((n) => n.id)).toEqual(["b", "new1"]);
+    expect(out.pages[1]!.items[1]).toMatchObject({ name: "Fresh", lat: 50.5, lng: -100.25 });
+  });
+
+  it("keeps the same ref for a re-advert that changes nothing", () => {
+    const old = pages([node({ id: "a", name: "Keep", lat: 10, lng: 20 })]);
+    expect(upsertNodePages(old, update({ nodeId: "a", name: "Keep", lat: undefined, lng: undefined }))).toBe(old);
+  });
+
+  it("passes undefined caches through", () => {
+    expect(upsertNodePages(undefined, update({}))).toBeUndefined();
   });
 });

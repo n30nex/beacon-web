@@ -13,8 +13,7 @@ import { useRegion } from "../../hooks/useRegion";
 import { useTheme } from "../../hooks/useTheme";
 import { useWsNodeUpdateHandler } from "../../hooks/useWsHandlers";
 import { getIatas } from "../../api/client";
-import { patchNodeSummary } from "../nodes/node-updates";
-import { patchInfinitePages } from "../../lib/infinite-pages";
+import { upsertNodePages } from "../nodes/node-updates";
 import type { WsManager } from "../../api/ws-manager";
 import type { NodeSummary } from "../nodes/types";
 import type { CursorPage } from "../../types/api";
@@ -62,13 +61,13 @@ export function MapView({ wsManager, selectedNodeId, onSelectNode }: MapViewProp
   const nodesKey = useMemo(() => ["map-nodes", regionKey], [regionKey]);
   const { nodes, loadedCount, isPaging, isError: nodesError } = useMapNodesData(selectedIatas, regionKey);
 
-  // patch the live update into the paged node cache (shared helper preserves refs when nothing
-  // changed, so an update for a node we don't hold doesn't trigger a full map repaint); the memo +
-  // setData reflect it.
+  // patch-or-insert the live update into the paged node cache (the shared helper preserves refs
+  // when nothing changed, so a same-values re-advert doesn't trigger a full map repaint); brand-new
+  // nodes are appended from the event itself since the cache never refetches on its own.
   const handleNodeUpdate = useCallback(
     (data: WsNodeUpdate["data"]) => {
       queryClient.setQueryData<InfiniteData<CursorPage<NodeSummary>>>(nodesKey, (old) =>
-        patchInfinitePages(old, (items) => patchNodeSummary(items, data) ?? items),
+        upsertNodePages(old, data),
       );
       // mirror NodeTable: refresh the shared detail panel when the open node changes live
       if (selectedNodeId === data.nodeId) {
