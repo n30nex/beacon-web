@@ -95,6 +95,7 @@ export function readChartColors(): ChartColors {
 export function useChartColors(): ChartColors {
   const { themeId } = useTheme();
   // themeId changes after the palette CSS vars are applied, so re-reading here is correct.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- themeId is the re-read trigger
   return useMemo(() => readChartColors(), [themeId]);
 }
 

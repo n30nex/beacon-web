@@ -162,7 +162,7 @@ export function ObserverTab({ range, selectedObserverId, onSelectObserver, wsMan
     if (first) onSelectObserver(first.observerId);
   }, [selectedObserverId, topObservers.data, onSelectObserver]);
 
-  const points = telemetry.data?.points ?? [];
+  const points = useMemo(() => telemetry.data?.points ?? [], [telemetry.data]);
   const airtime = useMemo(() => airtimeOption(points, colors), [points, colors]);
   const battery = useMemo(() => batteryOption(points, colors), [points, colors]);
   const noise = useMemo(() => noiseFloorOption(points, colors), [points, colors]);
