@@ -10,7 +10,7 @@ import type { StatsOverview, StatsRange } from "./types";
 // frequency, so increments are coalesced and flushed once per animation frame. The overview query also
 // refetches periodically (useStatsOverview) so the live deltas self-correct against the server.
 export function useLiveOverview(wsManager: WsManager) {
-  const region = useRegion();
+  const { regionKey } = useRegion();
   const qc = useQueryClient();
   const pending = useRef({ packets: 0, obs: 0 });
   const raf = useRef<number | null>(null);
@@ -20,12 +20,12 @@ export function useLiveOverview(wsManager: WsManager) {
     const { packets, obs } = pending.current;
     if (!packets && !obs) return;
     pending.current = { packets: 0, obs: 0 };
-    qc.setQueryData<StatsOverview>(["stats-overview", region], (old) =>
+    qc.setQueryData<StatsOverview>(["stats-overview", regionKey], (old) =>
       old
         ? { ...old, totalPackets: old.totalPackets + packets, totalObservations: old.totalObservations + obs }
         : old,
     );
-  }, [qc, region]);
+  }, [qc, regionKey]);
 
   const onPacket = useCallback(
     (data: WsPacketObservation["data"]) => {
@@ -37,6 +37,11 @@ export function useLiveOverview(wsManager: WsManager) {
   );
 
   useWsPacketHandler(wsManager, onPacket);
+
+  // drop counts accumulated for the previous region so they don't bleed into the new one's KPIs
+  useEffect(() => {
+    pending.current = { packets: 0, obs: 0 };
+  }, [regionKey]);
 
   useEffect(
     () => () => {
