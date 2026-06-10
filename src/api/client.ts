@@ -3,6 +3,16 @@ import type { CursorPage, PacketSummary, PacketDetail, IataCode, RegionSummary, 
 import type { ChannelSummary, ChannelMessage } from "../features/channels/types";
 import type { ObserverSummary, Observer, AdvertObservation } from "../features/observers/types";
 import type { NodeSummary, Node, NodeObservation, NodeNeighbor } from "../features/nodes/types";
+import type {
+  StatsOverview,
+  ObservationPoint,
+  PayloadBreakdownItem,
+  TopNode,
+  TopObserver,
+  RadioPreset,
+  ScopeStats,
+  ObserverTelemetry,
+} from "../features/stats/types";
 
 // typed fetch wrapper with query params
 
@@ -237,6 +247,48 @@ export function getNodeObservations(
 
 export function getNodeNeighbors(nodeId: string): Promise<NodeNeighbor[]> {
   return request(`/nodes/${nodeId}/neighbors`);
+}
+
+// stats endpoints. `iata` is a single code (undefined = all regions); the /stats/* endpoints filter
+// by one IATA only, unlike the comma-separated `iatas` used elsewhere.
+
+export function getStatsOverview(iata?: string): Promise<StatsOverview> {
+  return request("/stats/overview", { iata });
+}
+
+export function getStatsObservations(iata?: string, since?: number): Promise<ObservationPoint[]> {
+  return request("/stats/observations", { iata, since });
+}
+
+export function getPayloadBreakdown(iata?: string, since?: number): Promise<PayloadBreakdownItem[]> {
+  return request("/stats/payload-breakdown", { iata, since });
+}
+
+export function getTopNodes(iata?: string, limit = 10): Promise<TopNode[]> {
+  return request("/stats/top-nodes", { iata, limit });
+}
+
+export function getTopObservers(iata?: string, since?: number, limit = 10): Promise<TopObserver[]> {
+  return request("/stats/top-observers", { iata, since, limit });
+}
+
+export function getRadioPresets(iata?: string): Promise<RadioPreset[]> {
+  return request("/stats/radio-presets", { iata });
+}
+
+// renamed from getScopes to avoid colliding with the /scopes name list; this is the /stats/scopes
+// aggregate (packet/observer/node counts), reported globally regardless of the active region.
+export function getStatsScopes(): Promise<ScopeStats[]> {
+  return request("/stats/scopes");
+}
+
+export function getObserverTelemetry(
+  observerId: string,
+  range: string,
+  interval?: string,
+  afterId?: number,
+): Promise<ObserverTelemetry> {
+  return request(`/observers/${observerId}/telemetry`, { range, interval, afterId });
 }
 
 export { ApiError };

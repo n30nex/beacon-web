@@ -56,6 +56,16 @@ export function formatBattery(volts: number): string {
   return `${volts.toFixed(2)}V`;
 }
 
+// Compact large counts for KPI/stat displays: 932 -> "932", 14732 -> "14.7k", 8_900_000 -> "8.9M".
+export function formatCount(n: number | null | undefined): string {
+  if (n == null) return "—";
+  const abs = Math.abs(n);
+  if (abs < 1000) return String(n);
+  if (abs < 1_000_000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+  if (abs < 1_000_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  return `${(n / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}B`;
+}
+
 // /nodes sends lat/lng as integer microdegrees (45141660 = 45.141660); scale those to decimal.
 // Values that are already decimal pass through untouched — the integer check tells them apart.
 export function microToDeg(v: number): number {

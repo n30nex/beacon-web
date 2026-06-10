@@ -25,7 +25,6 @@ import { ObserverTable } from "./features/observers/ObserverTable";
 import { RouteTable } from "./features/routes/RouteTable";
 import { TraceList } from "./features/traces/TraceList";
 import { ChannelList } from "./features/channels/ChannelList";
-import { StatsOverview } from "./features/stats/StatsOverview";
 import { EmptyState } from "./components/EmptyState";
 import { getPacketDetail } from "./api/client";
 import { WsManager } from "./api/ws-manager";
@@ -34,6 +33,9 @@ import { WS_URL } from "./lib/constants";
 // Map is the only heavy tab (maplibre-gl is ~1MB), so lazy-load it — its chunk is fetched the
 // first time someone opens the Map tab instead of bloating the initial bundle.
 const MapView = lazy(() => import("./features/map/MapView").then((m) => ({ default: m.MapView })));
+
+// Stats pulls in ECharts (~150-200KB gz), so lazy-load it too — the chunk loads on first visit to Stats.
+const StatsOverview = lazy(() => import("./features/stats/StatsOverview").then((m) => ({ default: m.StatsOverview })));
 
 // global singletons
 
@@ -192,7 +194,7 @@ function AppInner() {
     // master/detail layout and renders on any tab — same path NodeDetailPanel's onAnalyzePacket uses
     Traces: <TraceList onAnalyze={setOverlayPacketHash} onViewNode={setOverlayNodeId} />,
     Channels: <ChannelList wsManager={wsManager} onAnalyze={handleAnalyze} />,
-    Stats: <StatsOverview />,
+    Stats: <StatsOverview wsManager={wsManager} />,
     Map: <MapView wsManager={wsManager} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />,
   };
 
