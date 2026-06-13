@@ -30,7 +30,6 @@ import {
   mergeQueuedEvents,
   payloadColor,
   payloadLabel,
-  prependBounded,
   sameRouteCoord,
   toLivePacketEvent,
   topPayloads,
@@ -139,8 +138,15 @@ const VISUAL_DRAIN_INTERVAL_MS = 115;
 const LIVE_RESIDUE_FRAME_INTERVAL_MS = 140;
 const LIVE_PERF_SAMPLE_LIMIT = 180;
 const LIVE_PERF_IDLE_GAP_MS = 250;
+const LIVE_FRAME_TARGET_MS = 1000 / 60;
+const LIVE_FRAME_TOLERANCE_MS = 3;
+const LIVE_DRAW_PRESSURE_MS = 7;
+const LIVE_DRAW_RECOVERY_MS = 3;
+const LIVE_STATE_FLUSH_MS = 250;
 const AUDIO_MIN_INTERVAL_MS = 85;
 const AUDIO_SCALE = [220, 247, 277, 330, 370, 415, 494, 554, 659, 740, 831, 988];
+
+type LiveVisualQuality = "high" | "balanced" | "constrained";
 
 interface LivePerfSnapshot {
   activeAnimations: number;
@@ -148,41 +154,85 @@ interface LivePerfSnapshot {
   canvasHeight: number;
   canvasWidth: number;
   drawCount: number;
+  drawPressure: number;
   heatPoints: number;
   lastDrawMs: number;
   lastFrameMs: number;
   p95FrameMs: number;
   pulses: number;
+  quality: LiveVisualQuality;
   rainDrops: number;
+  targetFrameMs: number;
   timestamp: number;
   trails: number;
 }
 
 interface LiveVisualCaps {
   activeAnimations: number;
+  dprLimit: number;
   heatPoints: number;
+  labels: boolean;
   pulses: number;
+  pulseRings: number;
+  quality: LiveVisualQuality;
   rainDrops: number;
+  shadows: boolean;
+  targetFrameMs: number;
   trails: number;
 }
 
-function liveVisualCaps(width?: number): LiveVisualCaps {
+function liveVisualCaps(width?: number, pressure = 0): LiveVisualCaps {
   const resolvedWidth = typeof width === "number" ? width : typeof window === "undefined" ? COMPACT_LIVE_WIDTH : window.innerWidth;
-  if (resolvedWidth < COMPACT_LIVE_WIDTH) {
+  const reducedMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const memory = typeof navigator !== "undefined" ? (navigator as Navigator & { deviceMemory?: number }).deviceMemory : undefined;
+  const cores = typeof navigator !== "undefined" ? navigator.hardwareConcurrency : undefined;
+  const constrainedDevice = reducedMotion || (typeof memory === "number" && memory <= 4) || (typeof cores === "number" && cores <= 4);
+  const compact = resolvedWidth < COMPACT_LIVE_WIDTH;
+  const quality: LiveVisualQuality = pressure >= 2 || (compact && constrainedDevice) ? "constrained" : pressure >= 1 || compact || constrainedDevice ? "balanced" : "high";
+
+  if (quality === "constrained") {
     return {
-      activeAnimations: COMPACT_ACTIVE_ANIMATIONS,
-      heatPoints: COMPACT_HEAT_POINTS,
-      pulses: COMPACT_PULSES,
+      activeAnimations: Math.min(COMPACT_ACTIVE_ANIMATIONS, 5),
+      dprLimit: 1,
+      heatPoints: Math.min(COMPACT_HEAT_POINTS, 20),
+      labels: false,
+      pulses: Math.min(COMPACT_PULSES, 8),
+      pulseRings: 1,
+      quality,
       rainDrops: COMPACT_RAIN_DROPS,
-      trails: COMPACT_TRAILS,
+      shadows: false,
+      targetFrameMs: 1000 / 30,
+      trails: Math.min(COMPACT_TRAILS, 5),
+    };
+  }
+
+  if (quality === "balanced") {
+    return {
+      activeAnimations: compact ? COMPACT_ACTIVE_ANIMATIONS : 8,
+      dprLimit: compact ? 1 : 1.15,
+      heatPoints: compact ? COMPACT_HEAT_POINTS : 36,
+      labels: !compact,
+      pulses: compact ? COMPACT_PULSES : 16,
+      pulseRings: 1,
+      quality,
+      rainDrops: compact ? COMPACT_RAIN_DROPS : 4,
+      shadows: true,
+      targetFrameMs: compact ? 1000 / 45 : LIVE_FRAME_TARGET_MS,
+      trails: compact ? COMPACT_TRAILS : 10,
     };
   }
 
   return {
     activeAnimations: MAX_ACTIVE_ANIMATIONS,
+    dprLimit: 1.25,
     heatPoints: MAX_HEAT_POINTS,
+    labels: true,
     pulses: MAX_PULSES,
+    pulseRings: 2,
+    quality,
     rainDrops: MAX_RAIN_DROPS,
+    shadows: true,
+    targetFrameMs: LIVE_FRAME_TARGET_MS,
     trails: MAX_TRAILS,
   };
 }
@@ -305,6 +355,11 @@ function useLiveAnimationCanvas(
     let lastPerfPublishedAt = 0;
     let lastRenderedAt = 0;
     let canvasHasContent = false;
+    let cssHeight = 1;
+    let cssWidth = 1;
+    let drawPressure = 0;
+    let drawCostEma = 0;
+    let recoveryFrames = 0;
     const frameSamples: number[] = [];
     const matrixColor = readCssVar("--color-green", "#22C55E");
     type ProjectedPoint = { x: number; y: number };
@@ -313,6 +368,7 @@ function useLiveAnimationCanvas(
       points: ProjectedPoint[];
       totalDistance: number;
     }
+    const projectedCoordCache = new Map<string, ProjectedPoint>();
     let projectedPathCache = new WeakMap<LivePathPoint[], ProjectedLivePath>();
 
     const resize = () => {
@@ -320,11 +376,14 @@ function useLiveAnimationCanvas(
       const fallbackRect = canvas.parentElement?.getBoundingClientRect();
       const width = rect.width || fallbackRect?.width || 1;
       const height = rect.height || fallbackRect?.height || 1;
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.4);
+      const dpr = Math.min(window.devicePixelRatio || 1, liveVisualCaps(width, drawPressure).dprLimit);
+      cssWidth = width;
+      cssHeight = height;
       canvas.width = Math.max(1, Math.floor(width * dpr));
       canvas.height = Math.max(1, Math.floor(height * dpr));
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       projectedPathCache = new WeakMap();
+      projectedCoordCache.clear();
       requestFrame();
     };
 
@@ -344,6 +403,14 @@ function useLiveAnimationCanvas(
       }
       const projected = { distances, points, totalDistance };
       projectedPathCache.set(path, projected);
+      return projected;
+    };
+    const projectCoord = (coord: Coord): ProjectedPoint => {
+      const cacheKey = `${coord.lng.toFixed(5)}:${coord.lat.toFixed(5)}`;
+      const cached = projectedCoordCache.get(cacheKey);
+      if (cached) return cached;
+      const projected = map.project([coord.lng, coord.lat]);
+      projectedCoordCache.set(cacheKey, projected);
       return projected;
     };
     const drawProjectedPath = (path: ProjectedLivePath) => {
@@ -412,7 +479,7 @@ function useLiveAnimationCanvas(
       (rainEnabled && rainRef.current.length > 0) ||
       (heatEnabled && heatRef.current.length > 0);
 
-    const publishPerfSnapshot = (now: number, frameMs: number, drawStartedAt: number, rect: DOMRect) => {
+    const publishPerfSnapshot = (now: number, frameMs: number, drawStartedAt: number, caps: LiveVisualCaps) => {
       const sampledFrameMs = frameMs > 0 && frameMs < LIVE_PERF_IDLE_GAP_MS ? frameMs : 0;
       if (sampledFrameMs > 0) {
         frameSamples.push(sampledFrameMs);
@@ -427,15 +494,18 @@ function useLiveAnimationCanvas(
       const snapshot: LivePerfSnapshot = {
         activeAnimations: animationsRef.current.length,
         avgFrameMs,
-        canvasHeight: Math.round(rect.height || canvas.height),
-        canvasWidth: Math.round(rect.width || canvas.width),
+        canvasHeight: Math.round(cssHeight),
+        canvasWidth: Math.round(cssWidth),
         drawCount,
+        drawPressure,
         heatPoints: heatRef.current.length,
         lastDrawMs: performance.now() - drawStartedAt,
         lastFrameMs: sampledFrameMs,
         p95FrameMs,
         pulses: pulsesRef.current.length,
+        quality: caps.quality,
         rainDrops: rainRef.current.length,
+        targetFrameMs: caps.targetFrameMs,
         timestamp: Date.now(),
         trails: trailsRef.current.length,
       };
@@ -445,8 +515,7 @@ function useLiveAnimationCanvas(
     };
 
     const clearCanvas = () => {
-      const rect = canvas.getBoundingClientRect();
-      ctx.clearRect(0, 0, rect.width || canvas.width, rect.height || canvas.height);
+      ctx.clearRect(0, 0, cssWidth, cssHeight);
       canvasHasContent = false;
     };
 
@@ -469,6 +538,7 @@ function useLiveAnimationCanvas(
 
     const handleMapMotion = () => {
       projectedPathCache = new WeakMap();
+      projectedCoordCache.clear();
       if (canvasHasContent || hasFrameWork()) requestFrame();
     };
 
@@ -484,14 +554,18 @@ function useLiveAnimationCanvas(
       }
 
       const frameAge = now - lastRenderedAt;
+      const currentCaps = liveVisualCaps(cssWidth, drawPressure);
+      if (lastRenderedAt > 0 && frameAge >= 0 && frameAge < currentCaps.targetFrameMs - LIVE_FRAME_TOLERANCE_MS) {
+        requestFrame();
+        return;
+      }
       const frameMs = lastRenderedAt > 0 ? frameAge : 0;
       lastRenderedAt = now;
       drawCount += 1;
       const drawStartedAt = performance.now();
 
-      const rect = canvas.getBoundingClientRect();
-      const frameCaps = liveVisualCaps(rect.width || canvas.width);
-      ctx.clearRect(0, 0, rect.width, rect.height);
+      const frameCaps = liveVisualCaps(cssWidth, drawPressure);
+      ctx.clearRect(0, 0, cssWidth, cssHeight);
 
       const nextHeat: LiveHeatPoint[] = [];
       if (heatEnabled) {
@@ -501,7 +575,7 @@ function useLiveAnimationCanvas(
           nextHeat.push(heat);
 
           const progress = Math.max(0, Math.min(1, age / heat.lifetimeMs));
-          const point = map.project([heat.coord.lng, heat.coord.lat]);
+          const point = projectCoord(heat.coord);
           const radius = 16 + Math.min(22, heat.intensity * 5) + 12 * (1 - progress);
           const alpha = (1 - progress) * Math.min(0.08, 0.03 + heat.intensity * 0.014);
           const gradient = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius);
@@ -542,7 +616,7 @@ function useLiveAnimationCanvas(
           ctx.globalAlpha = (1 - progress) * (matrixMode ? 0.16 : 0.085);
           ctx.strokeStyle = color;
           ctx.lineWidth = matrixMode ? 1 : 1.25;
-          ctx.shadowBlur = matrixMode ? 4 : 1.75;
+          ctx.shadowBlur = frameCaps.shadows ? (matrixMode ? 4 : 1.75) : 0;
           ctx.shadowColor = color;
           drawProjectedPath(projectedTrail);
           ctx.stroke();
@@ -563,7 +637,7 @@ function useLiveAnimationCanvas(
         nextPulses.push(pulse);
 
         const progress = Math.max(0, Math.min(1, age / pulse.lifetimeMs));
-        const point = map.project([pulse.coord.lng, pulse.coord.lat]);
+        const point = projectCoord(pulse.coord);
         const color = matrixMode ? matrixColor : pulse.color;
         const energy = Math.min(2.5, Math.max(1, pulse.strength));
 
@@ -572,7 +646,7 @@ function useLiveAnimationCanvas(
         ctx.strokeStyle = color;
         ctx.fillStyle = color;
         ctx.shadowColor = color;
-        ctx.shadowBlur = matrixMode ? 8 : 5;
+        ctx.shadowBlur = frameCaps.shadows ? (matrixMode ? 8 : 5) : 0;
 
         ctx.globalAlpha = (matrixMode ? 0.24 : 0.18) * (1 - progress);
         ctx.lineWidth = 1.3 + energy * 0.28;
@@ -580,14 +654,16 @@ function useLiveAnimationCanvas(
         ctx.arc(point.x, point.y, 6 + 24 * progress, 0, Math.PI * 2);
         ctx.stroke();
 
-        ctx.globalAlpha = 0.04 * (1 - progress);
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.arc(point.x, point.y, 12 + 36 * progress, 0, Math.PI * 2);
-        ctx.stroke();
+        if (frameCaps.pulseRings > 1) {
+          ctx.globalAlpha = 0.04 * (1 - progress);
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, 12 + 36 * progress, 0, Math.PI * 2);
+          ctx.stroke();
+        }
 
         ctx.globalAlpha = Math.max(0.07, 0.22 * (1 - progress));
-        ctx.shadowBlur = matrixMode ? 6 : 4;
+        ctx.shadowBlur = frameCaps.shadows ? (matrixMode ? 6 : 4) : 0;
         ctx.beginPath();
         ctx.arc(point.x, point.y, 3 + energy * 0.8, 0, Math.PI * 2);
         ctx.fill();
@@ -606,10 +682,8 @@ function useLiveAnimationCanvas(
           nextRain.push(drop);
 
           const progress = Math.max(0, Math.min(1, age / drop.durationMs));
-          const canvasWidth = rect.width || canvas.width;
-          const canvasHeight = rect.height || canvas.height;
-          const x = 24 + drop.xRatio * Math.max(1, canvasWidth - 48);
-          const maxY = canvasHeight * drop.maxYRatio;
+          const x = 24 + drop.xRatio * Math.max(1, cssWidth - 48);
+          const maxY = cssHeight * drop.maxYRatio;
           const headY = progress * maxY;
           const charHeight = matrixMode ? 17 : 15;
           const scrollOffset = Math.floor(progress * drop.bytes.length);
@@ -622,7 +696,7 @@ function useLiveAnimationCanvas(
           const visibleBytes = Math.min(drop.bytes.length, MAX_RAIN_BYTES);
           for (let i = 0; i < visibleBytes; i += 1) {
             const y = headY - i * charHeight;
-            if (y < -charHeight || y > canvasHeight + charHeight) continue;
+            if (y < -charHeight || y > cssHeight + charHeight) continue;
             const fade = Math.max(0, (1 - i / visibleBytes) * lifeFade);
             if (fade <= 0) continue;
             const byte = drop.bytes[(scrollOffset + i) % drop.bytes.length]!;
@@ -631,13 +705,13 @@ function useLiveAnimationCanvas(
               ctx.font = `700 ${matrixMode ? 16 : 14}px JetBrains Mono, monospace`;
               ctx.fillStyle = matrixMode ? "#FFFFFF" : drop.color;
               ctx.shadowColor = matrixMode ? matrixColor : drop.color;
-              ctx.shadowBlur = matrixMode ? 9 : 6;
+              ctx.shadowBlur = frameCaps.shadows ? (matrixMode ? 9 : 6) : 0;
             } else {
               ctx.globalAlpha = fade * (matrixMode ? 0.42 : 0.26);
               ctx.font = `${matrixMode ? 13 : 12}px JetBrains Mono, monospace`;
               ctx.fillStyle = matrixMode ? matrixColor : drop.color;
               ctx.shadowColor = matrixMode ? matrixColor : drop.color;
-              ctx.shadowBlur = matrixMode ? 3 : 2;
+              ctx.shadowBlur = frameCaps.shadows ? (matrixMode ? 3 : 2) : 0;
             }
             ctx.fillText(byte, x, y);
           }
@@ -692,7 +766,7 @@ function useLiveAnimationCanvas(
         ctx.globalAlpha = matrixMode ? 0.055 : 0.032;
         ctx.strokeStyle = color;
         ctx.lineWidth = matrixMode ? 2.8 : 2.9;
-        ctx.shadowBlur = 2;
+        ctx.shadowBlur = frameCaps.shadows ? 2 : 0;
         ctx.shadowColor = color;
         drawProjectedPath(projectedPath);
         ctx.stroke();
@@ -708,7 +782,7 @@ function useLiveAnimationCanvas(
         ctx.globalAlpha = alpha * (matrixMode ? 0.4 : 0.34);
         ctx.strokeStyle = color;
         ctx.lineWidth = matrixMode ? 1.8 : 1.9;
-        ctx.shadowBlur = matrixMode ? 4 : 2.5;
+        ctx.shadowBlur = frameCaps.shadows ? (matrixMode ? 4 : 2.5) : 0;
         ctx.shadowColor = color;
         strokeProgressPath(projectedPath, eased);
         ctx.stroke();
@@ -718,7 +792,7 @@ function useLiveAnimationCanvas(
         ctx.arc(x, y, 3.8 + 1.2 * (1 - progress), 0, Math.PI * 2);
         ctx.fill();
 
-        if (matrixMode) {
+        if (matrixMode && frameCaps.labels) {
           if (pathDistance > 44 && anim.bytes.length > 0) {
             const dx = current.to.x - current.from.x;
             const dy = current.to.y - current.from.y;
@@ -770,7 +844,7 @@ function useLiveAnimationCanvas(
           ctx.stroke();
         }
 
-        if (pathDistance > 72 && progress > 0.16 && progress < 0.9) {
+        if (frameCaps.labels && pathDistance > 72 && progress > 0.16 && progress < 0.9) {
           ctx.globalAlpha = matrixMode ? 0.28 : 0.19;
           ctx.shadowBlur = 0;
           ctx.font = "10px JetBrains Mono, monospace";
@@ -796,7 +870,21 @@ function useLiveAnimationCanvas(
         (trailsEnabled && trailsRef.current.length > 0) ||
         (heatEnabled && heatRef.current.length > 0);
       canvasHasContent = hasActiveMotion || hasResidue;
-      publishPerfSnapshot(now, frameMs, drawStartedAt, rect);
+      const drawMs = performance.now() - drawStartedAt;
+      drawCostEma = drawCostEma === 0 ? drawMs : drawCostEma * 0.9 + drawMs * 0.1;
+      if (drawCostEma > LIVE_DRAW_PRESSURE_MS && drawPressure < 2) {
+        drawPressure += 1;
+        recoveryFrames = 0;
+      } else if (drawCostEma < LIVE_DRAW_RECOVERY_MS && drawPressure > 0) {
+        recoveryFrames += 1;
+        if (recoveryFrames > 180) {
+          drawPressure -= 1;
+          recoveryFrames = 0;
+        }
+      } else {
+        recoveryFrames = 0;
+      }
+      publishPerfSnapshot(now, frameMs, drawStartedAt, frameCaps);
       if (hasActiveMotion) {
         requestFrame();
       } else if (hasResidue) {
@@ -1107,6 +1195,11 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   const rainRef = useRef<LiveRainDrop[]>([]);
   const heatRef = useRef<LiveHeatPoint[]>([]);
   const requestCanvasFrameRef = useRef<(() => void) | null>(null);
+  const liveStateFlushTimerRef = useRef(0);
+  const pendingEventsRef = useRef<LivePacketEvent[]>([]);
+  const pendingQueuedEventsRef = useRef<LivePacketEvent[]>([]);
+  const pendingTotalPacketsRef = useRef(0);
+  const pendingVisualDroppedRef = useRef(0);
   const visualQueueRef = useRef<LiveAnimationRequest[]>([]);
   const publishedVisualQueueSizeRef = useRef(0);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -1148,6 +1241,44 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   useEffect(() => {
     pausedRef.current = paused;
   }, [paused]);
+
+  const flushLiveState = useCallback(() => {
+    if (liveStateFlushTimerRef.current !== 0) {
+      window.clearTimeout(liveStateFlushTimerRef.current);
+      liveStateFlushTimerRef.current = 0;
+    }
+
+    const pendingTotal = pendingTotalPacketsRef.current;
+    if (pendingTotal > 0) {
+      pendingTotalPacketsRef.current = 0;
+      setTotalPackets((count) => count + pendingTotal);
+    }
+
+    const pendingEvents = pendingEventsRef.current;
+    if (pendingEvents.length > 0) {
+      pendingEventsRef.current = [];
+      const newestFirst = pendingEvents.slice().reverse();
+      setEvents((items) => [...newestFirst, ...items].slice(0, LIVE_FEED_CAP));
+    }
+
+    const pendingQueuedEvents = pendingQueuedEventsRef.current;
+    if (pendingQueuedEvents.length > 0) {
+      pendingQueuedEventsRef.current = [];
+      const newestFirst = pendingQueuedEvents.slice().reverse();
+      setQueuedEvents((items) => [...newestFirst, ...items].slice(0, LIVE_FEED_CAP));
+    }
+
+    const pendingVisualDropped = pendingVisualDroppedRef.current;
+    if (pendingVisualDropped > 0) {
+      pendingVisualDroppedRef.current = 0;
+      setVisualDroppedCount((count) => count + pendingVisualDropped);
+    }
+  }, []);
+
+  const scheduleLiveStateFlush = useCallback(() => {
+    if (liveStateFlushTimerRef.current !== 0) return;
+    liveStateFlushTimerRef.current = window.setTimeout(flushLiveState, LIVE_STATE_FLUSH_MS);
+  }, [flushLiveState]);
 
   const ensureAudioContext = useCallback(async () => {
     if (typeof window === "undefined") return null;
@@ -1198,6 +1329,10 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
 
   useEffect(() => {
     return () => {
+      if (liveStateFlushTimerRef.current !== 0) {
+        window.clearTimeout(liveStateFlushTimerRef.current);
+        liveStateFlushTimerRef.current = 0;
+      }
       const context = audioContextRef.current;
       audioContextRef.current = null;
       audioGainRef.current = null;
@@ -1412,14 +1547,20 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     [byPathPrefix, colorByHash, heatVisible, iataCoords, matrixMode, matrixRain, nodeCoords, playPacketAudio],
   );
 
-  const queueAnimation = useCallback((request: LiveAnimationRequest) => {
-    visualQueueRef.current.push(request);
-    if (visualQueueRef.current.length > MAX_PENDING_ANIMATIONS) {
-      const dropped = visualQueueRef.current.length - MAX_PENDING_ANIMATIONS;
-      visualQueueRef.current = visualQueueRef.current.slice(-MAX_PENDING_ANIMATIONS);
-      setVisualDroppedCount((count) => count + dropped);
-    }
-  }, []);
+  const queueAnimation = useCallback(
+    (request: LiveAnimationRequest) => {
+      const caps = liveVisualCaps();
+      const maxPendingAnimations = Math.min(MAX_PENDING_ANIMATIONS, caps.activeAnimations * 3);
+      visualQueueRef.current.push(request);
+      if (visualQueueRef.current.length > maxPendingAnimations) {
+        const dropped = visualQueueRef.current.length - maxPendingAnimations;
+        visualQueueRef.current = visualQueueRef.current.slice(-maxPendingAnimations);
+        pendingVisualDroppedRef.current += dropped;
+        scheduleLiveStateFlush();
+      }
+    },
+    [scheduleLiveStateFlush],
+  );
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -1455,12 +1596,15 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
         .sort((a, b) => a.receivedAt - b.receivedAt || a.sequence - b.sequence);
       const sampled = samplePropagationEvents(ordered);
       const skipped = ordered.length - sampled.length;
-      if (skipped > 0) setVisualDroppedCount((count) => count + skipped);
+      if (skipped > 0) {
+        pendingVisualDroppedRef.current += skipped;
+        scheduleLiveStateFlush();
+      }
       sampled.forEach((event, index) => {
         queueAnimation({ event, waveIndex: index, waveCount: sampled.length });
       });
     },
-    [queueAnimation],
+    [queueAnimation, scheduleLiveStateFlush],
   );
 
   const scheduleAnimation = useCallback(
@@ -1509,15 +1653,23 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   const handlePacketObservation = useCallback(
     (data: WsPacketObservation["data"]) => {
       const event = toLivePacketEvent(data, ++sequenceRef.current);
-      setTotalPackets((count) => count + 1);
+      pendingTotalPacketsRef.current += 1;
       if (pausedRef.current) {
-        setQueuedEvents((items) => prependBounded(items, event, LIVE_FEED_CAP));
+        pendingQueuedEventsRef.current.push(event);
+        if (pendingQueuedEventsRef.current.length > LIVE_FEED_CAP) {
+          pendingQueuedEventsRef.current = pendingQueuedEventsRef.current.slice(-LIVE_FEED_CAP);
+        }
+        scheduleLiveStateFlush();
         return;
       }
       scheduleAnimation(event);
-      setEvents((items) => prependBounded(items, event, LIVE_FEED_CAP));
+      pendingEventsRef.current.push(event);
+      if (pendingEventsRef.current.length > LIVE_FEED_CAP) {
+        pendingEventsRef.current = pendingEventsRef.current.slice(-LIVE_FEED_CAP);
+      }
+      scheduleLiveStateFlush();
     },
-    [scheduleAnimation],
+    [scheduleAnimation, scheduleLiveStateFlush],
   );
 
   const handleLagged = useCallback((data: { droppedCount: number }) => {
@@ -1538,6 +1690,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   useWsNodeUpdateHandler(wsManager, handleNodeUpdate);
 
   const resumeLive = () => {
+    flushLiveState();
     setPaused(false);
     setQueuedEvents((queued) => {
       for (const event of queued.slice().reverse()) scheduleAnimation(event);
@@ -1547,8 +1700,16 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   };
 
   const clearFeed = () => {
+    if (liveStateFlushTimerRef.current !== 0) {
+      window.clearTimeout(liveStateFlushTimerRef.current);
+      liveStateFlushTimerRef.current = 0;
+    }
     for (const group of propagationGroupsRef.current.values()) clearTimeout(group.timer);
     propagationGroupsRef.current.clear();
+    pendingEventsRef.current = [];
+    pendingQueuedEventsRef.current = [];
+    pendingTotalPacketsRef.current = 0;
+    pendingVisualDroppedRef.current = 0;
     setEvents([]);
     setQueuedEvents([]);
     setLaggedCount(0);
