@@ -1,4 +1,5 @@
 import type { WsPacketObservation } from "../../types/ws";
+import type { ResolvedHop } from "../../types/api";
 
 export const LIVE_FEED_CAP = 80;
 export const LIVE_TIMELINE_BINS = 48;
@@ -26,7 +27,26 @@ export interface LivePacketEvent {
   pathHashSize?: number;
   hopCount?: number;
   propagationTimeMs?: number;
+  resolvedPath?: ResolvedHop[];
   scope?: string;
+}
+
+export interface LiveRouteCoord {
+  lng: number;
+  lat: number;
+}
+
+export interface LiveRouteNode extends LiveRouteCoord {
+  id: string;
+  name: string | null;
+  publicKey: string;
+  iatas: string[];
+}
+
+export interface LiveRoutePathPoint {
+  coord: LiveRouteCoord;
+  label: string;
+  nodeId: string;
 }
 
 export const PAYLOAD_COLORS: Record<string, string> = {
@@ -99,6 +119,96 @@ export function pathChunks(pathBytes: string | undefined, hashSize: number | und
   return chunks;
 }
 
+export function sameRouteCoord(a: LiveRouteCoord, b: LiveRouteCoord): boolean {
+  return Math.abs(a.lat - b.lat) <= 0.0001 && Math.abs(a.lng - b.lng) <= 0.0001;
+}
+
+export function uniquePathNode(candidates: LiveRouteNode[] | undefined, iata: string): LiveRouteNode | null {
+  if (!candidates || candidates.length === 0) return null;
+  const region = iata.toUpperCase();
+  const regionMatches = candidates.filter((node) => node.iatas.includes(region));
+  const scoped = regionMatches.length > 0 ? regionMatches : candidates;
+  return scoped.length === 1 ? scoped[0]! : null;
+}
+
+function routePointFromNode(node: LiveRouteNode): LiveRoutePathPoint {
+  return {
+    coord: { lat: node.lat, lng: node.lng },
+    label: node.name || node.publicKey.slice(0, 8),
+    nodeId: node.id,
+  };
+}
+
+function routePointFromResolvedHop(hop: ResolvedHop): LiveRoutePathPoint | null {
+  if (hop.confidence !== "high" || hop.nodes.length !== 1) return null;
+  const node = hop.nodes[0]!;
+  if (node.latitude == null || node.longitude == null) return null;
+  return {
+    coord: { lat: node.latitude, lng: node.longitude },
+    label: node.name || node.publicKey.slice(0, 8),
+    nodeId: node.id,
+  };
+}
+
+function bestContiguousRoute(entries: Array<LiveRoutePathPoint | null>, observerNodeId: string | null): LiveRoutePathPoint[] | null {
+  const runs: LiveRoutePathPoint[][] = [];
+  let current: LiveRoutePathPoint[] = [];
+
+  const flush = () => {
+    if (current.length >= 2) runs.push(current);
+    current = [];
+  };
+
+  for (const point of entries) {
+    if (!point) {
+      flush();
+      continue;
+    }
+
+    const previous = current.at(-1);
+    if (!previous || (previous.nodeId !== point.nodeId && !sameRouteCoord(previous.coord, point.coord))) {
+      current.push(point);
+    }
+  }
+  flush();
+
+  let observerRun: LiveRoutePathPoint[] | null = null;
+  if (observerNodeId) {
+    for (let index = runs.length - 1; index >= 0; index -= 1) {
+      const run = runs[index]!;
+      if (run.some((point) => point.nodeId === observerNodeId)) {
+        observerRun = run;
+        break;
+      }
+    }
+  }
+  return observerRun ?? runs.slice().sort((a, b) => b.length - a.length)[0] ?? null;
+}
+
+export function buildTrueRoutePath(
+  event: LivePacketEvent,
+  observerNode: LiveRouteNode | null,
+  byPathPrefix: Map<string, LiveRouteNode[]>,
+  maxHops = 8,
+): LiveRoutePathPoint[] | null {
+  const observerPoint = observerNode ? routePointFromNode(observerNode) : null;
+  if (event.resolvedPath && event.resolvedPath.length > 0) {
+    const entries = event.resolvedPath.map(routePointFromResolvedHop);
+    if (observerPoint) entries.push(observerPoint);
+    return bestContiguousRoute(entries, observerNode?.id ?? null);
+  }
+
+  const chunks = pathChunks(event.pathBytes, event.pathHashSize, event.hopCount, maxHops);
+  if (chunks.length === 0 && !observerNode) return null;
+
+  const entries: Array<LiveRoutePathPoint | null> = chunks.map((chunk) => {
+    const node = uniquePathNode(byPathPrefix.get(chunk), event.iata);
+    return node ? routePointFromNode(node) : null;
+  });
+  if (observerPoint) entries.push(observerPoint);
+  return bestContiguousRoute(entries, observerNode?.id ?? null);
+}
+
 export function hashColor(hash: string): string {
   const seed = hashSeed(hash);
   const hue = seed % 360;
@@ -133,6 +243,7 @@ export function toLivePacketEvent(
     pathHashSize: data.observation.pathLength?.hashSize,
     hopCount: data.observation.pathLength?.hopCount,
     propagationTimeMs: data.observation.propagationTimeMs,
+    resolvedPath: data.observation.resolvedPath,
   };
 }
 

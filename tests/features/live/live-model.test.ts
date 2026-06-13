@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   LIVE_FEED_CAP,
   activityBins,
+  buildTrueRoutePath,
   countRecent,
   hashColor,
   hexBytes,
@@ -14,6 +15,7 @@ import {
   toLivePacketEvent,
   topPayloads,
   type LivePacketEvent,
+  type LiveRouteNode,
 } from "../../../src/features/live/live-model";
 import type { WsPacketObservation } from "../../../src/types/ws";
 
@@ -55,6 +57,10 @@ function event(id: string, receivedAt: number, payloadTypeName = "ADVERT"): Live
     Number(id.replace(/\D/g, "")) || 1,
     receivedAt,
   );
+}
+
+function routeNode(id: string, publicKey: string, lat: number, lng: number, iatas = ["YOW"]): LiveRouteNode {
+  return { id, name: id.toUpperCase(), publicKey, lat, lng, iatas };
 }
 
 describe("live packet model", () => {
@@ -128,5 +134,80 @@ describe("live packet model", () => {
     expect(pathChunks("aabbcc", 1, 3)).toEqual(["AA", "BB", "CC"]);
     expect(pathChunks("aabbccdd", 2, 2)).toEqual(["AABB", "CCDD"]);
     expect(pathChunks("aabbccdd", 1, 10, 2)).toEqual(["AA", "BB"]);
+  });
+
+  it("builds only contiguous true route paths from uniquely resolved path hashes", () => {
+    const alpha = routeNode("alpha", "AA0000", 45.1, -75.1);
+    const bravo = routeNode("bravo", "BB0000", 45.2, -75.2);
+    const observer = routeNode("observer", "DD0000", 45.3, -75.3);
+    const byPrefix = new Map([
+      ["AA", [alpha]],
+      ["BB", [bravo]],
+    ]);
+
+    const path = buildTrueRoutePath(
+      toLivePacketEvent(wsPacket("abc123", { observation: { ...wsPacket("abc123").observation, pathBytes: "aabb", pathLength: { raw: "42", hashSize: 1, hopCount: 2 } } }), 1, 2000),
+      observer,
+      byPrefix,
+      6,
+    );
+
+    expect(path?.map((point) => point.nodeId)).toEqual(["alpha", "bravo", "observer"]);
+  });
+
+  it("prefers server-resolved high-confidence live path hops", () => {
+    const observer = routeNode("observer", "DD0000", 45.3, -75.3);
+    const liveEvent = toLivePacketEvent(
+      wsPacket("abc123", {
+        observation: {
+          ...wsPacket("abc123").observation,
+          resolvedPath: [
+            { confidence: "high", nodes: [{ id: "alpha", publicKey: "AA01", name: "Alpha", latitude: 45.1, longitude: -75.1 }] },
+            { confidence: "high", nodes: [{ id: "bravo", publicKey: "BB01", name: "Bravo", latitude: 45.2, longitude: -75.2 }] },
+          ],
+        },
+      }),
+      1,
+      2000,
+    );
+
+    const path = buildTrueRoutePath(liveEvent, observer, new Map(), 6);
+
+    expect(path?.map((point) => point.nodeId)).toEqual(["alpha", "bravo", "observer"]);
+  });
+
+  it("does not draw across unresolved path chunks", () => {
+    const alpha = routeNode("alpha", "AA0000", 45.1, -75.1);
+    const charlie = routeNode("charlie", "CC0000", 45.4, -75.4);
+    const observer = routeNode("observer", "DD0000", 45.5, -75.5);
+    const byPrefix = new Map([
+      ["AA", [alpha]],
+      ["CC", [charlie]],
+    ]);
+
+    const path = buildTrueRoutePath(
+      toLivePacketEvent(wsPacket("abc123", { observation: { ...wsPacket("abc123").observation, pathBytes: "aabbcc", pathLength: { raw: "43", hashSize: 1, hopCount: 3 } } }), 1, 2000),
+      observer,
+      byPrefix,
+      6,
+    );
+
+    expect(path?.map((point) => point.nodeId)).toEqual(["charlie", "observer"]);
+  });
+
+  it("treats ambiguous path prefixes as unresolved instead of picking a random node", () => {
+    const alpha = routeNode("alpha", "AA0000", 45.1, -75.1);
+    const alias = routeNode("alias", "AAFFFF", 46.1, -76.1);
+    const observer = routeNode("observer", "DD0000", 45.3, -75.3);
+    const byPrefix = new Map([["AA", [alpha, alias]]]);
+
+    const path = buildTrueRoutePath(
+      toLivePacketEvent(wsPacket("abc123", { observation: { ...wsPacket("abc123").observation, pathBytes: "aa", pathLength: { raw: "41", hashSize: 1, hopCount: 1 } } }), 1, 2000),
+      observer,
+      byPrefix,
+      6,
+    );
+
+    expect(path).toBeNull();
   });
 });

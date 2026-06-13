@@ -1,5 +1,6 @@
 import type { ChannelMessage } from "../features/channels/types";
 import type { NodeIATA } from "../features/nodes/types";
+import type { ResolvedHop } from "./api";
 
 // individual server-sent message shapes
 
@@ -60,6 +61,7 @@ export interface WsPacketObservation {
         hopCount: number;
       };
       propagationTimeMs?: number;
+      resolvedPath?: ResolvedHop[];
     };
   };
 }
