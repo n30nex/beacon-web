@@ -40,8 +40,30 @@ export const PAYLOAD_COLORS: Record<string, string> = {
   RAW_CUSTOM: "#C026D3",
 };
 
+const PAYLOAD_ALIASES: Record<string, string> = {
+  ADVERTISEMENT: "ADVERT",
+  TEXT_MESSAGE: "TXT_MSG",
+  TXT_MESSAGE: "TXT_MSG",
+  DIRECT_TEXT: "TXT_MSG",
+  GROUP_TEXT: "GRP_TXT",
+  GROUP_MESSAGE: "GRP_TXT",
+  CHANNEL_MESSAGE: "GRP_TXT",
+  ANONYMOUS_REQUEST: "ANON_REQ",
+  ANON_REQUEST: "ANON_REQ",
+  ROUTE_TRACE: "TRACE",
+  PATH_DISCOVERY: "PATH",
+  GROUP_DATA: "GRP_DATA",
+  RAW: "RAW_CUSTOM",
+};
+
+export function payloadLabel(typeName: string): string {
+  const normalized = typeName.trim().replace(/[\s-]+/g, "_").toUpperCase();
+  if (!normalized) return "UNKNOWN";
+  return PAYLOAD_ALIASES[normalized] ?? normalized;
+}
+
 export function payloadColor(typeName: string): string {
-  return PAYLOAD_COLORS[typeName] ?? "#A1A1AA";
+  return PAYLOAD_COLORS[payloadLabel(typeName)] ?? "#A1A1AA";
 }
 
 export function toLivePacketEvent(
@@ -110,7 +132,8 @@ export function topPayloads(
 ): Array<{ typeName: string; count: number; color: string }> {
   const counts = new Map<string, number>();
   for (const event of events) {
-    counts.set(event.payloadTypeName, (counts.get(event.payloadTypeName) ?? 0) + 1);
+    const label = payloadLabel(event.payloadTypeName);
+    counts.set(label, (counts.get(label) ?? 0) + 1);
   }
   return Array.from(counts.entries())
     .map(([typeName, count]) => ({ typeName, count, color: payloadColor(typeName) }))

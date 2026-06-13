@@ -4,6 +4,8 @@ import {
   activityBins,
   countRecent,
   mergeQueuedEvents,
+  payloadColor,
+  payloadLabel,
   prependBounded,
   toLivePacketEvent,
   topPayloads,
@@ -87,7 +89,7 @@ describe("live packet model", () => {
 
   it("sorts top payloads by frequency", () => {
     const events = [
-      event("h1", 1000, "TRACE"),
+      event("h1", 1000, "route_trace"),
       event("h2", 2000, "ADVERT"),
       event("h3", 3000, "TRACE"),
     ];
@@ -95,5 +97,11 @@ describe("live packet model", () => {
       ["TRACE", 2],
       ["ADVERT", 1],
     ]);
+  });
+
+  it("uses CoreScope-style labels and colors for backend payload names", () => {
+    expect(payloadLabel("text_message")).toBe("TXT_MSG");
+    expect(payloadLabel("anonymous-request")).toBe("ANON_REQ");
+    expect(payloadColor("group_text")).toBe(payloadColor("GRP_TXT"));
   });
 });

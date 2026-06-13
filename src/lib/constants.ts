@@ -1,5 +1,15 @@
-export const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8080/api/v1";
-export const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8080/ws";
+function resolveWsUrl(configuredUrl: string | undefined): string {
+  const value = configuredUrl?.trim() || "/ws";
+  if (/^wss?:\/\//i.test(value)) return value;
+  if (typeof window === "undefined") return value;
+
+  const url = new URL(value, window.location.href);
+  url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return url.toString();
+}
+
+export const API_BASE = import.meta.env.VITE_API_BASE ?? "/api/v1";
+export const WS_URL = resolveWsUrl(import.meta.env.VITE_WS_URL);
 
 export const LIVE_BUFFER_CAP = 500;
 export const MAX_INFINITE_PAGES = 20;
