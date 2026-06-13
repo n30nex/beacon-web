@@ -22,7 +22,6 @@ import type { NodeSummary } from "../nodes/types";
 import type { WsNodeUpdate, WsPacketObservation } from "../../types/ws";
 import {
   LIVE_FEED_CAP,
-  activityBins,
   countRecent,
   hashSeed,
   mergeQueuedEvents,
@@ -117,7 +116,7 @@ function buildIataCoordMap(iatas: IataCode[] | undefined): Map<string, Coord> {
 
 function offsetCoord(to: Coord, seed: number): Coord {
   const angle = ((seed % 360) * Math.PI) / 180;
-  const distance = 0.7 + ((seed >>> 8) % 70) / 100;
+  const distance = 2.1 + ((seed >>> 8) % 180) / 55;
   const lngScale = Math.max(0.25, Math.cos((to.lat * Math.PI) / 180));
   return {
     lat: Math.max(-85, Math.min(85, to.lat + Math.sin(angle) * distance)),
@@ -142,7 +141,10 @@ function resolvePacketCoords(
   if (!to) return null;
 
   const previous = previousByHash.get(event.packetHash);
-  if (previous) return { from: previous, to };
+  if (previous) {
+    const samePoint = Math.abs(previous.lat - to.lat) <= 0.0001 && Math.abs(previous.lng - to.lng) <= 0.0001;
+    return { from: samePoint ? offsetCoord(to, hashSeed(`${event.packetHash}:${event.sequence}`)) : previous, to };
+  }
 
   const peers = nodesByIata.get(event.iata.toUpperCase());
   if (peers && peers.length > 1) {
@@ -180,9 +182,12 @@ function useLiveAnimationCanvas(
 
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
+      const fallbackRect = canvas.parentElement?.getBoundingClientRect();
+      const width = rect.width || fallbackRect?.width || 1;
+      const height = rect.height || fallbackRect?.height || 1;
       const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
-      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      canvas.width = Math.max(1, Math.floor(width * dpr));
+      canvas.height = Math.max(1, Math.floor(height * dpr));
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
 
@@ -203,10 +208,11 @@ function useLiveAnimationCanvas(
           const color = matrixMode ? matrixColor : trail.color;
 
           ctx.save();
-          ctx.globalAlpha = (1 - progress) * (matrixMode ? 0.36 : 0.24);
+          ctx.globalCompositeOperation = "lighter";
+          ctx.globalAlpha = (1 - progress) * (matrixMode ? 0.52 : 0.42);
           ctx.strokeStyle = color;
-          ctx.lineWidth = matrixMode ? 1 : 1.35;
-          ctx.shadowBlur = matrixMode ? 10 : 4;
+          ctx.lineWidth = matrixMode ? 1.8 : 2.6;
+          ctx.shadowBlur = matrixMode ? 18 : 14;
           ctx.shadowColor = color;
           ctx.beginPath();
           ctx.moveTo(from.x, from.y);
@@ -233,7 +239,7 @@ function useLiveAnimationCanvas(
               from: anim.from,
               to: anim.to,
               createdAt: now,
-              lifetimeMs: matrixMode ? 6_500 : 10_000,
+              lifetimeMs: matrixMode ? 10_000 : 18_000,
               color: anim.color,
             });
           }
@@ -247,14 +253,25 @@ function useLiveAnimationCanvas(
         const to = map.project([anim.to.lng, anim.to.lat]);
         const x = from.x + (to.x - from.x) * eased;
         const y = from.y + (to.y - from.y) * eased;
-        const alpha = Math.max(0, 1 - progress * 0.72);
+        const alpha = Math.max(0.22, 1 - progress * 0.58);
         const color = matrixMode ? matrixColor : anim.color;
         const pathDistance = Math.hypot(to.x - from.x, to.y - from.y);
 
         ctx.save();
-        ctx.globalAlpha = matrixMode ? 0.18 : 0.14;
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = matrixMode ? 0.22 : 0.2;
         ctx.strokeStyle = color;
-        ctx.lineWidth = 1;
+        ctx.lineWidth = matrixMode ? 7 : 8;
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = color;
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.stroke();
+
+        ctx.globalAlpha = matrixMode ? 0.46 : 0.4;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = matrixMode ? 2 : 2.5;
         ctx.setLineDash([4, 9]);
         ctx.beginPath();
         ctx.moveTo(from.x, from.y);
@@ -264,8 +281,8 @@ function useLiveAnimationCanvas(
         ctx.setLineDash([]);
         ctx.globalAlpha = alpha;
         ctx.strokeStyle = color;
-        ctx.lineWidth = matrixMode ? 1.8 : 2.25;
-        ctx.shadowBlur = matrixMode ? 12 : 16;
+        ctx.lineWidth = matrixMode ? 4.5 : 5.5;
+        ctx.shadowBlur = matrixMode ? 24 : 30;
         ctx.shadowColor = color;
         ctx.beginPath();
         ctx.moveTo(from.x, from.y);
@@ -274,8 +291,15 @@ function useLiveAnimationCanvas(
 
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.arc(x, y, 3.8 + 2.2 * (1 - progress), 0, Math.PI * 2);
+        ctx.arc(x, y, 6 + 3 * (1 - progress), 0, Math.PI * 2);
         ctx.fill();
+
+        ctx.globalAlpha = Math.max(0.18, 0.55 * (1 - progress));
+        ctx.shadowBlur = 0;
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.arc(from.x, from.y, 6 + 16 * Math.min(1, progress * 2.5), 0, Math.PI * 2);
+        ctx.stroke();
 
         if (anim.waveCount > 1 && progress < 0.58) {
           const ripple = Math.max(0, progress / 0.58);
@@ -289,11 +313,11 @@ function useLiveAnimationCanvas(
 
         if (progress > 0.7) {
           const pulse = (progress - 0.7) / 0.3;
-          ctx.globalAlpha = 0.45 * (1 - pulse);
+          ctx.globalAlpha = 0.68 * (1 - pulse);
           ctx.shadowBlur = 0;
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 3;
           ctx.beginPath();
-          ctx.arc(to.x, to.y, 8 + 22 * pulse, 0, Math.PI * 2);
+          ctx.arc(to.x, to.y, 10 + 30 * pulse, 0, Math.PI * 2);
           ctx.stroke();
         }
 
@@ -340,22 +364,7 @@ function LiveStat({ label, value, tone = "primary" }: { label: string; value: st
   );
 }
 
-function TimelineBars({ bins, matrixMode }: { bins: number[]; matrixMode: boolean }) {
-  const max = Math.max(1, ...bins);
-  return (
-    <div className="flex h-10 items-end gap-0.5">
-      {bins.map((count, idx) => (
-        <div
-          key={idx}
-          className={`flex-1 rounded-t ${matrixMode ? "bg-green/75" : "bg-primary/70"}`}
-          style={{ height: `${Math.max(10, (count / max) * 100)}%`, opacity: count ? 0.35 + (count / max) * 0.55 : 0.12 }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function VcrButton({
+function LiveControlButton({
   active,
   danger,
   label,
@@ -386,9 +395,8 @@ function VcrButton({
   );
 }
 
-function LiveVcrBar({
+function LiveControlDock({
   activeAnimations,
-  bins,
   feedVisible,
   laggedCount,
   matrixMode,
@@ -406,7 +414,6 @@ function LiveVcrBar({
   trails,
 }: {
   activeAnimations: number;
-  bins: number[];
   feedVisible: boolean;
   laggedCount: number;
   matrixMode: boolean;
@@ -424,9 +431,9 @@ function LiveVcrBar({
   trails: boolean;
 }) {
   return (
-    <div className="absolute left-3 right-3 bottom-3 z-20 flex flex-col gap-2 rounded border border-border bg-bg-surface/92 p-2 shadow-xl backdrop-blur md:flex-row md:items-center">
-      <div className="flex min-w-0 items-center gap-2">
-        <VcrButton label={paused ? "Resume" : "Pause"} active={paused} onClick={onTogglePaused} />
+    <div className="absolute left-3 right-3 bottom-3 z-20 flex flex-wrap items-center gap-2 rounded border border-border bg-bg-surface/92 p-2 shadow-xl backdrop-blur md:left-auto md:w-fit">
+      <div className="flex min-w-0 items-center gap-2 pr-1">
+        <LiveControlButton label={paused ? "Resume" : "Pause"} active={paused} onClick={onTogglePaused} />
         <div
           className={`flex items-center gap-1.5 rounded border px-2.5 py-1.5 font-mono text-[11px] font-semibold tracking-wider ${
             paused ? "border-warn/25 bg-warn/8 text-warn" : "border-green/20 bg-green/8 text-green"
@@ -435,7 +442,7 @@ function LiveVcrBar({
           <span className={`h-1.5 w-1.5 rounded-full ${paused ? "bg-warn" : "bg-green animate-pulse"}`} />
           {paused ? "PAUSED" : "LIVE"}
         </div>
-        <div className="hidden min-w-0 items-center gap-3 font-mono text-[11px] text-text-muted lg:flex">
+        <div className="hidden min-w-0 items-center gap-3 font-mono text-[11px] text-text-muted xl:flex">
           <span>{formatCount(totalPackets)} pkts</span>
           <span>{ratePerMin}/m</span>
           <span>{activeAnimations} active</span>
@@ -444,23 +451,11 @@ function LiveVcrBar({
         </div>
       </div>
 
-      <div className="min-w-0 flex-1 rounded-sm border border-border-subtle bg-bg-base/65 px-2 py-1">
-        <div className="mb-1 flex items-center justify-between font-mono text-[10px] uppercase tracking-wider text-text-dim">
-          <span>5m flow</span>
-          <span className="lg:hidden">
-            {formatCount(totalPackets)} / {ratePerMin}m / {activeAnimations} active
-          </span>
-        </div>
-        <TimelineBars bins={bins} matrixMode={matrixMode} />
-      </div>
-
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 md:pb-0">
-        <VcrButton label="Trails" active={trails} onClick={onToggleTrails} title="Toggle ghost trails" />
-        <VcrButton label="Flow" active={realisticPropagation} onClick={onTogglePropagation} title="Group observations into propagation waves" />
-        <VcrButton label="Matrix" active={matrixMode} onClick={onToggleMatrix} title="Toggle matrix scan view" />
-        <VcrButton label="Feed" active={feedVisible} onClick={onToggleFeed} title="Toggle packet feed" />
-        <VcrButton label="Clear" danger onClick={onClear} title="Clear local live buffer" />
-      </div>
+      <LiveControlButton label="Trails" active={trails} onClick={onToggleTrails} title="Toggle persistent map trails" />
+      <LiveControlButton label="Flow" active={realisticPropagation} onClick={onTogglePropagation} title="Group observations into propagation waves" />
+      <LiveControlButton label="Matrix" active={matrixMode} onClick={onToggleMatrix} title="Toggle matrix scan view" />
+      <LiveControlButton label="Feed" active={feedVisible} onClick={onToggleFeed} title="Toggle packet feed" />
+      <LiveControlButton label="Clear" danger onClick={onClear} title="Clear local live buffer" />
     </div>
   );
 }
@@ -473,7 +468,7 @@ function LiveFeed({
   onAnalyze: (hash: string) => void;
 }) {
   return (
-    <div className="absolute left-3 bottom-[162px] md:bottom-[98px] z-10 w-[min(430px,calc(100vw-24px))] max-h-[30dvh] sm:max-h-[42dvh] flex flex-col bg-bg-surface/90 border border-border rounded backdrop-blur shadow-xl">
+    <div className="absolute left-3 bottom-[92px] md:bottom-3 z-10 w-[min(430px,calc(100vw-24px))] max-h-[36dvh] sm:max-h-[42dvh] flex flex-col bg-bg-surface/90 border border-border rounded backdrop-blur shadow-xl">
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-subtle">
         <div className="font-mono text-[11px] uppercase tracking-wider text-text-muted">Packet Feed</div>
         <div className="font-mono text-[11px] text-text-dim">{events.length}/{LIVE_FEED_CAP}</div>
@@ -517,7 +512,7 @@ function LiveFeed({
 
 function PayloadLegend({ payloads }: { payloads: Array<{ typeName: string; count: number; color: string }> }) {
   return (
-    <div className="absolute right-3 bottom-[98px] z-10 hidden lg:block w-56 bg-bg-surface/85 border border-border rounded backdrop-blur">
+    <div className="absolute right-3 bottom-[86px] z-10 hidden lg:block w-56 bg-bg-surface/85 border border-border rounded backdrop-blur">
       <div className="px-3 py-2 border-b border-border-subtle font-mono text-[11px] uppercase tracking-wider text-text-muted">Payloads</div>
       <div className="p-3 space-y-2">
         {(payloads.length ? payloads : Object.entries({ ADVERT: 0, GRP_TXT: 0, TRACE: 0, ACK: 0 })).map((payload) => {
@@ -632,9 +627,9 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
         if (!oldest.done) previousByHashRef.current.delete(oldest.value);
       }
       const color = payloadColor(event.payloadTypeName);
-      const durationMs = 950 + Math.min(900, Math.max(0, event.observationCount - 1) * 90);
+      const durationMs = 1_650 + Math.min(1_200, Math.max(0, event.observationCount - 1) * 120);
       animationsRef.current = [
-        ...animationsRef.current.slice(-42),
+        ...animationsRef.current.slice(-96),
         { id: event.id, event, from: coords.from, to: coords.to, startedAt: performance.now() + delayMs, durationMs, color, waveIndex, waveCount },
       ];
     },
@@ -737,14 +732,13 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   };
 
   const ratePerMin = countRecent(events, now, 60_000);
-  const bins = activityBins(events, now);
   const payloads = topPayloads(events);
   const newest = events[0];
 
   return (
     <div className="relative flex flex-1 min-h-0 overflow-hidden bg-bg-base">
       <div ref={containerRef} data-dark={isDark} className={`flex-1 min-w-0 ${matrixMode ? "live-map-matrix" : ""}`} />
-      <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-[5]" aria-hidden="true" />
+      <canvas ref={canvasRef} className="absolute inset-0 z-[5] h-full w-full pointer-events-none" aria-hidden="true" />
       {matrixMode && <div className="live-matrix-overlay absolute inset-0 pointer-events-none z-[6]" aria-hidden="true" />}
 
       <div className="pointer-events-none absolute top-14 left-3 right-3 z-10 flex max-w-[calc(100vw-24px)] flex-wrap items-center gap-2 md:top-3 md:left-[268px] xl:right-[308px]">
@@ -792,9 +786,8 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       <LoadingPill loading={isPaging} error={nodesError} count={loadedCount} noun="nodes" />
       {feedVisible && <LiveFeed events={events} onAnalyze={onAnalyze} />}
       <PayloadLegend payloads={payloads} />
-      <LiveVcrBar
+      <LiveControlDock
         activeAnimations={activeAnimations}
-        bins={bins}
         feedVisible={feedVisible}
         laggedCount={laggedCount}
         matrixMode={matrixMode}
