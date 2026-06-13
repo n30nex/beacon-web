@@ -142,6 +142,9 @@ const LIVE_FRAME_TARGET_MS = 1000 / 60;
 const LIVE_FRAME_TOLERANCE_MS = 3;
 const LIVE_DRAW_PRESSURE_MS = 7;
 const LIVE_DRAW_RECOVERY_MS = 3;
+const LIVE_DRAW_PRESSURE_WARMUP_FRAMES = 30;
+const LIVE_DRAW_PRESSURE_SLOW_FRAMES = 8;
+const LIVE_DRAW_PRESSURE_RECOVERY_FRAMES = 120;
 const LIVE_STATE_FLUSH_MS = 250;
 const AUDIO_MIN_INTERVAL_MS = 85;
 const AUDIO_SCALE = [220, 247, 277, 330, 370, 415, 494, 554, 659, 740, 831, 988];
@@ -360,6 +363,7 @@ function useLiveAnimationCanvas(
     let drawPressure = 0;
     let drawCostEma = 0;
     let recoveryFrames = 0;
+    let slowFrames = 0;
     const frameSamples: number[] = [];
     const matrixColor = readCssVar("--color-green", "#22C55E");
     type ProjectedPoint = { x: number; y: number };
@@ -872,17 +876,23 @@ function useLiveAnimationCanvas(
       canvasHasContent = hasActiveMotion || hasResidue;
       const drawMs = performance.now() - drawStartedAt;
       drawCostEma = drawCostEma === 0 ? drawMs : drawCostEma * 0.9 + drawMs * 0.1;
-      if (drawCostEma > LIVE_DRAW_PRESSURE_MS && drawPressure < 2) {
-        drawPressure += 1;
-        recoveryFrames = 0;
+      if (drawCount > LIVE_DRAW_PRESSURE_WARMUP_FRAMES && drawCostEma > LIVE_DRAW_PRESSURE_MS && drawPressure < 2) {
+        slowFrames += 1;
+        if (slowFrames >= LIVE_DRAW_PRESSURE_SLOW_FRAMES) {
+          drawPressure += 1;
+          recoveryFrames = 0;
+          slowFrames = 0;
+        }
       } else if (drawCostEma < LIVE_DRAW_RECOVERY_MS && drawPressure > 0) {
         recoveryFrames += 1;
-        if (recoveryFrames > 180) {
+        slowFrames = 0;
+        if (recoveryFrames > LIVE_DRAW_PRESSURE_RECOVERY_FRAMES) {
           drawPressure -= 1;
           recoveryFrames = 0;
         }
       } else {
         recoveryFrames = 0;
+        slowFrames = 0;
       }
       publishPerfSnapshot(now, frameMs, drawStartedAt, frameCaps);
       if (hasActiveMotion) {
