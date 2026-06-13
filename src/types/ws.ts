@@ -40,6 +40,7 @@ export interface WsPacketObservation {
       payloadTypeName: string;
       routeType: number;
       routeTypeName: string;
+      rawHex?: string; // full observed packet bytes, hex-encoded, when provided by the server
       isFirstObservation: boolean;
       observationCount: number;
       scope?: string; // matched transport scope name; omitted when none matched
@@ -52,6 +53,13 @@ export interface WsPacketObservation {
       rssi: number;
       snr: number;
       sourceBroker: string;
+      pathBytes?: string; // hex-encoded accumulated path hashes
+      pathLength?: {
+        raw: string;
+        hashSize: number;
+        hopCount: number;
+      };
+      propagationTimeMs?: number;
     };
   };
 }

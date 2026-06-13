@@ -3,7 +3,10 @@ import {
   LIVE_FEED_CAP,
   activityBins,
   countRecent,
+  hashColor,
+  hexBytes,
   mergeQueuedEvents,
+  normalizeHex,
   payloadColor,
   payloadLabel,
   prependBounded,
@@ -21,6 +24,7 @@ function wsPacket(hash: string, overrides: Partial<WsPacketObservation["data"]> 
       payloadTypeName: "ADVERT",
       routeType: 1,
       routeTypeName: "FLOOD",
+      rawHex: "44 AA 10",
       isFirstObservation: true,
       observationCount: 1,
       scope: "#bc",
@@ -33,6 +37,9 @@ function wsPacket(hash: string, overrides: Partial<WsPacketObservation["data"]> 
       rssi: -91,
       snr: 8.5,
       sourceBroker: "meshcore",
+      pathBytes: "aabbcc",
+      pathLength: { raw: "43", hashSize: 1, hopCount: 3 },
+      propagationTimeMs: 120,
     },
     ...overrides,
   };
@@ -61,6 +68,11 @@ describe("live packet model", () => {
       iata: "YOW",
       receivedAt: 2000,
       scope: "#bc",
+      rawHex: "44 AA 10",
+      pathBytes: "aabbcc",
+      pathHashSize: 1,
+      hopCount: 3,
+      propagationTimeMs: 120,
     });
     expect(normalized.id).toContain("abc123");
   });
@@ -103,5 +115,11 @@ describe("live packet model", () => {
     expect(payloadLabel("text_message")).toBe("TXT_MSG");
     expect(payloadLabel("anonymous-request")).toBe("ANON_REQ");
     expect(payloadColor("group_text")).toBe(payloadColor("GRP_TXT"));
+  });
+
+  it("normalizes hex bytes for live matrix effects", () => {
+    expect(normalizeHex("44 aa-10 zz")).toBe("44AA10");
+    expect(hexBytes("44 aa 10")).toEqual(["44", "AA", "10"]);
+    expect(hashColor("abc123")).toMatch(/^hsl\(\d+ 88% 60%\)$/);
   });
 });

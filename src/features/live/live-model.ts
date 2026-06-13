@@ -12,6 +12,7 @@ export interface LivePacketEvent {
   payloadTypeName: string;
   routeType: number;
   routeTypeName: string;
+  rawHex?: string;
   observationCount: number;
   observerId: string;
   observerName: string;
@@ -21,6 +22,10 @@ export interface LivePacketEvent {
   rssi: number;
   snr: number;
   sourceBroker: string;
+  pathBytes?: string;
+  pathHashSize?: number;
+  hopCount?: number;
+  propagationTimeMs?: number;
   scope?: string;
 }
 
@@ -66,6 +71,25 @@ export function payloadColor(typeName: string): string {
   return PAYLOAD_COLORS[payloadLabel(typeName)] ?? "#A1A1AA";
 }
 
+export function normalizeHex(value: string | undefined): string {
+  return (value ?? "").replace(/[^a-fA-F0-9]/g, "").toUpperCase();
+}
+
+export function hexBytes(value: string | undefined, maxBytes = 72): string[] {
+  const normalized = normalizeHex(value);
+  const bytes: string[] = [];
+  for (let i = 0; i + 1 < normalized.length && bytes.length < maxBytes; i += 2) {
+    bytes.push(normalized.slice(i, i + 2));
+  }
+  return bytes;
+}
+
+export function hashColor(hash: string): string {
+  const seed = hashSeed(hash);
+  const hue = seed % 360;
+  return `hsl(${hue} 88% 60%)`;
+}
+
 export function toLivePacketEvent(
   data: WsPacketObservation["data"],
   sequence: number,
@@ -79,6 +103,7 @@ export function toLivePacketEvent(
     payloadTypeName: data.packet.payloadTypeName,
     routeType: data.packet.routeType,
     routeTypeName: data.packet.routeTypeName,
+    rawHex: data.packet.rawHex,
     observationCount: data.packet.observationCount,
     scope: data.packet.scope,
     observerId: data.observation.observerId,
@@ -89,6 +114,10 @@ export function toLivePacketEvent(
     rssi: data.observation.rssi,
     snr: data.observation.snr,
     sourceBroker: data.observation.sourceBroker,
+    pathBytes: data.observation.pathBytes,
+    pathHashSize: data.observation.pathLength?.hashSize,
+    hopCount: data.observation.pathLength?.hopCount,
+    propagationTimeMs: data.observation.propagationTimeMs,
   };
 }
 

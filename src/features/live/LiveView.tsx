@@ -23,7 +23,9 @@ import type { WsNodeUpdate, WsPacketObservation } from "../../types/ws";
 import {
   LIVE_FEED_CAP,
   countRecent,
+  hashColor,
   hashSeed,
+  hexBytes,
   mergeQueuedEvents,
   payloadColor,
   payloadLabel,
@@ -53,6 +55,7 @@ interface LiveAnimation {
   color: string;
   waveIndex: number;
   waveCount: number;
+  bytes: string[];
 }
 
 interface LiveTrail {
@@ -73,9 +76,25 @@ interface LivePulse {
   strength: number;
 }
 
+interface LiveRainDrop {
+  id: string;
+  bytes: string[];
+  xRatio: number;
+  createdAt: number;
+  durationMs: number;
+  maxYRatio: number;
+  color: string;
+}
+
 interface PropagationGroup {
   events: LivePacketEvent[];
   timer: ReturnType<typeof setTimeout>;
+}
+
+interface LiveAnimationRequest {
+  event: LivePacketEvent;
+  waveIndex: number;
+  waveCount: number;
 }
 
 interface NodeCoord extends Coord {
@@ -84,6 +103,15 @@ interface NodeCoord extends Coord {
   iatas: string[];
 }
 
+const MAX_ACTIVE_ANIMATIONS = 24;
+const MAX_PENDING_ANIMATIONS = 96;
+const MAX_PROPAGATION_WAVE_PATHS = 8;
+const MAX_TRAILS = 56;
+const MAX_PULSES = 64;
+const MAX_RAIN_DROPS = 34;
+const MAX_RAIN_BYTES = 24;
+const MAX_MATRIX_FLIGHT_BYTES = 12;
+const VISUAL_DRAIN_INTERVAL_MS = 90;
 const LIVE_FLOW_CAMERA_THROTTLE_MS = 2_800;
 const LIVE_FLOW_CAMERA_MIN_LAT_SPAN = 1.4;
 const LIVE_FLOW_CAMERA_MIN_LNG_SPAN = 1.8;
@@ -187,6 +215,14 @@ function paddedPathBounds(from: Coord, to: Coord): [[number, number], [number, n
   ];
 }
 
+function samplePropagationEvents(events: LivePacketEvent[], cap = MAX_PROPAGATION_WAVE_PATHS): LivePacketEvent[] {
+  if (events.length <= cap) return events;
+  if (cap <= 1) return events.slice(-1);
+
+  const last = events.length - 1;
+  return Array.from({ length: cap }, (_, index) => events[Math.round((index * last) / (cap - 1))]!);
+}
+
 function useLiveAnimationCanvas(
   mapRef: RefObject<MapLibreMap | null>,
   canvasRef: RefObject<HTMLCanvasElement | null>,
@@ -194,7 +230,9 @@ function useLiveAnimationCanvas(
   animationsRef: RefObject<LiveAnimation[]>,
   trailsRef: RefObject<LiveTrail[]>,
   pulsesRef: RefObject<LivePulse[]>,
+  rainRef: RefObject<LiveRainDrop[]>,
   trailsEnabled: boolean,
+  rainEnabled: boolean,
   matrixMode: boolean,
   onActiveCount: (count: number) => void,
 ) {
@@ -296,6 +334,59 @@ function useLiveAnimationCanvas(
         ctx.restore();
       }
 
+      const nextRain: LiveRainDrop[] = [];
+      if (rainEnabled) {
+        for (const drop of rainRef.current) {
+          const age = now - drop.createdAt;
+          if (age < 0) {
+            nextRain.push(drop);
+            continue;
+          }
+          if (age > drop.durationMs) continue;
+          nextRain.push(drop);
+
+          const progress = Math.max(0, Math.min(1, age / drop.durationMs));
+          const canvasWidth = rect.width || canvas.width;
+          const canvasHeight = rect.height || canvas.height;
+          const x = 24 + drop.xRatio * Math.max(1, canvasWidth - 48);
+          const maxY = canvasHeight * drop.maxYRatio;
+          const headY = progress * maxY;
+          const charHeight = matrixMode ? 17 : 15;
+          const scrollOffset = Math.floor(progress * drop.bytes.length);
+          const lifeFade = progress > 0.7 ? 1 - (progress - 0.7) / 0.3 : 1;
+
+          ctx.save();
+          ctx.globalCompositeOperation = "lighter";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          const visibleBytes = Math.min(drop.bytes.length, MAX_RAIN_BYTES);
+          for (let i = 0; i < visibleBytes; i += 1) {
+            const y = headY - i * charHeight;
+            if (y < -charHeight || y > canvasHeight + charHeight) continue;
+            const fade = Math.max(0, (1 - i / visibleBytes) * lifeFade);
+            if (fade <= 0) continue;
+            const byte = drop.bytes[(scrollOffset + i) % drop.bytes.length]!;
+            if (i === 0) {
+              ctx.globalAlpha = Math.min(1, fade);
+              ctx.font = `700 ${matrixMode ? 16 : 14}px JetBrains Mono, monospace`;
+              ctx.fillStyle = matrixMode ? "#FFFFFF" : drop.color;
+              ctx.shadowColor = matrixMode ? matrixColor : drop.color;
+              ctx.shadowBlur = matrixMode ? 18 : 12;
+            } else {
+              ctx.globalAlpha = fade * (matrixMode ? 0.78 : 0.46);
+              ctx.font = `${matrixMode ? 13 : 12}px JetBrains Mono, monospace`;
+              ctx.fillStyle = matrixMode ? matrixColor : drop.color;
+              ctx.shadowColor = matrixMode ? matrixColor : drop.color;
+              ctx.shadowBlur = matrixMode ? 7 : 5;
+            }
+            ctx.fillText(byte, x, y);
+          }
+          ctx.restore();
+        }
+      } else if (rainRef.current.length) {
+        rainRef.current = [];
+      }
+
       const next: LiveAnimation[] = [];
       const finishedTrails: LiveTrail[] = [];
       for (const anim of animationsRef.current) {
@@ -366,6 +457,31 @@ function useLiveAnimationCanvas(
         ctx.arc(x, y, 6 + 3 * (1 - progress), 0, Math.PI * 2);
         ctx.fill();
 
+        if (matrixMode) {
+          if (pathDistance > 44 && anim.bytes.length > 0) {
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const pathLength = Math.max(1, Math.hypot(dx, dy));
+            const nx = -dy / pathLength;
+            const ny = dx / pathLength;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            for (let i = 0; i < Math.min(4, anim.bytes.length); i += 1) {
+              const offset = (i + 1) * 22;
+              const t = Math.max(0, eased - offset / pathLength);
+              const bx = from.x + dx * t + nx * 10;
+              const by = from.y + dy * t + ny * 10;
+              const alphaByte = Math.max(0.14, (1 - i / 4) * (1 - progress * 0.28));
+              ctx.globalAlpha = i === 0 ? Math.min(1, alphaByte + 0.2) : alphaByte;
+              ctx.font = `${i === 0 ? "700 " : ""}${Math.max(10, 15 - i)}px JetBrains Mono, monospace`;
+              ctx.fillStyle = i === 0 ? "#FFFFFF" : matrixColor;
+              ctx.shadowBlur = i === 0 ? 22 : 10;
+              ctx.shadowColor = matrixColor;
+              ctx.fillText(anim.bytes[(Math.floor(progress * anim.bytes.length * 1.8) + i) % anim.bytes.length]!, bx, by);
+            }
+          }
+        }
+
         ctx.globalAlpha = Math.max(0.18, 0.55 * (1 - progress));
         ctx.shadowBlur = 0;
         ctx.lineWidth = 1.8;
@@ -404,8 +520,9 @@ function useLiveAnimationCanvas(
       }
 
       animationsRef.current = next;
-      trailsRef.current = [...nextTrails, ...finishedTrails].slice(-96);
-      pulsesRef.current = nextPulses.slice(-140);
+      trailsRef.current = [...nextTrails, ...finishedTrails].slice(-MAX_TRAILS);
+      pulsesRef.current = nextPulses.slice(-MAX_PULSES);
+      rainRef.current = nextRain.slice(-MAX_RAIN_DROPS);
       if (lastPublishedCount !== next.length) {
         lastPublishedCount = next.length;
         onActiveCount(next.length);
@@ -424,7 +541,19 @@ function useLiveAnimationCanvas(
       map.off("resize", resize);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     };
-  }, [animationsRef, canvasRef, isReady, mapRef, matrixMode, onActiveCount, pulsesRef, trailsEnabled, trailsRef]);
+  }, [
+    animationsRef,
+    canvasRef,
+    isReady,
+    mapRef,
+    matrixMode,
+    onActiveCount,
+    pulsesRef,
+    rainEnabled,
+    rainRef,
+    trailsEnabled,
+    trailsRef,
+  ]);
 }
 
 function LiveStat({ label, value, tone = "primary" }: { label: string; value: string | number; tone?: "primary" | "green" | "warn" }) {
@@ -470,12 +599,16 @@ function LiveControlButton({
 
 function LiveControlDock({
   activeAnimations,
+  colorByHash,
   feedVisible,
   laggedCount,
+  matrixRain,
   matrixMode,
   onClear,
+  onToggleColorByHash,
   onToggleFeed,
   onToggleMatrix,
+  onToggleRain,
   onTogglePaused,
   onTogglePropagation,
   onToggleTrails,
@@ -485,14 +618,20 @@ function LiveControlDock({
   realisticPropagation,
   totalPackets,
   trails,
+  visualDroppedCount,
+  visualQueueSize,
 }: {
   activeAnimations: number;
+  colorByHash: boolean;
   feedVisible: boolean;
   laggedCount: number;
+  matrixRain: boolean;
   matrixMode: boolean;
   onClear: () => void;
+  onToggleColorByHash: () => void;
   onToggleFeed: () => void;
   onToggleMatrix: () => void;
+  onToggleRain: () => void;
   onTogglePaused: () => void;
   onTogglePropagation: () => void;
   onToggleTrails: () => void;
@@ -502,6 +641,8 @@ function LiveControlDock({
   realisticPropagation: boolean;
   totalPackets: number;
   trails: boolean;
+  visualDroppedCount: number;
+  visualQueueSize: number;
 }) {
   return (
     <div className="absolute left-3 right-3 bottom-3 z-20 flex flex-wrap items-center gap-2 rounded border border-border bg-bg-surface/92 p-2 shadow-xl backdrop-blur md:left-auto md:w-fit">
@@ -520,13 +661,17 @@ function LiveControlDock({
           <span>{ratePerMin}/m</span>
           <span>{activeAnimations} active</span>
           {queuedCount > 0 && <span className="text-warn">{queuedCount} queued</span>}
+          {visualQueueSize > 0 && <span className="text-primary">{visualQueueSize} visual q</span>}
           {laggedCount > 0 && <span className="text-danger">{laggedCount} dropped</span>}
+          {visualDroppedCount > 0 && <span className="text-warn">{visualDroppedCount} visual skipped</span>}
         </div>
       </div>
 
       <LiveControlButton label="Trails" active={trails} onClick={onToggleTrails} title="Toggle persistent map trails" />
       <LiveControlButton label="Flow" active={realisticPropagation} onClick={onTogglePropagation} title="Group observations into propagation waves" />
+      <LiveControlButton label="Color" active={colorByHash} onClick={onToggleColorByHash} title="Color packet paths by hash" />
       <LiveControlButton label="Matrix" active={matrixMode} onClick={onToggleMatrix} title="Toggle matrix scan view" />
+      <LiveControlButton label="Rain" active={matrixRain} onClick={onToggleRain} title="Toggle packet byte rain" />
       <LiveControlButton label="Feed" active={feedVisible} onClick={onToggleFeed} title="Toggle packet feed" />
       <LiveControlButton label="Clear" danger onClick={onClear} title="Clear local live buffer" />
     </div>
@@ -615,6 +760,9 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   const animationsRef = useRef<LiveAnimation[]>([]);
   const trailsRef = useRef<LiveTrail[]>([]);
   const pulsesRef = useRef<LivePulse[]>([]);
+  const rainRef = useRef<LiveRainDrop[]>([]);
+  const visualQueueRef = useRef<LiveAnimationRequest[]>([]);
+  const publishedVisualQueueSizeRef = useRef(0);
   const propagationGroupsRef = useRef(new Map<string, PropagationGroup>());
   const previousByHashRef = useRef(new Map<string, Coord>());
   const flowCameraRef = useRef({ lastFocusedAt: 0 });
@@ -631,10 +779,14 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   const [paused, setPaused] = useState(false);
   const [trails, setTrails] = useState(true);
   const [realisticPropagation, setRealisticPropagation] = useState(true);
+  const [colorByHash, setColorByHash] = useState(true);
   const [matrixMode, setMatrixMode] = useState(false);
+  const [matrixRain, setMatrixRain] = useState(false);
   const [feedVisible, setFeedVisible] = useState(true);
   const [totalPackets, setTotalPackets] = useState(0);
   const [laggedCount, setLaggedCount] = useState(0);
+  const [visualQueueSize, setVisualQueueSize] = useState(0);
+  const [visualDroppedCount, setVisualDroppedCount] = useState(0);
   const [activeAnimations, setActiveAnimations] = useState(0);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [now, setNow] = useState(0);
@@ -716,36 +868,101 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     [isReady, mapRef, realisticPropagation],
   );
 
-  const enqueueAnimation = useCallback(
-    (event: LivePacketEvent, delayMs = 0, waveIndex = 0, waveCount = 1) => {
+  const playAnimation = useCallback(
+    (event: LivePacketEvent, waveIndex = 0, waveCount = 1) => {
+      if (animationsRef.current.length >= MAX_ACTIVE_ANIMATIONS) return false;
       const coords = resolvePacketCoords(event, nodeCoords, nodesByIata, iataCoords, previousByHashRef.current);
-      if (!coords) return;
+      if (!coords) return false;
       previousByHashRef.current.set(event.packetHash, coords.to);
       if (previousByHashRef.current.size > LIVE_FEED_CAP * 2) {
         const oldest = previousByHashRef.current.keys().next();
         if (!oldest.done) previousByHashRef.current.delete(oldest.value);
       }
-      const color = payloadColor(event.payloadTypeName);
+      const color = colorByHash ? hashColor(event.packetHash) : payloadColor(event.payloadTypeName);
       pulsesRef.current = [
-        ...pulsesRef.current.slice(-139),
+        ...pulsesRef.current.slice(-(MAX_PULSES - 1)),
         {
           id: `${event.id}:receiver`,
           coord: coords.to,
-          createdAt: performance.now() + delayMs,
-          lifetimeMs: matrixMode ? 4_400 : 5_800,
+          createdAt: performance.now(),
+          lifetimeMs: matrixMode ? 3_200 : 4_200,
           color,
           strength: event.observationCount,
         },
       ];
+      if (matrixRain && rainRef.current.length < MAX_RAIN_DROPS) {
+        const shouldSampleRain = visualQueueRef.current.length < 12 || (event.sequence + hashSeed(event.packetHash)) % 3 === 0;
+        const bytes = shouldSampleRain ? hexBytes(event.rawHex || event.packetHash, MAX_RAIN_BYTES) : [];
+        if (bytes.length > 0) {
+          const seed = hashSeed(`${event.packetHash}:${event.sequence}:rain`);
+          const hopCount = Math.max(1, event.hopCount ?? 1);
+          const maxYRatio = Math.min(1, Math.max(0.28, hopCount / 4));
+          rainRef.current = [
+            ...rainRef.current.slice(-(MAX_RAIN_DROPS - 1)),
+            {
+              id: `${event.id}:rain`,
+              bytes,
+              xRatio: (seed % 10_000) / 10_000,
+              createdAt: performance.now(),
+              durationMs: 1_300 + maxYRatio * 2_700,
+              maxYRatio,
+              color,
+            },
+          ];
+        }
+      }
       focusLivePath(coords);
-      const durationMs = 2_450 + Math.min(1_600, Math.max(0, event.observationCount - 1) * 150);
+      const durationMs = 2_100 + Math.min(1_200, Math.max(0, event.observationCount - 1) * 120);
       animationsRef.current = [
-        ...animationsRef.current.slice(-96),
-        { id: event.id, event, from: coords.from, to: coords.to, startedAt: performance.now() + delayMs, durationMs, color, waveIndex, waveCount },
+        ...animationsRef.current.slice(-(MAX_ACTIVE_ANIMATIONS - 1)),
+        {
+          id: event.id,
+          event,
+          from: coords.from,
+          to: coords.to,
+          startedAt: performance.now(),
+          durationMs,
+          color,
+          waveIndex,
+          waveCount,
+          bytes: hexBytes(event.rawHex || event.packetHash, MAX_MATRIX_FLIGHT_BYTES),
+        },
       ];
+      return true;
     },
-    [focusLivePath, iataCoords, matrixMode, nodeCoords, nodesByIata],
+    [colorByHash, focusLivePath, iataCoords, matrixMode, matrixRain, nodeCoords, nodesByIata],
   );
+
+  const queueAnimation = useCallback((request: LiveAnimationRequest) => {
+    visualQueueRef.current.push(request);
+    if (visualQueueRef.current.length > MAX_PENDING_ANIMATIONS) {
+      const dropped = visualQueueRef.current.length - MAX_PENDING_ANIMATIONS;
+      visualQueueRef.current = visualQueueRef.current.slice(-MAX_PENDING_ANIMATIONS);
+      setVisualDroppedCount((count) => count + dropped);
+    }
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const active = animationsRef.current.length;
+      const queued = visualQueueRef.current.length;
+      if (queued > 0 && active < MAX_ACTIVE_ANIMATIONS) {
+        const batchSize = active < MAX_ACTIVE_ANIMATIONS / 2 ? 2 : 1;
+        const slots = Math.min(batchSize, MAX_ACTIVE_ANIMATIONS - active, queued);
+        for (let i = 0; i < slots; i += 1) {
+          const next = visualQueueRef.current.shift();
+          if (!next) break;
+          playAnimation(next.event, next.waveIndex, next.waveCount);
+        }
+      }
+      if (publishedVisualQueueSizeRef.current !== visualQueueRef.current.length) {
+        publishedVisualQueueSizeRef.current = visualQueueRef.current.length;
+        setVisualQueueSize(visualQueueRef.current.length);
+      }
+    }, VISUAL_DRAIN_INTERVAL_MS);
+
+    return () => clearInterval(id);
+  }, [playAnimation]);
 
   const flushPropagationGroup = useCallback(
     (packetHash: string) => {
@@ -756,17 +973,20 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       const ordered = group.events
         .slice()
         .sort((a, b) => a.receivedAt - b.receivedAt || a.sequence - b.sequence);
-      ordered.forEach((event, index) => {
-        enqueueAnimation(event, index * 95, index, ordered.length);
+      const sampled = samplePropagationEvents(ordered);
+      const skipped = ordered.length - sampled.length;
+      if (skipped > 0) setVisualDroppedCount((count) => count + skipped);
+      sampled.forEach((event, index) => {
+        queueAnimation({ event, waveIndex: index, waveCount: sampled.length });
       });
     },
-    [enqueueAnimation],
+    [queueAnimation],
   );
 
   const scheduleAnimation = useCallback(
     (event: LivePacketEvent) => {
       if (!realisticPropagation) {
-        enqueueAnimation(event);
+        queueAnimation({ event, waveIndex: 0, waveCount: 1 });
         return;
       }
 
@@ -779,7 +999,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       const timer = setTimeout(() => flushPropagationGroup(event.packetHash), 420);
       propagationGroupsRef.current.set(event.packetHash, { events: [event], timer });
     },
-    [enqueueAnimation, flushPropagationGroup, realisticPropagation],
+    [flushPropagationGroup, queueAnimation, realisticPropagation],
   );
 
   useEffect(() => {
@@ -789,7 +1009,19 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     }
   }, [flushPropagationGroup, realisticPropagation]);
 
-  useLiveAnimationCanvas(mapRef, canvasRef, isReady, animationsRef, trailsRef, pulsesRef, trails, matrixMode, setActiveAnimations);
+  useLiveAnimationCanvas(
+    mapRef,
+    canvasRef,
+    isReady,
+    animationsRef,
+    trailsRef,
+    pulsesRef,
+    rainRef,
+    trails,
+    matrixRain,
+    matrixMode,
+    setActiveAnimations,
+  );
 
   const handlePacketObservation = useCallback(
     (data: WsPacketObservation["data"]) => {
@@ -841,6 +1073,11 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     animationsRef.current = [];
     trailsRef.current = [];
     pulsesRef.current = [];
+    rainRef.current = [];
+    visualQueueRef.current = [];
+    publishedVisualQueueSizeRef.current = 0;
+    setVisualQueueSize(0);
+    setVisualDroppedCount(0);
   };
 
   const ratePerMin = countRecent(events, now, 60_000);
@@ -859,7 +1096,9 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
           <span className="font-mono text-xs font-semibold tracking-wider text-text-bright">{paused ? "PAUSED" : "LIVE"}</span>
           <span className="font-mono text-[11px] text-text-dim">{regionKey}</span>
           {realisticPropagation && <span className="font-mono text-[10px] text-primary">FLOW</span>}
+          {colorByHash && <span className="font-mono text-[10px] text-secondary">COLOR</span>}
           {matrixMode && <span className="font-mono text-[10px] text-green">MATRIX</span>}
+          {matrixRain && <span className="font-mono text-[10px] text-green">RAIN</span>}
         </div>
         <LiveStat label="Packets" value={formatCount(totalPackets)} tone="green" />
         <LiveStat label="Rate" value={`${ratePerMin}/m`} />
@@ -900,12 +1139,16 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       <PayloadLegend payloads={payloads} />
       <LiveControlDock
         activeAnimations={activeAnimations}
+        colorByHash={colorByHash}
         feedVisible={feedVisible}
         laggedCount={laggedCount}
+        matrixRain={matrixRain}
         matrixMode={matrixMode}
         onClear={clearFeed}
+        onToggleColorByHash={() => setColorByHash((v) => !v)}
         onToggleFeed={() => setFeedVisible((v) => !v)}
         onToggleMatrix={() => setMatrixMode((v) => !v)}
+        onToggleRain={() => setMatrixRain((v) => !v)}
         onTogglePaused={paused ? resumeLive : () => setPaused(true)}
         onTogglePropagation={() => setRealisticPropagation((v) => !v)}
         onToggleTrails={() => setTrails((v) => !v)}
@@ -915,6 +1158,8 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
         realisticPropagation={realisticPropagation}
         totalPackets={totalPackets}
         trails={trails}
+        visualDroppedCount={visualDroppedCount}
+        visualQueueSize={visualQueueSize}
       />
 
       {error && (
