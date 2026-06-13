@@ -7,6 +7,7 @@ import {
   hexBytes,
   mergeQueuedEvents,
   normalizeHex,
+  pathChunks,
   payloadColor,
   payloadLabel,
   prependBounded,
@@ -121,5 +122,11 @@ describe("live packet model", () => {
     expect(normalizeHex("44 aa-10 zz")).toBe("44AA10");
     expect(hexBytes("44 aa 10")).toEqual(["44", "AA", "10"]);
     expect(hashColor("abc123")).toMatch(/^hsl\(\d+ 88% 60%\)$/);
+  });
+
+  it("splits path bytes into per-hop chunks", () => {
+    expect(pathChunks("aabbcc", 1, 3)).toEqual(["AA", "BB", "CC"]);
+    expect(pathChunks("aabbccdd", 2, 2)).toEqual(["AABB", "CCDD"]);
+    expect(pathChunks("aabbccdd", 1, 10, 2)).toEqual(["AA", "BB"]);
   });
 });

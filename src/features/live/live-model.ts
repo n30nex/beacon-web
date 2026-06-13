@@ -84,6 +84,21 @@ export function hexBytes(value: string | undefined, maxBytes = 72): string[] {
   return bytes;
 }
 
+export function pathChunks(pathBytes: string | undefined, hashSize: number | undefined, hopCount: number | undefined, maxHops = 8): string[] {
+  const normalized = normalizeHex(pathBytes);
+  const bytesPerHop = Math.max(1, Math.floor(hashSize ?? 0));
+  const charsPerHop = bytesPerHop * 2;
+  if (!normalized || charsPerHop <= 0) return [];
+
+  const expectedHops = Math.max(0, Math.floor(hopCount ?? normalized.length / charsPerHop));
+  const limit = Math.min(Math.max(0, maxHops), expectedHops || maxHops);
+  const chunks: string[] = [];
+  for (let i = 0; i + charsPerHop <= normalized.length && chunks.length < limit; i += charsPerHop) {
+    chunks.push(normalized.slice(i, i + charsPerHop));
+  }
+  return chunks;
+}
+
 export function hashColor(hash: string): string {
   const seed = hashSeed(hash);
   const hue = seed % 360;
