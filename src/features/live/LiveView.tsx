@@ -119,23 +119,20 @@ interface NodeCoord extends Coord {
   iatas: string[];
 }
 
-const MAX_ACTIVE_ANIMATIONS = 16;
-const MAX_PENDING_ANIMATIONS = 72;
+const MAX_ACTIVE_ANIMATIONS = 10;
+const MAX_PENDING_ANIMATIONS = 48;
 const MAX_PROPAGATION_WAVE_PATHS = 6;
 const MAX_HOPS_PER_PACKET = 6;
 const MAX_HEAT_POINTS = 72;
-const MAX_TRAILS = 32;
-const MAX_PULSES = 42;
-const MAX_RAIN_DROPS = 18;
+const MAX_TRAILS = 20;
+const MAX_PULSES = 30;
+const MAX_RAIN_DROPS = 10;
 const MAX_RAIN_BYTES = 14;
 const MAX_MATRIX_FLIGHT_BYTES = 8;
 const VISUAL_DRAIN_INTERVAL_MS = 115;
 const LIVE_FRAME_INTERVAL_MS = 34;
 const AUDIO_MIN_INTERVAL_MS = 85;
 const AUDIO_SCALE = [220, 247, 277, 330, 370, 415, 494, 554, 659, 740, 831, 988];
-const LIVE_FLOW_CAMERA_THROTTLE_MS = 6_500;
-const LIVE_FLOW_CAMERA_MIN_LAT_SPAN = 1.4;
-const LIVE_FLOW_CAMERA_MIN_LNG_SPAN = 1.8;
 
 function key(value: string): string {
   return value.trim().toLowerCase();
@@ -214,22 +211,6 @@ function resolveObserverTarget(
   const iataCoord = iataCoords.get(event.iata.toUpperCase());
   if (!iataCoord) return null;
   return { coord: iataCoord, node: null, label: event.iata.toUpperCase() };
-}
-
-function paddedPathBounds(from: Coord, to: Coord): [[number, number], [number, number]] {
-  const centerLat = (from.lat + to.lat) / 2;
-  const centerLng = (from.lng + to.lng) / 2;
-  const latSpan = Math.max(Math.abs(from.lat - to.lat), LIVE_FLOW_CAMERA_MIN_LAT_SPAN);
-  const lngSpan = Math.max(Math.abs(from.lng - to.lng), LIVE_FLOW_CAMERA_MIN_LNG_SPAN);
-  const south = Math.max(-85, centerLat - latSpan / 2);
-  const north = Math.min(85, centerLat + latSpan / 2);
-  const west = Math.max(-180, centerLng - lngSpan / 2);
-  const east = Math.min(180, centerLng + lngSpan / 2);
-
-  return [
-    [west, south],
-    [east, north],
-  ];
 }
 
 function samplePropagationEvents(events: LivePacketEvent[], cap = MAX_PROPAGATION_WAVE_PATHS): LivePacketEvent[] {
@@ -418,12 +399,12 @@ function useLiveAnimationCanvas(
 
           const progress = Math.max(0, Math.min(1, age / heat.lifetimeMs));
           const point = map.project([heat.coord.lng, heat.coord.lat]);
-          const radius = 18 + Math.min(28, heat.intensity * 6) + 16 * (1 - progress);
-          const alpha = (1 - progress) * Math.min(0.18, 0.07 + heat.intensity * 0.028);
+          const radius = 16 + Math.min(22, heat.intensity * 5) + 12 * (1 - progress);
+          const alpha = (1 - progress) * Math.min(0.11, 0.04 + heat.intensity * 0.018);
           const gradient = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius);
           gradient.addColorStop(0, `rgba(255, 87, 34, ${alpha})`);
-          gradient.addColorStop(0.38, `rgba(255, 202, 40, ${alpha * 0.68})`);
-          gradient.addColorStop(0.72, `rgba(66, 165, 245, ${alpha * 0.36})`);
+          gradient.addColorStop(0.38, `rgba(255, 202, 40, ${alpha * 0.5})`);
+          gradient.addColorStop(0.72, `rgba(66, 165, 245, ${alpha * 0.24})`);
           gradient.addColorStop(1, "rgba(13, 71, 161, 0)");
 
           ctx.save();
@@ -455,10 +436,10 @@ function useLiveAnimationCanvas(
 
           ctx.save();
           ctx.globalCompositeOperation = "lighter";
-          ctx.globalAlpha = (1 - progress) * (matrixMode ? 0.28 : 0.24);
+          ctx.globalAlpha = (1 - progress) * (matrixMode ? 0.2 : 0.13);
           ctx.strokeStyle = color;
-          ctx.lineWidth = matrixMode ? 1.15 : 1.7;
-          ctx.shadowBlur = matrixMode ? 8 : 6;
+          ctx.lineWidth = matrixMode ? 1 : 1.25;
+          ctx.shadowBlur = matrixMode ? 5 : 2.5;
           ctx.shadowColor = color;
           drawProjectedPath(projectedTrail);
           ctx.stroke();
@@ -488,24 +469,24 @@ function useLiveAnimationCanvas(
         ctx.strokeStyle = color;
         ctx.fillStyle = color;
         ctx.shadowColor = color;
-        ctx.shadowBlur = matrixMode ? 12 : 14;
+        ctx.shadowBlur = matrixMode ? 8 : 5;
 
-        ctx.globalAlpha = (matrixMode ? 0.42 : 0.46) * (1 - progress);
-        ctx.lineWidth = 1.55 + energy * 0.45;
+        ctx.globalAlpha = (matrixMode ? 0.32 : 0.26) * (1 - progress);
+        ctx.lineWidth = 1.3 + energy * 0.28;
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 7 + 34 * progress, 0, Math.PI * 2);
+        ctx.arc(point.x, point.y, 6 + 24 * progress, 0, Math.PI * 2);
         ctx.stroke();
 
-        ctx.globalAlpha = 0.18 * (1 - progress);
-        ctx.lineWidth = 1.2;
+        ctx.globalAlpha = 0.07 * (1 - progress);
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 16 + 54 * progress, 0, Math.PI * 2);
+        ctx.arc(point.x, point.y, 12 + 36 * progress, 0, Math.PI * 2);
         ctx.stroke();
 
-        ctx.globalAlpha = Math.max(0.12, 0.42 * (1 - progress));
-        ctx.shadowBlur = matrixMode ? 8 : 10;
+        ctx.globalAlpha = Math.max(0.09, 0.3 * (1 - progress));
+        ctx.shadowBlur = matrixMode ? 6 : 4;
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 3.5 + energy * 1.1, 0, Math.PI * 2);
+        ctx.arc(point.x, point.y, 3 + energy * 0.8, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }
@@ -579,7 +560,7 @@ function useLiveAnimationCanvas(
               to: anim.to,
               path: anim.path,
               createdAt: now,
-              lifetimeMs: matrixMode ? 10_000 : 18_000,
+              lifetimeMs: matrixMode ? 7_000 : 9_000,
               color: anim.color,
             });
           }
@@ -599,39 +580,39 @@ function useLiveAnimationCanvas(
         const to = projectedPath[projectedPath.length - 1]!;
         const x = current.x;
         const y = current.y;
-        const alpha = Math.max(0.22, 1 - progress * 0.58);
+        const alpha = Math.max(0.18, 1 - progress * 0.64);
         const color = matrixMode ? matrixColor : anim.color;
         const pathDistance = current.totalDistance || Math.hypot(to.x - from.x, to.y - from.y);
 
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
-        ctx.globalAlpha = matrixMode ? 0.1 : 0.09;
+        ctx.globalAlpha = matrixMode ? 0.07 : 0.045;
         ctx.strokeStyle = color;
-        ctx.lineWidth = matrixMode ? 4.2 : 4.8;
-        ctx.shadowBlur = 7;
+        ctx.lineWidth = matrixMode ? 3.2 : 3.4;
+        ctx.shadowBlur = 3;
         ctx.shadowColor = color;
         drawProjectedPath(projectedPath);
         ctx.stroke();
 
-        ctx.globalAlpha = matrixMode ? 0.24 : 0.2;
+        ctx.globalAlpha = matrixMode ? 0.18 : 0.12;
         ctx.strokeStyle = color;
-        ctx.lineWidth = matrixMode ? 1.3 : 1.6;
+        ctx.lineWidth = matrixMode ? 1.1 : 1.2;
         ctx.setLineDash([4, 9]);
         drawProjectedPath(projectedPath);
         ctx.stroke();
 
         ctx.setLineDash([]);
-        ctx.globalAlpha = alpha * (matrixMode ? 0.62 : 0.7);
+        ctx.globalAlpha = alpha * (matrixMode ? 0.5 : 0.46);
         ctx.strokeStyle = color;
-        ctx.lineWidth = matrixMode ? 2.6 : 3.2;
-        ctx.shadowBlur = matrixMode ? 10 : 12;
+        ctx.lineWidth = matrixMode ? 2.1 : 2.25;
+        ctx.shadowBlur = matrixMode ? 6 : 4;
         ctx.shadowColor = color;
         strokeProgressPath(projectedPath, eased);
         ctx.stroke();
 
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.arc(x, y, 4.5 + 1.8 * (1 - progress), 0, Math.PI * 2);
+        ctx.arc(x, y, 3.8 + 1.2 * (1 - progress), 0, Math.PI * 2);
         ctx.fill();
 
         if (matrixMode) {
@@ -659,16 +640,16 @@ function useLiveAnimationCanvas(
           }
         }
 
-        ctx.globalAlpha = Math.max(0.1, 0.34 * (1 - progress));
+        ctx.globalAlpha = Math.max(0.06, 0.2 * (1 - progress));
         ctx.shadowBlur = 0;
-        ctx.lineWidth = 1.8;
+        ctx.lineWidth = 1.35;
         ctx.beginPath();
         ctx.arc(from.x, from.y, 5 + 10 * Math.min(1, progress * 2.5), 0, Math.PI * 2);
         ctx.stroke();
 
         if (anim.waveCount > 1 && progress < 0.58) {
           const ripple = Math.max(0, progress / 0.58);
-          ctx.globalAlpha = 0.14 * (1 - ripple);
+          ctx.globalAlpha = 0.08 * (1 - ripple);
           ctx.shadowBlur = 0;
           ctx.lineWidth = 1.25;
           ctx.beginPath();
@@ -678,17 +659,17 @@ function useLiveAnimationCanvas(
 
         if (progress > 0.7) {
           const pulse = (progress - 0.7) / 0.3;
-          ctx.globalAlpha = 0.36 * (1 - pulse);
+          ctx.globalAlpha = 0.22 * (1 - pulse);
           ctx.shadowBlur = 0;
-          ctx.lineWidth = 3;
+          ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.arc(to.x, to.y, 8 + 18 * pulse, 0, Math.PI * 2);
           ctx.stroke();
         }
 
         if (pathDistance > 72 && progress > 0.16 && progress < 0.9) {
-          ctx.globalAlpha = matrixMode ? 0.48 : 0.42;
-          ctx.shadowBlur = 3;
+          ctx.globalAlpha = matrixMode ? 0.38 : 0.26;
+          ctx.shadowBlur = 0;
           ctx.font = "10px JetBrains Mono, monospace";
           ctx.fillStyle = color;
           ctx.fillText(payloadLabel(anim.event.payloadTypeName).slice(0, 10), x + 8, y - 8);
@@ -779,12 +760,14 @@ function LiveStat({
 
 function LiveControlButton({
   active,
+  className = "",
   danger,
   label,
   onClick,
   title,
 }: {
   active?: boolean;
+  className?: string;
   danger?: boolean;
   label: string;
   onClick: () => void;
@@ -798,7 +781,7 @@ function LiveControlButton({
   return (
     <button
       type="button"
-      className={`shrink-0 rounded border px-2 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors md:px-2.5 md:text-[11px] ${activeClass}`}
+      className={`shrink-0 rounded border px-2 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors md:px-2.5 md:text-[11px] ${activeClass} ${className}`}
       onClick={onClick}
       aria-pressed={active}
       title={title}
@@ -896,13 +879,13 @@ function LiveControlDock({
 
       <LiveControlButton label="Trails" active={trails} onClick={onToggleTrails} title="Toggle persistent map trails" />
       <LiveControlButton label="Pace" active={realisticPropagation} onClick={onTogglePropagation} title="Pace repeated observations before rendering" />
-      <LiveControlButton label="Heat" active={heatVisible} onClick={onToggleHeat} title="Toggle live activity heat overlay" />
-      <LiveControlButton label="Color" active={colorByHash} onClick={onToggleColorByHash} title="Color packet paths by hash" />
-      <LiveControlButton label="Matrix" active={matrixMode} onClick={onToggleMatrix} title="Toggle matrix scan view" />
-      <LiveControlButton label="Rain" active={matrixRain} onClick={onToggleRain} title="Toggle packet byte rain" />
-      <LiveControlButton label="Audio" active={audioEnabled} onClick={onToggleAudio} title="Sonify paced live packets" />
+      <LiveControlButton className="hidden sm:inline-flex" label="Heat" active={heatVisible} onClick={onToggleHeat} title="Toggle live activity heat overlay" />
+      <LiveControlButton className="hidden sm:inline-flex" label="Color" active={colorByHash} onClick={onToggleColorByHash} title="Color packet paths by hash" />
+      <LiveControlButton className="hidden sm:inline-flex" label="Matrix" active={matrixMode} onClick={onToggleMatrix} title="Toggle matrix scan view" />
+      <LiveControlButton className="hidden sm:inline-flex" label="Rain" active={matrixRain} onClick={onToggleRain} title="Toggle packet byte rain" />
+      <LiveControlButton className="hidden sm:inline-flex" label="Audio" active={audioEnabled} onClick={onToggleAudio} title="Sonify paced live packets" />
       {audioEnabled && (
-        <div className="flex shrink-0 items-center gap-2 rounded border border-border bg-bg-raised px-2 py-1 font-mono text-[10px] font-semibold text-text-muted">
+        <div className="hidden shrink-0 items-center gap-2 rounded border border-border bg-bg-raised px-2 py-1 font-mono text-[10px] font-semibold text-text-muted sm:flex">
           <label className="flex items-center gap-1">
             VOL
             <input
@@ -930,7 +913,7 @@ function LiveControlDock({
         </div>
       )}
       <LiveControlButton label="Feed" active={feedVisible} onClick={onToggleFeed} title="Toggle packet feed" />
-      <LiveControlButton label="Clear" danger onClick={onClear} title="Clear local live buffer" />
+      <LiveControlButton className="hidden sm:inline-flex" label="Clear" danger onClick={onClear} title="Clear local live buffer" />
     </div>
   );
 }
@@ -1029,7 +1012,6 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   const audioBpmRef = useRef(132);
   const lastAudioAtRef = useRef(0);
   const propagationGroupsRef = useRef(new Map<string, PropagationGroup>());
-  const flowCameraRef = useRef({ lastFocusedAt: 0 });
   const sequenceRef = useRef(0);
   const pausedRef = useRef(false);
 
@@ -1037,7 +1019,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     () => resolveMapStyle(localStorage.getItem(MAP_STYLE_STORAGE_KEY) ?? DEFAULT_STYLE_ID).id,
   );
   const [typeFilter, setTypeFilter] = useState("");
-  const [clustered, setClustered] = useState(true);
+  const [clustered, setClustered] = useState(false);
   const [events, setEvents] = useState<LivePacketEvent[]>([]);
   const [queuedEvents, setQueuedEvents] = useState<LivePacketEvent[]>([]);
   const [paused, setPaused] = useState(false);
@@ -1155,42 +1137,10 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   const baseFc = useMemo(() => nodesToFeatureCollection(nodes), [nodes]);
   const geojson = useMemo(() => filterByNodeType(baseFc, typeFilter), [baseFc, typeFilter]);
 
-  const fitPoints = useMemo<[number, number][] | null>(() => {
-    const withCoords = (iataCodes ?? []).filter((i) => i.lat != null && i.lon != null);
-    if (withCoords.length === 0) return null;
-    const scope = selectedIatas && selectedIatas.length > 0 ? new Set(selectedIatas) : null;
-    const chosen = scope ? withCoords.filter((i) => scope.has(i.iata)) : withCoords;
-    return chosen.length > 0 ? chosen.map((i) => [i.lon!, i.lat!]) : null;
-  }, [iataCodes, selectedIatas]);
-
-  const { containerRef, mapRef, isReady, error } = useMapLibre(styleId, fitPoints, handleStyleError);
+  const { containerRef, mapRef, isReady, error } = useMapLibre(styleId, null, handleStyleError);
   const isDark = resolveMapStyle(styleId).dark;
 
   useMapNodes(mapRef, isReady, geojson, isDark, themeKey, clustered, setSelectedNodeId, selectedNodeId, `${regionKey}:${typeFilter}`);
-
-  const focusLivePath = useCallback(
-    (coords: { from: Coord; to: Coord }) => {
-      const map = mapRef.current;
-      if (!map || !isReady || !realisticPropagation) return;
-
-      const nowMs = performance.now();
-      if (nowMs - flowCameraRef.current.lastFocusedAt < LIVE_FLOW_CAMERA_THROTTLE_MS) return;
-      flowCameraRef.current.lastFocusedAt = nowMs;
-
-      const container = map.getContainer();
-      const compact = container.clientWidth < 768;
-      map.fitBounds(paddedPathBounds(coords.from, coords.to), {
-        padding: compact
-          ? { top: 150, right: 40, bottom: 220, left: 40 }
-          : { top: 118, right: 332, bottom: 138, left: 470 },
-        maxZoom: 7.15,
-        duration: 850,
-        bearing: 0,
-        pitch: 0,
-      });
-    },
-    [isReady, mapRef, realisticPropagation],
-  );
 
   const playPacketAudio = useCallback(
     (event: LivePacketEvent) => {
@@ -1329,9 +1279,6 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
         }
       }
 
-      if (hasRoute && routeFrom && routeTo) {
-        focusLivePath({ from: routeFrom, to: routeTo });
-      }
       playPacketAudio(event);
 
       if (hasRoute && path && routeFrom && routeTo && animationsRef.current.length < MAX_ACTIVE_ANIMATIONS) {
@@ -1357,7 +1304,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       requestCanvasFrameRef.current?.();
       return true;
     },
-    [byPathPrefix, colorByHash, focusLivePath, heatVisible, iataCoords, matrixMode, matrixRain, nodeCoords, playPacketAudio],
+    [byPathPrefix, colorByHash, heatVisible, iataCoords, matrixMode, matrixRain, nodeCoords, playPacketAudio],
   );
 
   const queueAnimation = useCallback((request: LiveAnimationRequest) => {
