@@ -130,19 +130,21 @@ interface NodeCoord extends Coord {
   iatas: string[];
 }
 
-const MAX_ACTIVE_ANIMATIONS = 24;
-const MAX_PENDING_ANIMATIONS = 96;
-const MAX_PROPAGATION_WAVE_PATHS = 8;
-const MAX_HOPS_PER_PACKET = 8;
-const MAX_GHOST_HOPS = 64;
-const MAX_HEAT_POINTS = 180;
-const MAX_TRAILS = 56;
-const MAX_PULSES = 64;
-const MAX_RAIN_DROPS = 34;
-const MAX_RAIN_BYTES = 24;
-const MAX_MATRIX_FLIGHT_BYTES = 12;
-const VISUAL_DRAIN_INTERVAL_MS = 90;
-const LIVE_FLOW_CAMERA_THROTTLE_MS = 2_800;
+const MAX_ACTIVE_ANIMATIONS = 16;
+const MAX_PENDING_ANIMATIONS = 72;
+const MAX_PROPAGATION_WAVE_PATHS = 6;
+const MAX_HOPS_PER_PACKET = 6;
+const MAX_GHOST_HOPS = 36;
+const MAX_HEAT_POINTS = 72;
+const MAX_TRAILS = 32;
+const MAX_PULSES = 42;
+const MAX_RAIN_DROPS = 18;
+const MAX_RAIN_BYTES = 14;
+const MAX_MATRIX_FLIGHT_BYTES = 8;
+const VISUAL_DRAIN_INTERVAL_MS = 115;
+const AUDIO_MIN_INTERVAL_MS = 85;
+const AUDIO_SCALE = [220, 247, 277, 330, 370, 415, 494, 554, 659, 740, 831, 988];
+const LIVE_FLOW_CAMERA_THROTTLE_MS = 6_500;
 const LIVE_FLOW_CAMERA_MIN_LAT_SPAN = 1.4;
 const LIVE_FLOW_CAMERA_MIN_LNG_SPAN = 1.8;
 
@@ -207,6 +209,19 @@ function offsetCoord(to: Coord, seed: number): Coord {
 function readCssVar(name: string, fallback: string): string {
   if (typeof window === "undefined") return fallback;
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
+
+function storedNumber(key: string, fallback: number, min: number, max: number): number {
+  if (typeof window === "undefined") return fallback;
+  const raw = Number.parseFloat(localStorage.getItem(key) ?? "");
+  if (!Number.isFinite(raw)) return fallback;
+  return Math.max(min, Math.min(max, raw));
+}
+
+function packetFrequency(byte: number, payloadType: number, hopCount: number): number {
+  const octave = byte > 205 ? 2 : byte > 122 ? 1 : 0;
+  const scaleIndex = (byte + payloadType + hopCount) % AUDIO_SCALE.length;
+  return AUDIO_SCALE[scaleIndex]! * 2 ** octave;
 }
 
 function resolvePacketCoords(
@@ -356,7 +371,7 @@ function useLiveAnimationCanvas(
       const fallbackRect = canvas.parentElement?.getBoundingClientRect();
       const width = rect.width || fallbackRect?.width || 1;
       const height = rect.height || fallbackRect?.height || 1;
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.4);
       canvas.width = Math.max(1, Math.floor(width * dpr));
       canvas.height = Math.max(1, Math.floor(height * dpr));
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -442,8 +457,8 @@ function useLiveAnimationCanvas(
 
           const progress = Math.max(0, Math.min(1, age / heat.lifetimeMs));
           const point = map.project([heat.coord.lng, heat.coord.lat]);
-          const radius = 22 + Math.min(42, heat.intensity * 9) + 28 * (1 - progress);
-          const alpha = (1 - progress) * Math.min(0.42, 0.13 + heat.intensity * 0.06);
+          const radius = 18 + Math.min(28, heat.intensity * 6) + 16 * (1 - progress);
+          const alpha = (1 - progress) * Math.min(0.18, 0.07 + heat.intensity * 0.028);
           const gradient = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius);
           gradient.addColorStop(0, `rgba(255, 87, 34, ${alpha})`);
           gradient.addColorStop(0.38, `rgba(255, 202, 40, ${alpha * 0.68})`);
@@ -479,10 +494,10 @@ function useLiveAnimationCanvas(
 
           ctx.save();
           ctx.globalCompositeOperation = "lighter";
-          ctx.globalAlpha = (1 - progress) * (matrixMode ? 0.52 : 0.42);
+          ctx.globalAlpha = (1 - progress) * (matrixMode ? 0.28 : 0.24);
           ctx.strokeStyle = color;
-          ctx.lineWidth = matrixMode ? 1.8 : 2.6;
-          ctx.shadowBlur = matrixMode ? 18 : 14;
+          ctx.lineWidth = matrixMode ? 1.15 : 1.7;
+          ctx.shadowBlur = matrixMode ? 8 : 6;
           ctx.shadowColor = color;
           drawProjectedPath(projectedTrail);
           ctx.stroke();
@@ -512,24 +527,24 @@ function useLiveAnimationCanvas(
         ctx.strokeStyle = color;
         ctx.fillStyle = color;
         ctx.shadowColor = color;
-        ctx.shadowBlur = matrixMode ? 26 : 32;
+        ctx.shadowBlur = matrixMode ? 12 : 14;
 
-        ctx.globalAlpha = (matrixMode ? 0.72 : 0.78) * (1 - progress);
-        ctx.lineWidth = 2.4 + energy * 0.7;
+        ctx.globalAlpha = (matrixMode ? 0.42 : 0.46) * (1 - progress);
+        ctx.lineWidth = 1.55 + energy * 0.45;
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 8 + 54 * progress, 0, Math.PI * 2);
+        ctx.arc(point.x, point.y, 7 + 34 * progress, 0, Math.PI * 2);
         ctx.stroke();
 
-        ctx.globalAlpha = 0.34 * (1 - progress);
+        ctx.globalAlpha = 0.18 * (1 - progress);
         ctx.lineWidth = 1.2;
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 20 + 88 * progress, 0, Math.PI * 2);
+        ctx.arc(point.x, point.y, 16 + 54 * progress, 0, Math.PI * 2);
         ctx.stroke();
 
-        ctx.globalAlpha = Math.max(0.18, 0.62 * (1 - progress));
-        ctx.shadowBlur = matrixMode ? 16 : 22;
+        ctx.globalAlpha = Math.max(0.12, 0.42 * (1 - progress));
+        ctx.shadowBlur = matrixMode ? 8 : 10;
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 4.5 + energy * 1.6, 0, Math.PI * 2);
+        ctx.arc(point.x, point.y, 3.5 + energy * 1.1, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }
@@ -555,21 +570,21 @@ function useLiveAnimationCanvas(
           ctx.strokeStyle = color;
           ctx.fillStyle = color;
           ctx.shadowColor = color;
-          ctx.shadowBlur = matrixMode ? 20 : 14;
-          ctx.globalAlpha = (1 - progress) * (0.32 + pulse * 0.26);
+          ctx.shadowBlur = matrixMode ? 10 : 7;
+          ctx.globalAlpha = (1 - progress) * (0.2 + pulse * 0.16);
           ctx.setLineDash([3, 6]);
           ctx.lineWidth = 1.4;
           ctx.beginPath();
-          ctx.arc(point.x, point.y, 8 + 16 * pulse, 0, Math.PI * 2);
+          ctx.arc(point.x, point.y, 7 + 11 * pulse, 0, Math.PI * 2);
           ctx.stroke();
           ctx.setLineDash([]);
-          ctx.globalAlpha = (1 - progress) * 0.48;
+          ctx.globalAlpha = (1 - progress) * 0.32;
           ctx.beginPath();
           ctx.arc(point.x, point.y, 3.5, 0, Math.PI * 2);
           ctx.fill();
           if (progress < 0.72) {
             ctx.font = "10px JetBrains Mono, monospace";
-            ctx.globalAlpha = (1 - progress / 0.72) * 0.7;
+            ctx.globalAlpha = (1 - progress / 0.72) * 0.45;
             ctx.fillText(ghost.label.slice(0, 6), point.x + 8, point.y - 7);
           }
           ctx.restore();
@@ -611,17 +626,17 @@ function useLiveAnimationCanvas(
             if (fade <= 0) continue;
             const byte = drop.bytes[(scrollOffset + i) % drop.bytes.length]!;
             if (i === 0) {
-              ctx.globalAlpha = Math.min(1, fade);
+              ctx.globalAlpha = Math.min(0.72, fade);
               ctx.font = `700 ${matrixMode ? 16 : 14}px JetBrains Mono, monospace`;
               ctx.fillStyle = matrixMode ? "#FFFFFF" : drop.color;
               ctx.shadowColor = matrixMode ? matrixColor : drop.color;
-              ctx.shadowBlur = matrixMode ? 18 : 12;
+              ctx.shadowBlur = matrixMode ? 9 : 6;
             } else {
-              ctx.globalAlpha = fade * (matrixMode ? 0.78 : 0.46);
+              ctx.globalAlpha = fade * (matrixMode ? 0.42 : 0.26);
               ctx.font = `${matrixMode ? 13 : 12}px JetBrains Mono, monospace`;
               ctx.fillStyle = matrixMode ? matrixColor : drop.color;
               ctx.shadowColor = matrixMode ? matrixColor : drop.color;
-              ctx.shadowBlur = matrixMode ? 7 : 5;
+              ctx.shadowBlur = matrixMode ? 3 : 2;
             }
             ctx.fillText(byte, x, y);
           }
@@ -673,33 +688,33 @@ function useLiveAnimationCanvas(
 
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
-        ctx.globalAlpha = matrixMode ? 0.22 : 0.2;
+        ctx.globalAlpha = matrixMode ? 0.1 : 0.09;
         ctx.strokeStyle = color;
-        ctx.lineWidth = matrixMode ? 7 : 8;
-        ctx.shadowBlur = 18;
+        ctx.lineWidth = matrixMode ? 4.2 : 4.8;
+        ctx.shadowBlur = 7;
         ctx.shadowColor = color;
         drawProjectedPath(projectedPath);
         ctx.stroke();
 
-        ctx.globalAlpha = matrixMode ? 0.46 : 0.4;
+        ctx.globalAlpha = matrixMode ? 0.24 : 0.2;
         ctx.strokeStyle = color;
-        ctx.lineWidth = matrixMode ? 2 : 2.5;
+        ctx.lineWidth = matrixMode ? 1.3 : 1.6;
         ctx.setLineDash([4, 9]);
         drawProjectedPath(projectedPath);
         ctx.stroke();
 
         ctx.setLineDash([]);
-        ctx.globalAlpha = alpha;
+        ctx.globalAlpha = alpha * (matrixMode ? 0.62 : 0.7);
         ctx.strokeStyle = color;
-        ctx.lineWidth = matrixMode ? 4.5 : 5.5;
-        ctx.shadowBlur = matrixMode ? 24 : 30;
+        ctx.lineWidth = matrixMode ? 2.6 : 3.2;
+        ctx.shadowBlur = matrixMode ? 10 : 12;
         ctx.shadowColor = color;
         strokeProgressPath(projectedPath, eased);
         ctx.stroke();
 
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.arc(x, y, 6 + 3 * (1 - progress), 0, Math.PI * 2);
+        ctx.arc(x, y, 4.5 + 1.8 * (1 - progress), 0, Math.PI * 2);
         ctx.fill();
 
         if (matrixMode) {
@@ -716,47 +731,47 @@ function useLiveAnimationCanvas(
               const t = Math.max(0, 1 - offset / pathLength);
               const bx = current.from.x + dx * t + nx * 10;
               const by = current.from.y + dy * t + ny * 10;
-              const alphaByte = Math.max(0.14, (1 - i / 4) * (1 - progress * 0.28));
-              ctx.globalAlpha = i === 0 ? Math.min(1, alphaByte + 0.2) : alphaByte;
+              const alphaByte = Math.max(0.08, (1 - i / 4) * (1 - progress * 0.28) * 0.58);
+              ctx.globalAlpha = i === 0 ? Math.min(0.72, alphaByte + 0.12) : alphaByte;
               ctx.font = `${i === 0 ? "700 " : ""}${Math.max(10, 15 - i)}px JetBrains Mono, monospace`;
               ctx.fillStyle = i === 0 ? "#FFFFFF" : matrixColor;
-              ctx.shadowBlur = i === 0 ? 22 : 10;
+              ctx.shadowBlur = i === 0 ? 9 : 4;
               ctx.shadowColor = matrixColor;
               ctx.fillText(anim.bytes[(Math.floor(progress * anim.bytes.length * 1.8) + i) % anim.bytes.length]!, bx, by);
             }
           }
         }
 
-        ctx.globalAlpha = Math.max(0.18, 0.55 * (1 - progress));
+        ctx.globalAlpha = Math.max(0.1, 0.34 * (1 - progress));
         ctx.shadowBlur = 0;
         ctx.lineWidth = 1.8;
         ctx.beginPath();
-        ctx.arc(from.x, from.y, 6 + 16 * Math.min(1, progress * 2.5), 0, Math.PI * 2);
+        ctx.arc(from.x, from.y, 5 + 10 * Math.min(1, progress * 2.5), 0, Math.PI * 2);
         ctx.stroke();
 
         if (anim.waveCount > 1 && progress < 0.58) {
           const ripple = Math.max(0, progress / 0.58);
-          ctx.globalAlpha = 0.24 * (1 - ripple);
+          ctx.globalAlpha = 0.14 * (1 - ripple);
           ctx.shadowBlur = 0;
           ctx.lineWidth = 1.25;
           ctx.beginPath();
-          ctx.arc(from.x, from.y, 8 + (18 + anim.waveIndex * 3) * ripple, 0, Math.PI * 2);
+          ctx.arc(from.x, from.y, 7 + (12 + anim.waveIndex * 2) * ripple, 0, Math.PI * 2);
           ctx.stroke();
         }
 
         if (progress > 0.7) {
           const pulse = (progress - 0.7) / 0.3;
-          ctx.globalAlpha = 0.68 * (1 - pulse);
+          ctx.globalAlpha = 0.36 * (1 - pulse);
           ctx.shadowBlur = 0;
           ctx.lineWidth = 3;
           ctx.beginPath();
-          ctx.arc(to.x, to.y, 10 + 30 * pulse, 0, Math.PI * 2);
+          ctx.arc(to.x, to.y, 8 + 18 * pulse, 0, Math.PI * 2);
           ctx.stroke();
         }
 
         if (pathDistance > 72 && progress > 0.16 && progress < 0.9) {
-          ctx.globalAlpha = matrixMode ? 0.88 : 0.74;
-          ctx.shadowBlur = 8;
+          ctx.globalAlpha = matrixMode ? 0.48 : 0.42;
+          ctx.shadowBlur = 3;
           ctx.font = "10px JetBrains Mono, monospace";
           ctx.fillStyle = color;
           ctx.fillText(payloadLabel(anim.event.payloadTypeName).slice(0, 10), x + 8, y - 8);
@@ -807,10 +822,20 @@ function useLiveAnimationCanvas(
   ]);
 }
 
-function LiveStat({ label, value, tone = "primary" }: { label: string; value: string | number; tone?: "primary" | "green" | "warn" }) {
+function LiveStat({
+  className = "",
+  label,
+  value,
+  tone = "primary",
+}: {
+  className?: string;
+  label: string;
+  value: string | number;
+  tone?: "primary" | "green" | "warn";
+}) {
   const toneClass = tone === "green" ? "text-green" : tone === "warn" ? "text-warn" : "text-primary";
   return (
-    <div className="min-w-18 px-3 py-2 bg-bg-surface/88 border border-border rounded backdrop-blur">
+    <div className={`min-w-18 px-3 py-2 bg-bg-surface/88 border border-border rounded backdrop-blur ${className}`}>
       <div className="text-[10px] font-mono uppercase tracking-wider text-text-dim">{label}</div>
       <div className={`font-mono text-lg leading-none font-semibold ${toneClass}`}>{value}</div>
     </div>
@@ -838,7 +863,7 @@ function LiveControlButton({
   return (
     <button
       type="button"
-      className={`shrink-0 rounded border px-2.5 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-wide transition-colors ${activeClass}`}
+      className={`shrink-0 rounded border px-2 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors md:px-2.5 md:text-[11px] ${activeClass}`}
       onClick={onClick}
       aria-pressed={active}
       title={title}
@@ -850,6 +875,9 @@ function LiveControlButton({
 
 function LiveControlDock({
   activeAnimations,
+  audioBpm,
+  audioEnabled,
+  audioVolume,
   colorByHash,
   feedVisible,
   ghostHops,
@@ -858,7 +886,10 @@ function LiveControlDock({
   matrixRain,
   matrixMode,
   onClear,
+  onAudioBpmChange,
+  onAudioVolumeChange,
   onToggleColorByHash,
+  onToggleAudio,
   onToggleFeed,
   onToggleGhostHops,
   onToggleHeat,
@@ -877,6 +908,9 @@ function LiveControlDock({
   visualQueueSize,
 }: {
   activeAnimations: number;
+  audioBpm: number;
+  audioEnabled: boolean;
+  audioVolume: number;
   colorByHash: boolean;
   feedVisible: boolean;
   ghostHops: boolean;
@@ -885,6 +919,9 @@ function LiveControlDock({
   matrixRain: boolean;
   matrixMode: boolean;
   onClear: () => void;
+  onAudioBpmChange: (value: number) => void;
+  onAudioVolumeChange: (value: number) => void;
+  onToggleAudio: () => void;
   onToggleColorByHash: () => void;
   onToggleFeed: () => void;
   onToggleGhostHops: () => void;
@@ -904,11 +941,11 @@ function LiveControlDock({
   visualQueueSize: number;
 }) {
   return (
-    <div className="absolute left-3 right-3 bottom-3 z-20 flex flex-wrap items-center gap-2 rounded border border-border bg-bg-surface/92 p-2 shadow-xl backdrop-blur md:left-auto md:w-fit">
-      <div className="flex min-w-0 items-center gap-2 pr-1">
+    <div className="absolute left-2 right-2 bottom-2 z-20 flex max-w-[calc(100vw-16px)] flex-nowrap items-center gap-1.5 overflow-x-auto rounded border border-border bg-bg-surface/88 p-1.5 shadow-xl backdrop-blur md:left-auto md:right-3 md:bottom-3 md:w-fit md:max-w-[calc(100vw-24px)] md:flex-wrap md:gap-2 md:p-2">
+      <div className="flex min-w-0 shrink-0 items-center gap-1.5 pr-1 md:gap-2">
         <LiveControlButton label={paused ? "Resume" : "Pause"} active={paused} onClick={onTogglePaused} />
         <div
-          className={`flex items-center gap-1.5 rounded border px-2.5 py-1.5 font-mono text-[11px] font-semibold tracking-wider ${
+          className={`flex items-center gap-1.5 rounded border px-2 py-1.5 font-mono text-[10px] font-semibold tracking-wider md:px-2.5 md:text-[11px] ${
             paused ? "border-warn/25 bg-warn/8 text-warn" : "border-green/20 bg-green/8 text-green"
           }`}
         >
@@ -933,6 +970,35 @@ function LiveControlDock({
       <LiveControlButton label="Color" active={colorByHash} onClick={onToggleColorByHash} title="Color packet paths by hash" />
       <LiveControlButton label="Matrix" active={matrixMode} onClick={onToggleMatrix} title="Toggle matrix scan view" />
       <LiveControlButton label="Rain" active={matrixRain} onClick={onToggleRain} title="Toggle packet byte rain" />
+      <LiveControlButton label="Audio" active={audioEnabled} onClick={onToggleAudio} title="Sonify paced live packets" />
+      {audioEnabled && (
+        <div className="flex shrink-0 items-center gap-2 rounded border border-border bg-bg-raised px-2 py-1 font-mono text-[10px] font-semibold text-text-muted">
+          <label className="flex items-center gap-1">
+            VOL
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(audioVolume * 100)}
+              onChange={(event) => onAudioVolumeChange(Number(event.currentTarget.value) / 100)}
+              className="h-1.5 w-12 accent-primary sm:w-16"
+              aria-label="Audio volume"
+            />
+          </label>
+          <label className="hidden items-center gap-1 lg:flex">
+            BPM
+            <input
+              type="range"
+              min={60}
+              max={240}
+              value={audioBpm}
+              onChange={(event) => onAudioBpmChange(Number(event.currentTarget.value))}
+              className="h-1.5 w-14 accent-primary"
+              aria-label="Audio BPM"
+            />
+          </label>
+        </div>
+      )}
       <LiveControlButton label="Feed" active={feedVisible} onClick={onToggleFeed} title="Toggle packet feed" />
       <LiveControlButton label="Clear" danger onClick={onClear} title="Clear local live buffer" />
     </div>
@@ -1026,6 +1092,12 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   const ghostsRef = useRef<LiveGhostHop[]>([]);
   const visualQueueRef = useRef<LiveAnimationRequest[]>([]);
   const publishedVisualQueueSizeRef = useRef(0);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioGainRef = useRef<GainNode | null>(null);
+  const audioEnabledRef = useRef(false);
+  const audioVolumeRef = useRef(0.22);
+  const audioBpmRef = useRef(132);
+  const lastAudioAtRef = useRef(0);
   const propagationGroupsRef = useRef(new Map<string, PropagationGroup>());
   const previousByHashRef = useRef(new Map<string, Coord>());
   const flowCameraRef = useRef({ lastFocusedAt: 0 });
@@ -1042,12 +1114,15 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   const [paused, setPaused] = useState(false);
   const [trails, setTrails] = useState(true);
   const [realisticPropagation, setRealisticPropagation] = useState(true);
-  const [heatVisible, setHeatVisible] = useState(true);
+  const [heatVisible, setHeatVisible] = useState(false);
   const [ghostHops, setGhostHops] = useState(true);
   const [colorByHash, setColorByHash] = useState(true);
   const [matrixMode, setMatrixMode] = useState(false);
   const [matrixRain, setMatrixRain] = useState(false);
-  const [feedVisible, setFeedVisible] = useState(true);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [audioVolume, setAudioVolume] = useState(() => storedNumber("live-audio-volume", 0.22, 0, 1));
+  const [audioBpm, setAudioBpm] = useState(() => Math.round(storedNumber("live-audio-bpm", 132, 60, 240)));
+  const [feedVisible, setFeedVisible] = useState(() => (typeof window === "undefined" ? true : window.innerWidth >= 768));
   const [totalPackets, setTotalPackets] = useState(0);
   const [laggedCount, setLaggedCount] = useState(0);
   const [visualQueueSize, setVisualQueueSize] = useState(0);
@@ -1059,6 +1134,62 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   useEffect(() => {
     pausedRef.current = paused;
   }, [paused]);
+
+  const ensureAudioContext = useCallback(async () => {
+    if (typeof window === "undefined") return null;
+    let context = audioContextRef.current;
+    if (context?.state === "closed") {
+      audioContextRef.current = null;
+      audioGainRef.current = null;
+      context = null;
+    }
+    if (!context) {
+      const AudioCtor = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtor) return null;
+      context = new AudioCtor();
+      const gain = context.createGain();
+      gain.gain.value = audioVolumeRef.current;
+      gain.connect(context.destination);
+      audioContextRef.current = context;
+      audioGainRef.current = gain;
+    }
+    if (context.state === "suspended") {
+      await context.resume().catch(() => undefined);
+    }
+    return context.state === "closed" ? null : context;
+  }, []);
+
+  useEffect(() => {
+    audioEnabledRef.current = audioEnabled;
+    localStorage.setItem("live-audio-enabled", String(audioEnabled));
+    if (audioEnabled) void ensureAudioContext();
+  }, [audioEnabled, ensureAudioContext]);
+
+  useEffect(() => {
+    const safeVolume = Math.max(0, Math.min(1, audioVolume));
+    audioVolumeRef.current = safeVolume;
+    localStorage.setItem("live-audio-volume", String(safeVolume));
+    const gain = audioGainRef.current;
+    const context = audioContextRef.current;
+    if (gain && context && context.state !== "closed") {
+      gain.gain.setTargetAtTime(safeVolume, context.currentTime, 0.025);
+    }
+  }, [audioVolume]);
+
+  useEffect(() => {
+    const safeBpm = Math.max(60, Math.min(240, Math.round(audioBpm)));
+    audioBpmRef.current = safeBpm;
+    localStorage.setItem("live-audio-bpm", String(safeBpm));
+  }, [audioBpm]);
+
+  useEffect(() => {
+    return () => {
+      const context = audioContextRef.current;
+      audioContextRef.current = null;
+      audioGainRef.current = null;
+      if (context && context.state !== "closed") void context.close();
+    };
+  }, []);
 
   useEffect(() => {
     const propagationGroups = propagationGroupsRef.current;
@@ -1133,6 +1264,68 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     [isReady, mapRef, realisticPropagation],
   );
 
+  const playPacketAudio = useCallback(
+    (event: LivePacketEvent) => {
+      if (!audioEnabledRef.current) return;
+      const performanceNow = performance.now();
+      if (performanceNow - lastAudioAtRef.current < AUDIO_MIN_INTERVAL_MS) return;
+      lastAudioAtRef.current = performanceNow;
+
+      void ensureAudioContext().then((context) => {
+        const masterGain = audioGainRef.current;
+        if (!context || !masterGain || context.state !== "running") return;
+
+        const bytes = hexBytes(event.rawHex || event.packetHash, 8).map((byte) => Number.parseInt(byte, 16));
+        if (bytes.length === 0) return;
+
+        const hopCount = Math.max(1, event.hopCount ?? 1);
+        const observationEnergy = Math.min(3, Math.max(1, event.observationCount));
+        const stepSeconds = Math.max(0.045, Math.min(0.15, 60 / audioBpmRef.current / 3));
+        const start = context.currentTime + 0.018;
+        const packetGain = context.createGain();
+        const filter = context.createBiquadFilter();
+        const pan = context.createStereoPanner();
+        const seed = hashSeed(event.packetHash);
+
+        packetGain.gain.setValueAtTime(0.0001, start);
+        packetGain.gain.exponentialRampToValueAtTime(Math.max(0.015, 0.045 * observationEnergy), start + 0.012);
+        packetGain.gain.exponentialRampToValueAtTime(0.0001, start + bytes.length * stepSeconds + 0.18);
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(Math.max(640, 6_400 - hopCount * 560), start);
+        filter.Q.value = 0.85;
+        pan.pan.setValueAtTime(((seed % 200) - 100) / 120, start);
+        filter.connect(pan);
+        pan.connect(packetGain);
+        packetGain.connect(masterGain);
+
+        bytes.slice(0, 5).forEach((byte, index) => {
+          const oscillator = context.createOscillator();
+          const noteGain = context.createGain();
+          const noteStart = start + index * stepSeconds;
+          const noteEnd = noteStart + stepSeconds * 1.65;
+          oscillator.type = event.payloadTypeName.includes("TXT") || event.payloadTypeName.includes("GRP") ? "triangle" : "sine";
+          oscillator.frequency.setValueAtTime(packetFrequency(byte, event.payloadType, hopCount), noteStart);
+          oscillator.frequency.exponentialRampToValueAtTime(packetFrequency((byte + seed) % 256, event.payloadType, hopCount), noteEnd);
+          noteGain.gain.setValueAtTime(0.0001, noteStart);
+          noteGain.gain.exponentialRampToValueAtTime(0.18, noteStart + 0.01);
+          noteGain.gain.exponentialRampToValueAtTime(0.0001, noteEnd);
+          oscillator.connect(noteGain);
+          noteGain.connect(filter);
+          oscillator.start(noteStart);
+          oscillator.stop(noteEnd + 0.02);
+        });
+
+        const cleanupMs = Math.max(250, (bytes.length * stepSeconds + 0.5) * 1000);
+        window.setTimeout(() => {
+          filter.disconnect();
+          pan.disconnect();
+          packetGain.disconnect();
+        }, cleanupMs);
+      });
+    },
+    [ensureAudioContext],
+  );
+
   const playAnimation = useCallback(
     (event: LivePacketEvent, waveIndex = 0, waveCount = 1) => {
       if (animationsRef.current.length >= MAX_ACTIVE_ANIMATIONS) return false;
@@ -1176,7 +1369,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
           id: `${event.id}:heat:${index}`,
           coord: point.coord,
           createdAt: startedAt,
-          lifetimeMs: 45_000,
+          lifetimeMs: 18_000,
           intensity: Math.max(1, Math.min(5, event.observationCount + (point.ghost ? 0 : 0.6))),
         }));
         heatRef.current = [...heatRef.current.slice(-Math.max(0, MAX_HEAT_POINTS - heatPoints.length)), ...heatPoints];
@@ -1219,6 +1412,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
         }
       }
       focusLivePath(coords);
+      playPacketAudio(event);
       const durationMs = 2_100 + Math.min(1_200, Math.max(0, event.observationCount - 1) * 120);
       animationsRef.current = [
         ...animationsRef.current.slice(-(MAX_ACTIVE_ANIMATIONS - 1)),
@@ -1238,7 +1432,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       ];
       return true;
     },
-    [byPathPrefix, colorByHash, focusLivePath, ghostHops, heatVisible, iataCoords, matrixMode, matrixRain, nodeCoords, nodesByIata],
+    [byPathPrefix, colorByHash, focusLivePath, ghostHops, heatVisible, iataCoords, matrixMode, matrixRain, nodeCoords, nodesByIata, playPacketAudio],
   );
 
   const queueAnimation = useCallback((request: LiveAnimationRequest) => {
@@ -1404,21 +1598,22 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       <canvas ref={canvasRef} className="absolute inset-0 z-[5] h-full w-full pointer-events-none" aria-hidden="true" />
       {matrixMode && <div className="live-matrix-overlay absolute inset-0 pointer-events-none z-[6]" aria-hidden="true" />}
 
-      <div className="pointer-events-none absolute top-14 left-3 right-3 z-10 flex max-w-[calc(100vw-24px)] flex-wrap items-center gap-2 md:top-3 md:left-[268px] xl:right-[308px]">
-        <div className="pointer-events-auto flex items-center gap-2 rounded border border-border bg-bg-surface/90 px-3 py-2 backdrop-blur">
+      <div className="pointer-events-none absolute top-12 left-2 right-2 z-10 flex max-w-[calc(100vw-16px)] flex-wrap items-center gap-1.5 md:top-3 md:left-[268px] md:right-3 md:max-w-[calc(100vw-24px)] md:gap-2 xl:right-[308px]">
+        <div className="pointer-events-auto flex items-center gap-2 rounded border border-border bg-bg-surface/86 px-2.5 py-1.5 backdrop-blur md:px-3 md:py-2">
           <span className={`w-2.5 h-2.5 rounded-full ${paused ? "bg-warn" : "bg-green animate-pulse"}`} />
           <span className="font-mono text-xs font-semibold tracking-wider text-text-bright">{paused ? "PAUSED" : "LIVE"}</span>
-          <span className="font-mono text-[11px] text-text-dim">{regionKey}</span>
-          {realisticPropagation && <span className="font-mono text-[10px] text-primary">FLOW</span>}
-          {heatVisible && <span className="font-mono text-[10px] text-warn">HEAT</span>}
-          {ghostHops && <span className="font-mono text-[10px] text-text-muted">HOPS</span>}
-          {colorByHash && <span className="font-mono text-[10px] text-secondary">COLOR</span>}
-          {matrixMode && <span className="font-mono text-[10px] text-green">MATRIX</span>}
-          {matrixRain && <span className="font-mono text-[10px] text-green">RAIN</span>}
+          <span className="hidden font-mono text-[11px] text-text-dim sm:inline">{regionKey}</span>
+          {realisticPropagation && <span className="hidden font-mono text-[10px] text-primary sm:inline">FLOW</span>}
+          {heatVisible && <span className="hidden font-mono text-[10px] text-warn sm:inline">HEAT</span>}
+          {ghostHops && <span className="hidden font-mono text-[10px] text-text-muted sm:inline">HOPS</span>}
+          {colorByHash && <span className="hidden font-mono text-[10px] text-secondary sm:inline">COLOR</span>}
+          {matrixMode && <span className="hidden font-mono text-[10px] text-green sm:inline">MATRIX</span>}
+          {matrixRain && <span className="hidden font-mono text-[10px] text-green sm:inline">RAIN</span>}
+          {audioEnabled && <span className="hidden font-mono text-[10px] text-primary sm:inline">AUDIO</span>}
         </div>
-        <LiveStat label="Packets" value={formatCount(totalPackets)} tone="green" />
-        <LiveStat label="Rate" value={`${ratePerMin}/m`} />
-        <LiveStat label="Active" value={activeAnimations} tone={activeAnimations > 0 ? "warn" : "primary"} />
+        <LiveStat className="hidden sm:block" label="Packets" value={formatCount(totalPackets)} tone="green" />
+        <LiveStat className="hidden sm:block" label="Rate" value={`${ratePerMin}/m`} />
+        <LiveStat className="hidden sm:block" label="Active" value={activeAnimations} tone={activeAnimations > 0 ? "warn" : "primary"} />
       </div>
 
       {newest && (
@@ -1455,6 +1650,9 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       <PayloadLegend payloads={payloads} />
       <LiveControlDock
         activeAnimations={activeAnimations}
+        audioBpm={audioBpm}
+        audioEnabled={audioEnabled}
+        audioVolume={audioVolume}
         colorByHash={colorByHash}
         feedVisible={feedVisible}
         ghostHops={ghostHops}
@@ -1463,6 +1661,9 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
         matrixRain={matrixRain}
         matrixMode={matrixMode}
         onClear={clearFeed}
+        onAudioBpmChange={setAudioBpm}
+        onAudioVolumeChange={setAudioVolume}
+        onToggleAudio={() => setAudioEnabled((value) => !value)}
         onToggleColorByHash={() => setColorByHash((v) => !v)}
         onToggleFeed={() => setFeedVisible((v) => !v)}
         onToggleGhostHops={() => setGhostHops((v) => !v)}
