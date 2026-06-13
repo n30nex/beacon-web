@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type RefObject } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type RefObject } from "react";
 import { useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -135,7 +135,7 @@ const COMPACT_RAIN_DROPS = 3;
 const MAX_RAIN_BYTES = 14;
 const MAX_MATRIX_FLIGHT_BYTES = 8;
 const VISUAL_DRAIN_INTERVAL_MS = 115;
-const LIVE_RESIDUE_FRAME_INTERVAL_MS = 140;
+const LIVE_RESIDUE_FRAME_INTERVAL_MS = 240;
 const LIVE_PERF_SAMPLE_LIMIT = 180;
 const LIVE_PERF_IDLE_GAP_MS = 250;
 const LIVE_FRAME_TARGET_MS = 1000 / 60;
@@ -327,6 +327,10 @@ function samplePropagationEvents(events: LivePacketEvent[], cap = MAX_PROPAGATIO
   return Array.from({ length: cap }, (_, index) => events[Math.round((index * last) / (cap - 1))]!);
 }
 
+function tailWindow<T>(items: T[], count: number): T[] {
+  return items.length > count ? items.slice(-count) : items;
+}
+
 function useLiveAnimationCanvas(
   mapRef: RefObject<MapLibreMap | null>,
   canvasRef: RefObject<HTMLCanvasElement | null>,
@@ -366,6 +370,7 @@ function useLiveAnimationCanvas(
     let slowFrames = 0;
     const frameSamples: number[] = [];
     const matrixColor = readCssVar("--color-green", "#22C55E");
+    const debugPerf = new URLSearchParams(window.location.search).has("livePerf");
     type ProjectedPoint = { x: number; y: number };
     interface ProjectedLivePath {
       distances: number[];
@@ -484,6 +489,8 @@ function useLiveAnimationCanvas(
       (heatEnabled && heatRef.current.length > 0);
 
     const publishPerfSnapshot = (now: number, frameMs: number, drawStartedAt: number, caps: LiveVisualCaps) => {
+      if (!debugPerf) return;
+
       const sampledFrameMs = frameMs > 0 && frameMs < LIVE_PERF_IDLE_GAP_MS ? frameMs : 0;
       if (sampledFrameMs > 0) {
         frameSamples.push(sampledFrameMs);
@@ -560,7 +567,7 @@ function useLiveAnimationCanvas(
       const frameAge = now - lastRenderedAt;
       const currentCaps = liveVisualCaps(cssWidth, drawPressure);
       if (lastRenderedAt > 0 && frameAge >= 0 && frameAge < currentCaps.targetFrameMs - LIVE_FRAME_TOLERANCE_MS) {
-        requestFrame();
+        requestFrame(Math.max(1, currentCaps.targetFrameMs - frameAge - LIVE_FRAME_TOLERANCE_MS));
         return;
       }
       const frameMs = lastRenderedAt > 0 ? frameAge : 0;
@@ -727,7 +734,10 @@ function useLiveAnimationCanvas(
 
       const next: LiveAnimation[] = [];
       const finishedTrails: LiveTrail[] = [];
-      for (const anim of animationsRef.current.slice(-frameCaps.activeAnimations)) {
+      const animations = animationsRef.current;
+      const animationStartIndex = Math.max(0, animations.length - frameCaps.activeAnimations);
+      for (let animationIndex = animationStartIndex; animationIndex < animations.length; animationIndex += 1) {
+        const anim = animations[animationIndex]!;
         const age = now - anim.startedAt;
         if (age < 0) {
           next.push(anim);
@@ -858,12 +868,13 @@ function useLiveAnimationCanvas(
         ctx.restore();
       }
 
-      const cappedNext = next.slice(-frameCaps.activeAnimations);
+      const cappedNext = tailWindow(next, frameCaps.activeAnimations);
       animationsRef.current = cappedNext;
-      trailsRef.current = [...nextTrails, ...finishedTrails].slice(-frameCaps.trails);
-      pulsesRef.current = nextPulses.slice(-frameCaps.pulses);
-      rainRef.current = nextRain.slice(-frameCaps.rainDrops);
-      heatRef.current = nextHeat.slice(-frameCaps.heatPoints);
+      const trailsNext = finishedTrails.length > 0 ? [...nextTrails, ...finishedTrails] : nextTrails;
+      trailsRef.current = tailWindow(trailsNext, frameCaps.trails);
+      pulsesRef.current = tailWindow(nextPulses, frameCaps.pulses);
+      rainRef.current = tailWindow(nextRain, frameCaps.rainDrops);
+      heatRef.current = tailWindow(nextHeat, frameCaps.heatPoints);
       if (lastPublishedCount !== cappedNext.length) {
         lastPublishedCount = cappedNext.length;
         onActiveCount(cappedNext.length);
@@ -1120,15 +1131,20 @@ function LiveControlDock({
   );
 }
 
-function LiveFeed({
+const LiveFeed = memo(function LiveFeed({
+  clockTick,
   events,
   onAnalyze,
 }: {
+  clockTick: number;
   events: LivePacketEvent[];
   onAnalyze: (hash: string) => void;
 }) {
   return (
-    <div className="absolute left-3 bottom-[92px] md:bottom-3 z-10 w-[min(430px,calc(100vw-24px))] max-h-[36dvh] sm:max-h-[42dvh] flex flex-col bg-bg-surface/90 border border-border rounded backdrop-blur shadow-xl">
+    <div
+      data-live-clock={clockTick}
+      className="absolute left-3 bottom-[92px] md:bottom-3 z-10 w-[min(430px,calc(100vw-24px))] max-h-[36dvh] sm:max-h-[42dvh] flex flex-col bg-bg-surface/90 border border-border rounded backdrop-blur shadow-xl"
+    >
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-subtle">
         <div className="font-mono text-[11px] uppercase tracking-wider text-text-muted">Packet Feed</div>
         <div className="font-mono text-[11px] text-text-dim">{events.length}/{LIVE_FEED_CAP}</div>
@@ -1168,9 +1184,9 @@ function LiveFeed({
       </div>
     </div>
   );
-}
+});
 
-function PayloadLegend({ payloads }: { payloads: Array<{ typeName: string; count: number; color: string }> }) {
+const PayloadLegend = memo(function PayloadLegend({ payloads }: { payloads: Array<{ typeName: string; count: number; color: string }> }) {
   return (
     <div className="absolute right-3 bottom-[86px] z-10 hidden lg:block w-56 bg-bg-surface/85 border border-border rounded backdrop-blur">
       <div className="px-3 py-2 border-b border-border-subtle font-mono text-[11px] uppercase tracking-wider text-text-muted">Payloads</div>
@@ -1191,7 +1207,7 @@ function PayloadLegend({ payloads }: { payloads: Array<{ typeName: string; count
       </div>
     </div>
   );
-}
+});
 
 export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   const queryClient = useQueryClient();
@@ -1363,7 +1379,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   useEffect(() => {
     const update = () => setNow(Date.now());
     update();
-    const id = setInterval(update, 1000);
+    const id = setInterval(update, 2_000);
     return () => clearInterval(id);
   }, []);
 
@@ -1735,8 +1751,9 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     requestCanvasFrameRef.current?.();
   };
 
-  const ratePerMin = countRecent(events, now, 60_000);
-  const payloads = topPayloads(events);
+  const feedClock = Math.floor(now / 5_000);
+  const ratePerMin = useMemo(() => countRecent(events, now, 60_000), [events, now]);
+  const payloads = useMemo(() => topPayloads(events), [events]);
   const newest = events[0];
 
   return (
@@ -1792,7 +1809,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
         onClusteredChange={setClustered}
       />
       <LoadingPill loading={isPaging} error={nodesError} count={loadedCount} noun="nodes" />
-      {feedVisible && <LiveFeed events={events} onAnalyze={onAnalyze} />}
+      {feedVisible && <LiveFeed clockTick={feedClock} events={events} onAnalyze={onAnalyze} />}
       <PayloadLegend payloads={payloads} />
       <LiveControlDock
         activeAnimations={activeAnimations}
