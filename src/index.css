@@ -106,6 +106,35 @@
   animation: fade-in 150ms ease-out;
 }
 
+.live-map-matrix .maplibregl-canvas {
+  filter: grayscale(0.78) hue-rotate(78deg) saturate(1.55) contrast(1.14) brightness(0.82);
+}
+
+@keyframes live-matrix-scan {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 0 28px, 0 0; }
+}
+
+.live-matrix-overlay {
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-green) 18%, transparent) 0,
+      color-mix(in srgb, var(--color-green) 18%, transparent) 1px,
+      transparent 1px,
+      transparent 5px
+    ),
+    radial-gradient(circle at center, transparent 0, rgba(0, 0, 0, 0.28) 100%);
+  mix-blend-mode: screen;
+  animation: live-matrix-scan 7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-matrix-overlay {
+    animation: none;
+  }
+}
+
 /* MapLibre controls ship light chrome; re-skin to the app's dark tokens when the active basemap
    is dark (data-dark set on the map container in MapView). Glyphs are baked-in dark SVGs, so they
    are inverted rather than recolored. Light basemaps (Liberty/Light) keep the default chrome. */

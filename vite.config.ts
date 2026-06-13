@@ -10,24 +10,31 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
   // set VITE_DEV_PROXY to point at a running beacon-server instance
   const proxyTarget = env.VITE_DEV_PROXY;
+  const allowedHosts = (env.VITE_ALLOWED_HOSTS || "beacon.canadaverse.org")
+    .split(",")
+    .map((host) => host.trim())
+    .filter(Boolean);
 
   return {
     plugins: [react(), tailwindcss()],
     define: { __APP_VERSION__: JSON.stringify(pkg.version) },
-    server: proxyTarget
-      ? {
-          proxy: {
-            "/api": { target: proxyTarget, changeOrigin: true, secure: true },
-            "/ws": {
-              target: proxyTarget.replace(/^http/, "ws"),
-              changeOrigin: true,
-              secure: true,
-              ws: true,
-              headers: { Origin: proxyTarget },
+    server: {
+      allowedHosts,
+      ...(proxyTarget
+        ? {
+            proxy: {
+              "/api": { target: proxyTarget, changeOrigin: true, secure: true },
+              "/ws": {
+                target: proxyTarget.replace(/^http/, "ws"),
+                changeOrigin: true,
+                secure: true,
+                ws: true,
+                headers: { Origin: proxyTarget },
+              },
             },
-          },
-        }
-      : undefined,
+          }
+        : {}),
+    },
     test: {
       globals: true,
       environment: "jsdom",

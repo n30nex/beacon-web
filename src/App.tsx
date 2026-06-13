@@ -15,6 +15,7 @@ import { ThemeProvider } from "./hooks/useTheme";
 import { useIsMobile } from "./hooks/useMediaQuery";
 import { AppShell } from "./components/AppShell";
 import { SplashScreen } from "./components/SplashScreen";
+import { LiveView } from "./features/live/LiveView";
 import { PacketList } from "./features/packets/PacketList";
 import { PacketAnalyzerDrawer } from "./features/packets/PacketAnalyzerDrawer";
 import { PacketAnalyzerOverlay } from "./features/packets/PacketAnalyzerOverlay";
@@ -121,7 +122,7 @@ function AppInner() {
   // The URL is the single source of truth for the active tab — back/forward just work, and an
   // unknown ?tab value falls back to Packets instead of rendering a blank pane.
   const tabParam = searchParams.get("tab");
-  const activeTab = (TABS as readonly string[]).includes(tabParam ?? "") ? (tabParam as string) : "Packets";
+  const activeTab = (TABS as readonly string[]).includes(tabParam ?? "") ? (tabParam as string) : "Live";
   // Resolve the starting selection once from URL → storage → legacy key (see computeInitialSelection).
   const [initialSelection] = useState(() => computeInitialSelection(searchParams));
 
@@ -212,6 +213,7 @@ function AppInner() {
   }, []);
 
   const tabContent: Record<string, React.ReactNode> = {
+    Live: <LiveView wsManager={wsManager} onAnalyze={setOverlayPacketHash} />,
     Packets: <PacketList wsManager={wsManager} onAnalyze={handleAnalyze} />,
     Nodes: <NodeTable wsManager={wsManager} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />,
     Observers: <ObserverTable wsManager={wsManager} selectedObserverId={selectedObserverId} onSelectObserver={setSelectedObserverId} onAnalyzePacket={setOverlayPacketHash} onViewStats={handleViewObserverStats} />,
