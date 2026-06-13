@@ -1,0 +1,127 @@
+import type { WsPacketObservation } from "../../types/ws";
+
+export const LIVE_FEED_CAP = 80;
+export const LIVE_TIMELINE_BINS = 48;
+export const LIVE_TIMELINE_WINDOW_MS = 5 * 60_000;
+
+export interface LivePacketEvent {
+  id: string;
+  sequence: number;
+  packetHash: string;
+  payloadType: number;
+  payloadTypeName: string;
+  routeType: number;
+  routeTypeName: string;
+  observationCount: number;
+  observerId: string;
+  observerName: string;
+  iata: string;
+  heardAt: number;
+  receivedAt: number;
+  rssi: number;
+  snr: number;
+  sourceBroker: string;
+  scope?: string;
+}
+
+export const PAYLOAD_COLORS: Record<string, string> = {
+  ADVERT: "#22C55E",
+  GRP_TXT: "#3B82F6",
+  TXT_MSG: "#EAB308",
+  ACK: "#73737B",
+  REQUEST: "#A78BFA",
+  RESPONSE: "#06B6D4",
+  TRACE: "#EC4899",
+  PATH: "#14B8A6",
+  ANON_REQ: "#F43F5E",
+  GRP_DATA: "#8B5CF6",
+  MULTIPART: "#0D9488",
+  CONTROL: "#B45309",
+  RAW_CUSTOM: "#C026D3",
+};
+
+export function payloadColor(typeName: string): string {
+  return PAYLOAD_COLORS[typeName] ?? "#A1A1AA";
+}
+
+export function toLivePacketEvent(
+  data: WsPacketObservation["data"],
+  sequence: number,
+  receivedAt = Date.now(),
+): LivePacketEvent {
+  return {
+    id: `${receivedAt}-${sequence}-${data.packetHash}`,
+    sequence,
+    packetHash: data.packetHash,
+    payloadType: data.packet.payloadType,
+    payloadTypeName: data.packet.payloadTypeName,
+    routeType: data.packet.routeType,
+    routeTypeName: data.packet.routeTypeName,
+    observationCount: data.packet.observationCount,
+    scope: data.packet.scope,
+    observerId: data.observation.observerId,
+    observerName: data.observation.observerName,
+    iata: data.observation.iata,
+    heardAt: data.observation.heardAt,
+    receivedAt,
+    rssi: data.observation.rssi,
+    snr: data.observation.snr,
+    sourceBroker: data.observation.sourceBroker,
+  };
+}
+
+export function prependBounded<T>(items: readonly T[], item: T, cap: number): T[] {
+  return [item, ...items].slice(0, cap);
+}
+
+export function mergeQueuedEvents(
+  current: readonly LivePacketEvent[],
+  queuedNewestFirst: readonly LivePacketEvent[],
+  cap = LIVE_FEED_CAP,
+): LivePacketEvent[] {
+  return [...queuedNewestFirst, ...current].slice(0, cap);
+}
+
+export function countRecent(events: readonly LivePacketEvent[], now: number, windowMs: number): number {
+  const cutoff = now - windowMs;
+  return events.reduce((count, event) => count + (event.receivedAt >= cutoff ? 1 : 0), 0);
+}
+
+export function activityBins(
+  events: readonly LivePacketEvent[],
+  now: number,
+  windowMs = LIVE_TIMELINE_WINDOW_MS,
+  binCount = LIVE_TIMELINE_BINS,
+): number[] {
+  const bins = Array.from({ length: binCount }, () => 0);
+  const start = now - windowMs;
+  const binMs = windowMs / binCount;
+  for (const event of events) {
+    if (event.receivedAt < start || event.receivedAt > now) continue;
+    const idx = Math.min(binCount - 1, Math.max(0, Math.floor((event.receivedAt - start) / binMs)));
+    bins[idx] = (bins[idx] ?? 0) + 1;
+  }
+  return bins;
+}
+
+export function topPayloads(
+  events: readonly LivePacketEvent[],
+  limit = 6,
+): Array<{ typeName: string; count: number; color: string }> {
+  const counts = new Map<string, number>();
+  for (const event of events) {
+    counts.set(event.payloadTypeName, (counts.get(event.payloadTypeName) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([typeName, count]) => ({ typeName, count, color: payloadColor(typeName) }))
+    .sort((a, b) => b.count - a.count || a.typeName.localeCompare(b.typeName))
+    .slice(0, limit);
+}
+
+export function hashSeed(hash: string): number {
+  let seed = 0;
+  for (let i = 0; i < hash.length; i++) {
+    seed = (seed * 33 + hash.charCodeAt(i)) >>> 0;
+  }
+  return seed;
+}
