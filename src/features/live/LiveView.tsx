@@ -64,6 +64,15 @@ interface LiveTrail {
   color: string;
 }
 
+interface LivePulse {
+  id: string;
+  coord: Coord;
+  createdAt: number;
+  lifetimeMs: number;
+  color: string;
+  strength: number;
+}
+
 interface PropagationGroup {
   events: LivePacketEvent[];
   timer: ReturnType<typeof setTimeout>;
@@ -74,6 +83,10 @@ interface NodeCoord extends Coord {
   name: string | null;
   iatas: string[];
 }
+
+const LIVE_FLOW_CAMERA_THROTTLE_MS = 2_800;
+const LIVE_FLOW_CAMERA_MIN_LAT_SPAN = 1.4;
+const LIVE_FLOW_CAMERA_MIN_LNG_SPAN = 1.8;
 
 function key(value: string): string {
   return value.trim().toLowerCase();
@@ -116,7 +129,7 @@ function buildIataCoordMap(iatas: IataCode[] | undefined): Map<string, Coord> {
 
 function offsetCoord(to: Coord, seed: number): Coord {
   const angle = ((seed % 360) * Math.PI) / 180;
-  const distance = 2.1 + ((seed >>> 8) % 180) / 55;
+  const distance = 3.4 + ((seed >>> 8) % 220) / 42;
   const lngScale = Math.max(0.25, Math.cos((to.lat * Math.PI) / 180));
   return {
     lat: Math.max(-85, Math.min(85, to.lat + Math.sin(angle) * distance)),
@@ -158,12 +171,29 @@ function resolvePacketCoords(
   return { from: offsetCoord(to, hashSeed(event.packetHash)), to };
 }
 
+function paddedPathBounds(from: Coord, to: Coord): [[number, number], [number, number]] {
+  const centerLat = (from.lat + to.lat) / 2;
+  const centerLng = (from.lng + to.lng) / 2;
+  const latSpan = Math.max(Math.abs(from.lat - to.lat), LIVE_FLOW_CAMERA_MIN_LAT_SPAN);
+  const lngSpan = Math.max(Math.abs(from.lng - to.lng), LIVE_FLOW_CAMERA_MIN_LNG_SPAN);
+  const south = Math.max(-85, centerLat - latSpan / 2);
+  const north = Math.min(85, centerLat + latSpan / 2);
+  const west = Math.max(-180, centerLng - lngSpan / 2);
+  const east = Math.min(180, centerLng + lngSpan / 2);
+
+  return [
+    [west, south],
+    [east, north],
+  ];
+}
+
 function useLiveAnimationCanvas(
   mapRef: RefObject<MapLibreMap | null>,
   canvasRef: RefObject<HTMLCanvasElement | null>,
   isReady: boolean,
   animationsRef: RefObject<LiveAnimation[]>,
   trailsRef: RefObject<LiveTrail[]>,
+  pulsesRef: RefObject<LivePulse[]>,
   trailsEnabled: boolean,
   matrixMode: boolean,
   onActiveCount: (count: number) => void,
@@ -222,6 +252,48 @@ function useLiveAnimationCanvas(
         }
       } else if (trailsRef.current.length) {
         trailsRef.current = [];
+      }
+
+      const nextPulses: LivePulse[] = [];
+      for (const pulse of pulsesRef.current) {
+        const age = now - pulse.createdAt;
+        if (age < 0) {
+          nextPulses.push(pulse);
+          continue;
+        }
+        if (age > pulse.lifetimeMs) continue;
+        nextPulses.push(pulse);
+
+        const progress = Math.max(0, Math.min(1, age / pulse.lifetimeMs));
+        const point = map.project([pulse.coord.lng, pulse.coord.lat]);
+        const color = matrixMode ? matrixColor : pulse.color;
+        const energy = Math.min(2.5, Math.max(1, pulse.strength));
+
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = matrixMode ? 26 : 32;
+
+        ctx.globalAlpha = (matrixMode ? 0.72 : 0.78) * (1 - progress);
+        ctx.lineWidth = 2.4 + energy * 0.7;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 8 + 54 * progress, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.globalAlpha = 0.34 * (1 - progress);
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 20 + 88 * progress, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.globalAlpha = Math.max(0.18, 0.62 * (1 - progress));
+        ctx.shadowBlur = matrixMode ? 16 : 22;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 4.5 + energy * 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
       }
 
       const next: LiveAnimation[] = [];
@@ -333,6 +405,7 @@ function useLiveAnimationCanvas(
 
       animationsRef.current = next;
       trailsRef.current = [...nextTrails, ...finishedTrails].slice(-96);
+      pulsesRef.current = nextPulses.slice(-140);
       if (lastPublishedCount !== next.length) {
         lastPublishedCount = next.length;
         onActiveCount(next.length);
@@ -351,7 +424,7 @@ function useLiveAnimationCanvas(
       map.off("resize", resize);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     };
-  }, [animationsRef, canvasRef, isReady, mapRef, matrixMode, onActiveCount, trailsEnabled, trailsRef]);
+  }, [animationsRef, canvasRef, isReady, mapRef, matrixMode, onActiveCount, pulsesRef, trailsEnabled, trailsRef]);
 }
 
 function LiveStat({ label, value, tone = "primary" }: { label: string; value: string | number; tone?: "primary" | "green" | "warn" }) {
@@ -541,8 +614,10 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationsRef = useRef<LiveAnimation[]>([]);
   const trailsRef = useRef<LiveTrail[]>([]);
+  const pulsesRef = useRef<LivePulse[]>([]);
   const propagationGroupsRef = useRef(new Map<string, PropagationGroup>());
   const previousByHashRef = useRef(new Map<string, Coord>());
+  const flowCameraRef = useRef({ lastFocusedAt: 0 });
   const sequenceRef = useRef(0);
   const pausedRef = useRef(false);
 
@@ -617,6 +692,30 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
 
   useMapNodes(mapRef, isReady, geojson, isDark, themeKey, clustered, setSelectedNodeId, selectedNodeId, `${regionKey}:${typeFilter}`);
 
+  const focusLivePath = useCallback(
+    (coords: { from: Coord; to: Coord }) => {
+      const map = mapRef.current;
+      if (!map || !isReady || !realisticPropagation) return;
+
+      const nowMs = performance.now();
+      if (nowMs - flowCameraRef.current.lastFocusedAt < LIVE_FLOW_CAMERA_THROTTLE_MS) return;
+      flowCameraRef.current.lastFocusedAt = nowMs;
+
+      const container = map.getContainer();
+      const compact = container.clientWidth < 768;
+      map.fitBounds(paddedPathBounds(coords.from, coords.to), {
+        padding: compact
+          ? { top: 150, right: 40, bottom: 220, left: 40 }
+          : { top: 118, right: 332, bottom: 138, left: 470 },
+        maxZoom: 7.15,
+        duration: 850,
+        bearing: 0,
+        pitch: 0,
+      });
+    },
+    [isReady, mapRef, realisticPropagation],
+  );
+
   const enqueueAnimation = useCallback(
     (event: LivePacketEvent, delayMs = 0, waveIndex = 0, waveCount = 1) => {
       const coords = resolvePacketCoords(event, nodeCoords, nodesByIata, iataCoords, previousByHashRef.current);
@@ -627,13 +726,25 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
         if (!oldest.done) previousByHashRef.current.delete(oldest.value);
       }
       const color = payloadColor(event.payloadTypeName);
-      const durationMs = 1_650 + Math.min(1_200, Math.max(0, event.observationCount - 1) * 120);
+      pulsesRef.current = [
+        ...pulsesRef.current.slice(-139),
+        {
+          id: `${event.id}:receiver`,
+          coord: coords.to,
+          createdAt: performance.now() + delayMs,
+          lifetimeMs: matrixMode ? 4_400 : 5_800,
+          color,
+          strength: event.observationCount,
+        },
+      ];
+      focusLivePath(coords);
+      const durationMs = 2_450 + Math.min(1_600, Math.max(0, event.observationCount - 1) * 150);
       animationsRef.current = [
         ...animationsRef.current.slice(-96),
         { id: event.id, event, from: coords.from, to: coords.to, startedAt: performance.now() + delayMs, durationMs, color, waveIndex, waveCount },
       ];
     },
-    [iataCoords, nodeCoords, nodesByIata],
+    [focusLivePath, iataCoords, matrixMode, nodeCoords, nodesByIata],
   );
 
   const flushPropagationGroup = useCallback(
@@ -678,7 +789,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     }
   }, [flushPropagationGroup, realisticPropagation]);
 
-  useLiveAnimationCanvas(mapRef, canvasRef, isReady, animationsRef, trailsRef, trails, matrixMode, setActiveAnimations);
+  useLiveAnimationCanvas(mapRef, canvasRef, isReady, animationsRef, trailsRef, pulsesRef, trails, matrixMode, setActiveAnimations);
 
   const handlePacketObservation = useCallback(
     (data: WsPacketObservation["data"]) => {
@@ -729,6 +840,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     previousByHashRef.current.clear();
     animationsRef.current = [];
     trailsRef.current = [];
+    pulsesRef.current = [];
   };
 
   const ratePerMin = countRecent(events, now, 60_000);
