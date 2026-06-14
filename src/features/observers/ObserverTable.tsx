@@ -12,6 +12,7 @@ import { DataTable, type Column } from "../../components/DataTable";
 import { LoadingPill } from "../../components/LoadingPill";
 import { ObserverFilterBar } from "./ObserverFilterBar";
 import { ObserverDetailPanel } from "./ObserverDetailPanel";
+import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { patchObserverSummary } from "./observer-updates";
 import { deriveObserverStatus } from "./observer-status";
 import { useTick } from "../../hooks/useTick";
@@ -33,15 +34,19 @@ interface ObserverTableProps {
 const COLUMNS: Column<ObserverSummary>[] = [
   {
     header: "Name",
-    sortValue: (obs) => obs.displayName ?? formatHex(obs.id),
-    cell: (obs) => (
-      <div className="flex items-center gap-2">
-        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${deriveObserverStatus(obs) === "online" ? "bg-green" : "bg-text-dim/30"}`} />
-        <span className={`truncate ${obs.displayName ? "text-text-normal" : "text-text-dim italic"}`}>
-          {obs.displayName ?? formatHex(obs.id)}
-        </span>
-      </div>
-    ),
+    sortValue: (obs) => sanitizeDisplayLabel(obs.displayName, formatHex(obs.id)),
+    cell: (obs) => {
+      const label = sanitizeDisplayLabel(obs.displayName, formatHex(obs.id));
+      const hasName = Boolean(obs.displayName && label !== formatHex(obs.id));
+      return (
+        <div className="flex items-center gap-2">
+          <span className={`crt-glow-dot w-1.5 h-1.5 rounded-full shrink-0 ${deriveObserverStatus(obs) === "online" ? "bg-green text-green" : "bg-text-dim/30 text-text-dim"}`} />
+          <span className={`truncate ${hasName ? "text-text-normal" : "text-text-dim italic"}`}>
+            {label}
+          </span>
+        </div>
+      );
+    },
   },
   {
     header: "Type",
@@ -73,13 +78,15 @@ const COLUMNS: Column<ObserverSummary>[] = [
 
 function renderObserverCard(obs: ObserverSummary) {
   const status = deriveObserverStatus(obs);
+  const label = sanitizeDisplayLabel(obs.displayName, formatHex(obs.id));
+  const hasName = Boolean(obs.displayName && label !== formatHex(obs.id));
   return (
     <div className="flex flex-col gap-1.5 font-mono text-xs">
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-1 items-center gap-2 min-w-0">
-          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${status === "online" ? "bg-green" : "bg-text-dim/30"}`} />
-          <span className={`flex-1 min-w-0 truncate ${obs.displayName ? "text-text-normal" : "text-text-dim italic"}`}>
-            {obs.displayName ?? formatHex(obs.id)}
+          <span className={`crt-glow-dot w-1.5 h-1.5 rounded-full shrink-0 ${status === "online" ? "bg-green text-green" : "bg-text-dim/30 text-text-dim"}`} />
+          <span className={`flex-1 min-w-0 truncate ${hasName ? "text-text-normal" : "text-text-dim italic"}`}>
+            {label}
           </span>
         </div>
         <span className="shrink-0">

@@ -3,6 +3,7 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { Badge } from "../../components/Badge";
 import { EmptyState } from "../../components/EmptyState";
 import { formatBattery, formatCount, formatUptime } from "../../lib/formatters";
+import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { getObserversPage } from "../../api/client";
 import { useRegion } from "../../hooks/useRegion";
 import { useChartColors } from "./chartTheme";
@@ -52,8 +53,8 @@ function ObserverList({
 
   type Row = { id: string; name: string; count?: number; iata?: string; online?: boolean };
   const rows: Row[] = searching
-    ? (search.data?.items ?? []).map((o) => ({ id: o.id, name: o.displayName ?? o.id.slice(0, 8), iata: o.iata, online: o.status === "online" }))
-    : (top.data ?? []).map((o) => ({ id: o.observerId, name: o.displayName ?? o.observerId.slice(0, 8), count: o.observationCount }));
+    ? (search.data?.items ?? []).map((o) => ({ id: o.id, name: sanitizeDisplayLabel(o.displayName, o.id.slice(0, 8)), iata: o.iata, online: o.status === "online" }))
+    : (top.data ?? []).map((o) => ({ id: o.observerId, name: sanitizeDisplayLabel(o.displayName, o.observerId.slice(0, 8)), count: o.observationCount }));
 
   const loading = searching ? search.isLoading : top.isLoading;
 
@@ -99,7 +100,7 @@ function ObserverList({
                 ) : (
                   <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] text-text-muted">
                     {r.iata}
-                    <span className={`h-1.5 w-1.5 rounded-full ${r.online ? "bg-green" : "bg-text-dim/30"}`} aria-hidden />
+                    <span className={`crt-glow-dot h-1.5 w-1.5 rounded-full ${r.online ? "bg-green text-green" : "bg-text-dim/30 text-text-dim"}`} aria-hidden />
                   </span>
                 )}
               </div>
@@ -114,6 +115,7 @@ function ObserverList({
 function ObserverHeader({ observer }: { observer: Observer }) {
   useTick(); // keep the recency-derived status badge fresh
   const status = deriveObserverStatus(observer);
+  const observerLabel = sanitizeDisplayLabel(observer.displayName, observer.id.slice(0, 8));
   const radio = [
     observer.radioFreqMhz && `${observer.radioFreqMhz} MHz`,
     observer.radioSf && `SF${observer.radioSf}`,
@@ -125,7 +127,7 @@ function ObserverHeader({ observer }: { observer: Observer }) {
     <Card
       title={
         <span className="flex items-center gap-2">
-          <span className="text-text-bright normal-case">{observer.displayName ?? observer.id.slice(0, 8)}</span>
+          <span className="text-text-bright normal-case">{observerLabel}</span>
           <Badge variant={status === "online" ? "live" : "offline"}>{status}</Badge>
           {observer.observerType && <Badge variant="default">{observer.observerType}</Badge>}
         </span>

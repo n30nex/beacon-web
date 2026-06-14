@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { formatCount } from "../../lib/formatters";
+import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { useChartColors, type ChartColors } from "./chartTheme";
 import { useStatsOverview, useStatsObservations, usePayloadBreakdown, useTopNodes, useTopObservers, useRadioPresets, useScopes } from "./useStats";
 import { observationsAreaOption, leaderboardOption, typeBarOption } from "./chartOptions";
@@ -56,7 +57,7 @@ export function MeshTab({ range, onSelectObserver, wsManager }: MeshTabProps) {
   const nodeRows = useMemo(
     () =>
       (topNodes.data ?? []).map((n) => ({
-        name: n.nodeName ?? n.nodeId.slice(0, 8),
+        name: sanitizeDisplayLabel(n.nodeName, n.nodeId.slice(0, 8)),
         value: n.observationCount,
         color: nodeTypeColor(n.nodeTypeName, colors),
       })),
@@ -75,7 +76,7 @@ export function MeshTab({ range, onSelectObserver, wsManager }: MeshTabProps) {
   const payloadOption = useMemo(() => typeBarOption(payloadItems, colors), [payloadItems, colors]);
 
   const observerRows = useMemo(
-    () => (topObservers.data ?? []).map((o) => ({ name: o.displayName ?? o.observerId.slice(0, 8), value: o.observationCount, color: colors.secondary })),
+    () => (topObservers.data ?? []).map((o) => ({ name: sanitizeDisplayLabel(o.displayName, o.observerId.slice(0, 8)), value: o.observationCount, color: colors.secondary })),
     [topObservers.data, colors],
   );
   const observersOption = useMemo(() => leaderboardOption(observerRows, colors), [observerRows, colors]);

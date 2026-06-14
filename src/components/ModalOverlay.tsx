@@ -29,7 +29,7 @@ export function ModalOverlay({ label, onClose, inactive = false, children }: {
       onMouseDown={(e) => { pressedBackdrop.current = e.target === e.currentTarget; }}
       onClick={() => { if (pressedBackdrop.current) onClose(); }}
     >
-      <div className="h-full flex shadow-2xl crt-panel" onClick={(e) => e.stopPropagation()}>
+      <div className="crt-float-panel flex h-full border-l border-border" onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
     </div>

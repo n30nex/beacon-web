@@ -48,7 +48,7 @@ export function SplashScreen() {
         fading ? "opacity-0 pointer-events-none" : "opacity-100"
       }`}
     >
-      <span className="crt-panel inline-flex flex-col items-center gap-7 border border-border bg-bg-surface/90 px-10 py-9 text-primary shadow-2xl">
+      <span className="crt-float-panel inline-flex flex-col items-center gap-7 rounded-sm border border-border px-10 py-9 text-primary">
         <BeaconLogo size={160} pulse />
         <span className="inline-flex flex-col items-center gap-2.5">
           <span

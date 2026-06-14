@@ -1,4 +1,5 @@
 import { formatHex } from "../../lib/formatters";
+import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { Timestamp } from "../../components/Timestamp";
 import type { PacketSummary } from "../../types/api";
 import { Badge } from "../../components/Badge";
@@ -68,7 +69,7 @@ export function PacketRow({ packet, expanded, isFresh, onToggle }: PacketRowProp
         {packet.latestObserver && (
           <>
             <span className="text-[6px] text-border" aria-hidden>·</span>
-            <span className="text-text-normal">{packet.latestObserver.displayName ?? packet.latestObserver.id.slice(0, 8)}</span>
+            <span className="text-text-normal">{sanitizeDisplayLabel(packet.latestObserver.displayName, packet.latestObserver.id.slice(0, 8))}</span>
             <span className="text-[6px] text-border" aria-hidden>·</span>
             <span className="font-mono font-bold text-primary text-[11px] tracking-wider">
               {packet.latestObserver.iata}

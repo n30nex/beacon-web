@@ -47,7 +47,7 @@ function PillButton({
   return (
     <button
       type="button"
-      className={`rounded border px-2.5 py-1 font-mono text-[11px] transition-colors ${
+      className={`rounded-sm border px-2.5 py-1 font-mono text-[11px] transition-colors ${
         active
           ? "border-primary bg-primary/15 text-text-bright"
           : "border-border bg-bg-raised/90 text-text-muted hover:border-text-dim hover:text-text-normal"
@@ -104,7 +104,7 @@ function RankingList({
             <button
               key={row.id}
               type="button"
-              className="grid w-full grid-cols-[1fr_auto] gap-2 rounded border border-border-subtle bg-bg-raised/70 px-2.5 py-2 text-left hover:border-text-dim"
+              className="crt-panel grid w-full grid-cols-[1fr_auto] gap-2 rounded-sm border border-border-subtle bg-bg-raised/70 px-2.5 py-2 text-left hover:border-primary/50 hover:bg-primary/8"
               onClick={row.onClick}
             >
               <span className="min-w-0">
@@ -141,8 +141,8 @@ function MixList({
                 <span className="truncate text-xs text-text-normal">{row.label}</span>
                 <span className="font-mono text-[11px] tabular-nums text-text-bright">{formatCount(row.value)}</span>
               </div>
-              <div className="h-1.5 overflow-hidden rounded bg-bg-base">
-                <div className="h-full rounded bg-primary" style={{ width: `${Math.max(5, (row.value / max) * 100)}%` }} />
+              <div className="crt-bar-track h-1.5 overflow-hidden rounded-sm">
+                <div className="crt-bar-fill h-full rounded-sm" style={{ width: `${Math.max(5, (row.value / max) * 100)}%` }} />
               </div>
               {row.meta && <div className="mt-0.5 truncate font-mono text-[10px] text-text-dim">{row.meta}</div>}
             </div>
@@ -303,7 +303,7 @@ export function AtlasView({ wsManager, onViewNode }: AtlasViewProps) {
       <div ref={containerRef} data-dark={isDark} className="flex-1" />
 
       <div className="absolute left-3 top-3 z-10 flex w-[min(560px,calc(100vw-24px))] flex-col gap-2">
-        <div className="rounded border border-border bg-bg-surface/92 p-3 shadow-2xl backdrop-blur">
+        <div className="crt-float-panel rounded-sm border border-border p-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <div className="font-mono text-[10px] uppercase tracking-wider text-text-dim">Atlas</div>
@@ -333,7 +333,7 @@ export function AtlasView({ wsManager, onViewNode }: AtlasViewProps) {
           </div>
         </div>
 
-        <div className="hidden max-h-[42vh] overflow-y-auto rounded border border-border bg-bg-surface/88 p-3 shadow-2xl backdrop-blur lg:block">
+        <div className="crt-float-panel hidden max-h-[42vh] overflow-y-auto rounded-sm border border-border p-3 lg:block">
           <div className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-text-muted">Story</div>
           <div className="space-y-2">
             {storyBeats.map((beat) => (
@@ -350,37 +350,37 @@ export function AtlasView({ wsManager, onViewNode }: AtlasViewProps) {
       </div>
 
       <div className="absolute right-3 top-3 z-10 hidden max-h-[calc(100vh-160px)] w-[min(520px,calc(100vw-24px))] flex-col gap-2 overflow-y-auto xl:flex">
-        <div className="grid grid-cols-4 gap-3 rounded border border-border bg-bg-surface/90 p-3 shadow-2xl backdrop-blur">
+        <div className="crt-float-panel grid grid-cols-4 gap-3 rounded-sm border border-border p-3">
           <Kpi label="Packets" value={formatCount(kpis?.totalPackets)} tone="text-primary" />
           <Kpi label="Observations" value={formatCount(kpis?.totalObservations)} tone="text-green" />
           <Kpi label="Observers" value={formatCount(kpis?.activeObservers)} tone="text-secondary" />
           <Kpi label="IATAs" value={formatCount(kpis?.activeIatas)} tone="text-warn" />
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div className="rounded border border-border bg-bg-surface/88 p-3 shadow-2xl backdrop-blur">
+          <div className="crt-float-panel rounded-sm border border-border p-3">
             <RankingList title="Top nodes" rows={topNodeRows} />
           </div>
-          <div className="rounded border border-border bg-bg-surface/88 p-3 shadow-2xl backdrop-blur">
+          <div className="crt-float-panel rounded-sm border border-border p-3">
             <RankingList title="Top observers" rows={topObserverRows} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div className="rounded border border-border bg-bg-surface/88 p-3 shadow-2xl backdrop-blur">
+          <div className="crt-float-panel rounded-sm border border-border p-3">
             <MixList title="Payload mix" rows={payloadRows} />
           </div>
-          <div className="rounded border border-border bg-bg-surface/88 p-3 shadow-2xl backdrop-blur">
+          <div className="crt-float-panel rounded-sm border border-border p-3">
             <MixList title="Node types" rows={nodeTypeRows} />
           </div>
-          <div className="rounded border border-border bg-bg-surface/88 p-3 shadow-2xl backdrop-blur">
+          <div className="crt-float-panel rounded-sm border border-border p-3">
             <MixList title="Radio presets" rows={radioRows} />
           </div>
-          <div className="rounded border border-border bg-bg-surface/88 p-3 shadow-2xl backdrop-blur">
+          <div className="crt-float-panel rounded-sm border border-border p-3">
             <MixList title="Scopes" rows={scopeRows} />
           </div>
         </div>
       </div>
 
-      <div className="absolute bottom-3 right-3 z-10 w-[min(360px,calc(100vw-24px))] rounded border border-border bg-bg-surface/94 p-3 shadow-2xl backdrop-blur">
+      <div className="crt-float-panel absolute bottom-3 right-3 z-10 w-[min(360px,calc(100vw-24px))] rounded-sm border border-border p-3">
         <div className="min-w-0">
           <div className="truncate font-mono text-xs font-semibold text-text-bright">Regional map overlay</div>
           <div className="mt-1 font-mono text-[10px] text-text-dim">

@@ -8,6 +8,7 @@ import { useInfinitePages } from "../../hooks/useInfinitePages";
 import { patchInfinitePages } from "../../lib/infinite-pages";
 import { useWsNodeUpdateHandler } from "../../hooks/useWsHandlers";
 import { formatHex, timeAgoMs, formatRadio } from "../../lib/formatters";
+import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { Badge } from "../../components/Badge";
 import { Tooltip } from "../../components/Tooltip";
 import { ObserverIcon } from "../../components/ObserverIcon";
@@ -32,12 +33,16 @@ interface NodeTableProps {
 const COLUMNS: Column<NodeSummary>[] = [
   {
     header: "Name",
-    sortValue: (node) => node.name ?? formatHex(node.id),
-    cell: (node) => (
-      <span className={`truncate ${node.name ? "text-text-normal" : "text-text-dim italic"}`}>
-        {node.name ?? formatHex(node.id)}
-      </span>
-    ),
+    sortValue: (node) => sanitizeDisplayLabel(node.name, formatHex(node.id)),
+    cell: (node) => {
+      const label = sanitizeDisplayLabel(node.name, formatHex(node.id));
+      const hasName = Boolean(node.name && label !== formatHex(node.id));
+      return (
+        <span className={`truncate ${hasName ? "text-text-normal" : "text-text-dim italic"}`}>
+          {label}
+        </span>
+      );
+    },
   },
   {
     header: "Type",
@@ -83,6 +88,8 @@ const COLUMNS: Column<NodeSummary>[] = [
 ];
 
 function renderNodeCard(node: NodeSummary) {
+  const label = sanitizeDisplayLabel(node.name, formatHex(node.id));
+  const hasName = Boolean(node.name && label !== formatHex(node.id));
   const location =
     node.lat != null && node.lng != null
       ? `${node.lat.toFixed(2)}, ${node.lng.toFixed(2)}`
@@ -90,8 +97,8 @@ function renderNodeCard(node: NodeSummary) {
   return (
     <div className="flex flex-col gap-1.5 font-mono text-xs">
       <div className="flex items-center justify-between gap-2">
-        <span className={`flex-1 min-w-0 truncate ${node.name ? "text-text-normal" : "text-text-dim italic"}`}>
-          {node.name ?? formatHex(node.id)}
+        <span className={`flex-1 min-w-0 truncate ${hasName ? "text-text-normal" : "text-text-dim italic"}`}>
+          {label}
         </span>
         <span className="shrink-0">
           <Badge variant="default">

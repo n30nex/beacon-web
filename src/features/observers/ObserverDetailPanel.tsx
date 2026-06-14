@@ -4,6 +4,7 @@ import { getObserver, getObserverAdverts } from "../../api/client";
 import { Badge } from "../../components/Badge";
 import { DetailPanel, Section, Field } from "../../components/DetailPanel";
 import { formatUptime, formatBattery, formatHex, formatSnr, snrLevel, SIGNAL_LEVEL_CLASSES } from "../../lib/formatters";
+import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { Timestamp } from "../../components/Timestamp";
 import { useTick } from "../../hooks/useTick";
 import { deriveObserverStatus } from "./observer-status";
@@ -13,14 +14,16 @@ import { ScopeTag } from "../../components/ScopeTag";
 
 function AdvertRow({ advert, onClick }: { advert: AdvertObservation; onClick?: () => void }) {
   const level = snrLevel(advert.snr);
+  const nodeLabel = sanitizeDisplayLabel(advert.nodeName, advert.nodePublicKey ? formatHex(advert.nodePublicKey) : "unknown");
+  const hasNodeName = Boolean(advert.nodeName && nodeLabel !== "unknown");
   return (
     <div
       className={`bg-bg-base border border-border rounded px-3 py-2 border-l-2 border-l-primary ${onClick ? "cursor-pointer hover:bg-primary/8" : ""}`}
       onClick={onClick}
     >
       <div className="flex items-center gap-2 text-[11px] mb-1.5">
-        <span className={`font-mono font-semibold tracking-wider truncate ${advert.nodeName ? "text-primary" : "text-text-dim italic"}`}>
-          {advert.nodeName ?? (advert.nodePublicKey ? formatHex(advert.nodePublicKey) : "unknown")}
+        <span className={`font-mono font-semibold tracking-wider truncate ${hasNodeName ? "text-primary" : "text-text-dim italic"}`}>
+          {nodeLabel}
         </span>
         <IataChip>{advert.iata}</IataChip>
         <Timestamp value={advert.heardAt} className="text-text-dim ml-auto font-mono text-[11px]" />
@@ -119,6 +122,7 @@ export function ObserverDetailPanel({ observerId, onClose, onAnalyzePacket, onVi
   useTick(); // re-derive the status badge as lastStatusAt ages
   const stats = observer ? getStats(observer.statusMetadata) : null;
   const status = observer ? deriveObserverStatus(observer) : null;
+  const observerLabel = observer ? sanitizeDisplayLabel(observer.displayName, observer.id.slice(0, 8)) : "";
 
   return (
     <DetailPanel
@@ -139,7 +143,7 @@ export function ObserverDetailPanel({ observerId, onClose, onAnalyzePacket, onVi
           <Section title="Summary" first>
               <div className="flex items-center gap-2 mb-2">
                 <span className="font-mono text-xs font-semibold text-primary tracking-wider">
-                  {observer.displayName ?? observer.id.slice(0, 8)}
+                  {observerLabel}
                 </span>
                 <Badge variant={status === "online" ? "live" : "offline"}>
                   {status}

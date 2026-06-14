@@ -233,7 +233,7 @@ export function toLivePacketEvent(
     observationCount: data.packet.observationCount,
     scope: data.packet.scope,
     observerId: data.observation.observerId,
-    observerName: data.observation.observerName,
+    observerName: sanitizeDisplayLabel(data.observation.observerName, ""),
     iata: data.observation.iata,
     heardAt: data.observation.heardAt,
     receivedAt,

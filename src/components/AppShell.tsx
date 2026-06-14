@@ -10,6 +10,7 @@ import { BottomNav } from "./BottomNav";
 import { BeaconWordmark } from "./BeaconWordmark";
 import { getIatas } from "../api/client";
 import { TABS } from "../lib/constants";
+import { sanitizeDisplayLabel } from "../lib/display-label";
 import type { WsManager } from "../api/ws-manager";
 
 // header widgets: WS status, region picker, theme picker
@@ -178,7 +179,7 @@ function RegionSelector() {
                 >
                   <CheckBox checked={checked} />
                   <span className="font-semibold text-primary w-8 shrink-0">{i.iata}</span>
-                  <span className="text-text-dim truncate">{i.displayName || i.iata}</span>
+                  <span className="text-text-dim truncate">{sanitizeDisplayLabel(i.displayName, i.iata)}</span>
                 </button>
               );
             })

@@ -1,4 +1,5 @@
 const EMOJI_SYMBOL_RE = /[\u2600-\u27BF\u{1F000}-\u{1FAFF}]/gu;
+const EMOJI_MODIFIER_RE = /\u200D|\uFE0E|\uFE0F/g;
 const WHITESPACE_RE = /\s+/g;
 
 function stripControlAndReplacementChars(value: string): string {
@@ -14,6 +15,7 @@ function stripControlAndReplacementChars(value: string): string {
 export function sanitizeDisplayLabel(value: string | null | undefined, fallback = "unknown"): string {
   const cleaned = stripControlAndReplacementChars((value ?? "").normalize("NFKC"))
     .replace(EMOJI_SYMBOL_RE, "")
+    .replace(EMOJI_MODIFIER_RE, "")
     .replace(WHITESPACE_RE, " ")
     .trim();
   return cleaned || fallback;

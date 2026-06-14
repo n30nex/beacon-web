@@ -393,7 +393,7 @@ function useLiveAnimationCanvas(
     let recoveryFrames = 0;
     let slowFrames = 0;
     const frameSamples: number[] = [];
-    const matrixColor = readCssVar("--color-green", "#42ff7c");
+    const matrixColor = readCssVar("--crt-phosphor", readCssVar("--color-primary", "#ffb000"));
     const heatCoreColor = cssColorToRgb(readCssVar("--crt-phosphor", "#ffb000"), [255, 176, 0]);
     const heatMidColor = cssColorToRgb(readCssVar("--crt-phosphor-soft", "#ff7a18"), [255, 122, 24]);
     const heatEdgeColor = cssColorToRgb(readCssVar("--color-secondary", "#42ff7c"), [66, 255, 124]);
@@ -994,7 +994,7 @@ function LiveStat({
 }) {
   const toneClass = tone === "green" ? "text-green" : tone === "warn" ? "text-warn" : "text-primary";
   return (
-    <div className={`min-w-18 px-3 py-2 bg-bg-surface/88 border border-border rounded backdrop-blur ${className}`}>
+    <div className={`crt-float-panel min-w-18 rounded-sm border border-border px-3 py-2 ${className}`}>
       <div className="text-[10px] font-mono uppercase tracking-wider text-text-dim">{label}</div>
       <div className={`font-mono text-lg leading-none font-semibold ${toneClass}`}>{value}</div>
     </div>
@@ -1024,7 +1024,7 @@ function LiveControlButton({
   return (
     <button
       type="button"
-      className={`shrink-0 rounded border px-2 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors md:px-2.5 md:text-[11px] ${activeClass} ${className}`}
+      className={`shrink-0 rounded-sm border px-2 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors md:px-2.5 md:text-[11px] ${activeClass} ${className}`}
       onClick={onClick}
       aria-pressed={active}
       title={title}
@@ -1098,7 +1098,7 @@ function LiveControlDock({
   visualQueueSize: number;
 }) {
   return (
-    <div className="absolute left-2 right-2 bottom-2 z-20 flex max-w-[calc(100vw-16px)] flex-nowrap items-center gap-1.5 overflow-x-auto rounded border border-border bg-bg-surface/88 p-1.5 shadow-xl backdrop-blur md:left-auto md:right-3 md:bottom-3 md:w-fit md:max-w-[calc(100vw-24px)] md:flex-wrap md:gap-2 md:p-2">
+    <div className="crt-float-panel absolute left-2 right-2 bottom-2 z-20 flex max-w-[calc(100vw-16px)] flex-nowrap items-center gap-1.5 overflow-x-auto rounded-sm border border-border p-1.5 md:left-auto md:right-3 md:bottom-3 md:w-fit md:max-w-[calc(100vw-24px)] md:flex-wrap md:gap-2 md:p-2">
       <div className="flex min-w-0 shrink-0 items-center gap-1.5 pr-1 md:gap-2">
         <LiveControlButton label={paused ? "Resume" : "Pause"} active={paused} onClick={onTogglePaused} />
         <div
@@ -1106,7 +1106,7 @@ function LiveControlDock({
             paused ? "border-warn/25 bg-warn/8 text-warn" : "border-green/20 bg-green/8 text-green"
           }`}
         >
-          <span className={`h-1.5 w-1.5 rounded-full ${paused ? "bg-warn" : "bg-green animate-pulse"}`} />
+          <span className={`crt-glow-dot h-1.5 w-1.5 rounded-full ${paused ? "bg-warn text-warn" : "bg-green text-green animate-pulse"}`} />
           {paused ? "PAUSED" : "LIVE"}
         </div>
         <div className="hidden min-w-0 items-center gap-3 font-mono text-[11px] text-text-muted xl:flex">
@@ -1124,8 +1124,8 @@ function LiveControlDock({
       <LiveControlButton label="Pace" active={realisticPropagation} onClick={onTogglePropagation} title="Pace repeated observations before rendering" />
       <LiveControlButton className="hidden sm:inline-flex" label="Heat" active={heatVisible} onClick={onToggleHeat} title="Toggle live activity heat overlay" />
       <LiveControlButton className="hidden sm:inline-flex" label="Color" active={colorByHash} onClick={onToggleColorByHash} title="Color packet paths by hash" />
-      <LiveControlButton className="hidden sm:inline-flex" label="Matrix" active={matrixMode} onClick={onToggleMatrix} title="Toggle matrix scan view" />
-      <LiveControlButton className="hidden sm:inline-flex" label="Rain" active={matrixRain} onClick={onToggleRain} title="Toggle packet byte rain" />
+      <LiveControlButton className="hidden sm:inline-flex" label="CRT" active={matrixMode} onClick={onToggleMatrix} title="Toggle phosphor scan view" />
+      <LiveControlButton className="hidden sm:inline-flex" label="Bytes" active={matrixRain} onClick={onToggleRain} title="Toggle packet byte phosphor rain" />
       <LiveControlButton className="hidden sm:inline-flex" label="Audio" active={audioEnabled} onClick={onToggleAudio} title="Sonify paced live packets" />
       {audioEnabled && (
         <div className="hidden shrink-0 items-center gap-2 rounded border border-border bg-bg-raised px-2 py-1 font-mono text-[10px] font-semibold text-text-muted sm:flex">
@@ -1173,7 +1173,7 @@ const LiveFeed = memo(function LiveFeed({
   return (
     <div
       data-live-clock={clockTick}
-      className="absolute left-3 bottom-[92px] md:bottom-3 z-10 w-[min(430px,calc(100vw-24px))] max-h-[36dvh] sm:max-h-[42dvh] flex flex-col bg-bg-surface/90 border border-border rounded backdrop-blur shadow-xl"
+      className="crt-float-panel absolute left-3 bottom-[92px] z-10 flex max-h-[36dvh] w-[min(430px,calc(100vw-24px))] flex-col rounded-sm border border-border md:bottom-3 sm:max-h-[42dvh]"
     >
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-subtle">
         <div className="font-mono text-[11px] uppercase tracking-wider text-text-muted">Packet Feed</div>
@@ -1191,7 +1191,7 @@ const LiveFeed = memo(function LiveFeed({
               onClick={() => onAnalyze(event.packetHash)}
             >
               <span
-                className="mt-1 h-2.5 w-2.5 rounded-full shadow-[0_0_12px_currentColor]"
+                className="crt-glow-dot mt-1 h-2.5 w-2.5 rounded-full"
                 style={{ color: payloadColor(event.payloadTypeName), backgroundColor: payloadColor(event.payloadTypeName) }}
               />
               <span className="min-w-0">
@@ -1218,7 +1218,7 @@ const LiveFeed = memo(function LiveFeed({
 
 const PayloadLegend = memo(function PayloadLegend({ payloads }: { payloads: Array<{ typeName: string; count: number; color: string }> }) {
   return (
-    <div className="absolute right-3 bottom-[86px] z-10 hidden lg:block w-56 bg-bg-surface/85 border border-border rounded backdrop-blur">
+    <div className="crt-float-panel absolute right-3 bottom-[86px] z-10 hidden w-56 rounded-sm border border-border lg:block">
       <div className="px-3 py-2 border-b border-border-subtle font-mono text-[11px] uppercase tracking-wider text-text-muted">Payloads</div>
       <div className="p-3 space-y-2">
         {(payloads.length ? payloads : Object.entries({ ADVERT: 0, GRP_TXT: 0, TRACE: 0, ACK: 0 })).map((payload) => {
@@ -1228,7 +1228,7 @@ const PayloadLegend = memo(function PayloadLegend({ payloads }: { payloads: Arra
           const label = payloadLabel(typeName);
           return (
             <div key={label} className="flex items-center gap-2 font-mono text-[11px]">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 10px ${color}` }} />
+              <span className="crt-glow-dot w-2.5 h-2.5 rounded-full" style={{ color, backgroundColor: color }} />
               <span className="flex-1 text-text-muted truncate">{label}</span>
               <span className="text-text-dim">{count}</span>
             </div>
@@ -1821,15 +1821,15 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       {matrixMode && <div className="live-matrix-overlay absolute inset-0 pointer-events-none z-[6]" aria-hidden="true" />}
 
       <div className="pointer-events-none absolute top-12 left-2 right-2 z-10 flex max-w-[calc(100vw-16px)] flex-wrap items-center gap-1.5 md:top-3 md:left-[268px] md:right-3 md:max-w-[calc(100vw-24px)] md:gap-2 xl:right-[308px]">
-        <div className="pointer-events-auto flex items-center gap-2 rounded border border-border bg-bg-surface/86 px-2.5 py-1.5 backdrop-blur md:px-3 md:py-2">
-          <span className={`w-2.5 h-2.5 rounded-full ${paused ? "bg-warn" : "bg-green animate-pulse"}`} />
+        <div className="crt-float-panel pointer-events-auto flex items-center gap-2 rounded-sm border border-border px-2.5 py-1.5 md:px-3 md:py-2">
+          <span className={`crt-glow-dot w-2.5 h-2.5 rounded-full ${paused ? "bg-warn text-warn" : "bg-green text-green animate-pulse"}`} />
           <span className="font-mono text-xs font-semibold tracking-wider text-text-bright">{paused ? "PAUSED" : "LIVE"}</span>
           <span className="hidden font-mono text-[11px] text-text-dim sm:inline">{regionKey}</span>
           {realisticPropagation && <span className="hidden font-mono text-[10px] text-primary sm:inline">PACE</span>}
           {heatVisible && <span className="hidden font-mono text-[10px] text-warn sm:inline">HEAT</span>}
           {colorByHash && <span className="hidden font-mono text-[10px] text-secondary sm:inline">COLOR</span>}
-          {matrixMode && <span className="hidden font-mono text-[10px] text-green sm:inline">MATRIX</span>}
-          {matrixRain && <span className="hidden font-mono text-[10px] text-green sm:inline">RAIN</span>}
+          {matrixMode && <span className="hidden font-mono text-[10px] text-primary sm:inline">CRT</span>}
+          {matrixRain && <span className="hidden font-mono text-[10px] text-primary sm:inline">BYTES</span>}
           {audioEnabled && <span className="hidden font-mono text-[10px] text-primary sm:inline">AUDIO</span>}
         </div>
         <LiveStat className="hidden sm:block" label="Packets" value={formatCount(totalPackets)} tone="green" />
@@ -1838,7 +1838,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       </div>
 
       {newest && (
-        <div className="absolute top-3 right-3 z-10 hidden xl:block w-72 bg-bg-surface/85 border border-border rounded backdrop-blur">
+        <div className="crt-float-panel absolute top-3 right-3 z-10 hidden w-72 rounded-sm border border-border xl:block">
           <div className="px-3 py-2 border-b border-border-subtle font-mono text-[11px] uppercase tracking-wider text-text-muted">Latest Packet</div>
           <button type="button" className="w-full p-3 text-left hover:bg-primary/8 transition-colors" onClick={() => onAnalyze(newest.packetHash)}>
             <div className="flex items-center justify-between gap-2">

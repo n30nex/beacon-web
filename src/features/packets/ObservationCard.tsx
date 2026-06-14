@@ -1,5 +1,6 @@
 import type { Observation } from "../../types/api";
 import { formatSnr, snrLevel, formatPropagation, SIGNAL_LEVEL_CLASSES } from "../../lib/formatters";
+import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { Timestamp } from "../../components/Timestamp";
 import { PathData } from "./PathData";
 import { IataChip } from "../../components/IataChip";
@@ -8,6 +9,7 @@ import { IataChip } from "../../components/IataChip";
 
 export function ObservationCard({ observation: obs, selected, onClick, onViewNode, isTrace }: { observation: Observation; selected?: boolean; onClick?: () => void; onViewNode?: (nodeId: string) => void; isTrace?: boolean }) {
   const level = snrLevel(obs.snr);
+  const observerLabel = sanitizeDisplayLabel(obs.observerName, obs.observerId.slice(0, 8));
 
   return (
     <div
@@ -19,7 +21,7 @@ export function ObservationCard({ observation: obs, selected, onClick, onViewNod
       onClick={onClick}
     >
       <div className="flex items-center gap-2 text-[11px] mb-1.5">
-        <span className="text-text-bright font-semibold">{obs.observerName ?? obs.observerId.slice(0, 8)}</span>
+        <span className="text-text-bright font-semibold">{observerLabel}</span>
         <IataChip>{obs.iata}</IataChip>
         <Timestamp value={obs.heardAt} className="text-text-dim ml-auto font-mono text-[11px]" />
       </div>
