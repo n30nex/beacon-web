@@ -16,6 +16,7 @@ import { useWsLaggedHandler, useWsNodeUpdateHandler, useWsPacketHandler } from "
 import { getIatas } from "../../api/client";
 import { upsertNodePages } from "../nodes/node-updates";
 import { formatAbsolute, formatCount, formatHex, timeAgoMs } from "../../lib/formatters";
+import { nullableDisplayLabel } from "../../lib/display-label";
 import type { WsManager } from "../../api/ws-manager";
 import type { IataCode, CursorPage } from "../../types/api";
 import type { NodeSummary } from "../nodes/types";
@@ -134,6 +135,8 @@ const COMPACT_PULSES = 12;
 const COMPACT_RAIN_DROPS = 3;
 const MAX_RAIN_BYTES = 14;
 const MAX_MATRIX_FLIGHT_BYTES = 8;
+const LIVE_VISUAL_COALESCE_MS = 750;
+const LIVE_PROPAGATION_GROUP_HARD_CAP = 12;
 const VISUAL_DRAIN_INTERVAL_MS = 115;
 const LIVE_RESIDUE_FRAME_INTERVAL_MS = 240;
 const LIVE_PERF_SAMPLE_LIMIT = 180;
@@ -252,7 +255,7 @@ function buildNodeCoordMaps(nodes: NodeSummary[]) {
     if (node.lat == null || node.lng == null) continue;
     const coord: NodeCoord = {
       id: node.id,
-      name: node.name,
+      name: nullableDisplayLabel(node.name),
       publicKey: node.publicKey,
       lng: node.lng,
       lat: node.lat,
@@ -345,6 +348,7 @@ function useLiveAnimationCanvas(
   rainEnabled: boolean,
   heatEnabled: boolean,
   matrixMode: boolean,
+  pressureRef: MutableRefObject<number>,
   onActiveCount: (count: number) => void,
 ) {
   useEffect(() => {
@@ -365,6 +369,7 @@ function useLiveAnimationCanvas(
     let cssHeight = 1;
     let cssWidth = 1;
     let drawPressure = 0;
+    pressureRef.current = 0;
     let drawCostEma = 0;
     let recoveryFrames = 0;
     let slowFrames = 0;
@@ -905,6 +910,7 @@ function useLiveAnimationCanvas(
         recoveryFrames = 0;
         slowFrames = 0;
       }
+      pressureRef.current = drawPressure;
       publishPerfSnapshot(now, frameMs, drawStartedAt, frameCaps);
       if (hasActiveMotion) {
         requestFrame();
@@ -931,6 +937,7 @@ function useLiveAnimationCanvas(
       map.off("resize", resize);
       map.off("move", handleMapMotion);
       map.off("zoom", handleMapMotion);
+      pressureRef.current = 0;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     };
   }, [
@@ -943,6 +950,7 @@ function useLiveAnimationCanvas(
     mapRef,
     matrixMode,
     onActiveCount,
+    pressureRef,
     pulsesRef,
     rainEnabled,
     rainRef,
@@ -1227,6 +1235,8 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   const pendingTotalPacketsRef = useRef(0);
   const pendingVisualDroppedRef = useRef(0);
   const visualQueueRef = useRef<LiveAnimationRequest[]>([]);
+  const visualPressureRef = useRef(0);
+  const lastVisualByPacketRef = useRef(new Map<string, number>());
   const publishedVisualQueueSizeRef = useRef(0);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioGainRef = useRef<GainNode | null>(null);
@@ -1471,7 +1481,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
 
   const playAnimation = useCallback(
     (event: LivePacketEvent, waveIndex = 0, waveCount = 1) => {
-      const caps = liveVisualCaps();
+      const caps = liveVisualCaps(undefined, visualPressureRef.current);
       const color = colorByHash ? hashColor(event.packetHash) : payloadColor(event.payloadTypeName);
       const startedAt = performance.now();
       const observerTarget = resolveObserverTarget(event, nodeCoords, iataCoords);
@@ -1575,7 +1585,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
 
   const queueAnimation = useCallback(
     (request: LiveAnimationRequest) => {
-      const caps = liveVisualCaps();
+      const caps = liveVisualCaps(undefined, visualPressureRef.current);
       const maxPendingAnimations = Math.min(MAX_PENDING_ANIMATIONS, caps.activeAnimations * 3);
       visualQueueRef.current.push(request);
       if (visualQueueRef.current.length > maxPendingAnimations) {
@@ -1590,7 +1600,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
 
   useEffect(() => {
     const id = setInterval(() => {
-      const caps = liveVisualCaps();
+      const caps = liveVisualCaps(undefined, visualPressureRef.current);
       const active = animationsRef.current.length;
       const queued = visualQueueRef.current.length;
       if (queued > 0 && active < caps.activeAnimations) {
@@ -1620,7 +1630,9 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       const ordered = group.events
         .slice()
         .sort((a, b) => a.receivedAt - b.receivedAt || a.sequence - b.sequence);
-      const sampled = samplePropagationEvents(ordered);
+      const pressure = visualPressureRef.current;
+      const cap = pressure >= 2 ? 3 : pressure >= 1 ? 4 : MAX_PROPAGATION_WAVE_PATHS;
+      const sampled = samplePropagationEvents(ordered, cap);
       const skipped = ordered.length - sampled.length;
       if (skipped > 0) {
         pendingVisualDroppedRef.current += skipped;
@@ -1642,11 +1654,16 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
 
       const current = propagationGroupsRef.current.get(event.packetHash);
       if (current) {
+        if (current.events.length >= LIVE_PROPAGATION_GROUP_HARD_CAP) {
+          pendingVisualDroppedRef.current += 1;
+          scheduleLiveStateFlush();
+          return;
+        }
         current.events.push(event);
         return;
       }
 
-      const timer = setTimeout(() => flushPropagationGroup(event.packetHash), 420);
+      const timer = setTimeout(() => flushPropagationGroup(event.packetHash), visualPressureRef.current >= 2 ? 260 : 420);
       propagationGroupsRef.current.set(event.packetHash, { events: [event], timer });
     },
     [flushPropagationGroup, queueAnimation, realisticPropagation],
@@ -1673,8 +1690,23 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     matrixRain,
     heatVisible,
     matrixMode,
+    visualPressureRef,
     setActiveAnimations,
   );
+
+  const shouldAnimateEvent = useCallback((event: LivePacketEvent) => {
+    const now = performance.now();
+    const seen = lastVisualByPacketRef.current;
+    const previous = seen.get(event.packetHash);
+    seen.set(event.packetHash, now);
+    if (seen.size > 256) {
+      for (const key of seen.keys()) {
+        seen.delete(key);
+        if (seen.size <= 192) break;
+      }
+    }
+    return previous == null || now - previous > LIVE_VISUAL_COALESCE_MS;
+  }, []);
 
   const handlePacketObservation = useCallback(
     (data: WsPacketObservation["data"]) => {
@@ -1688,14 +1720,18 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
         scheduleLiveStateFlush();
         return;
       }
-      scheduleAnimation(event);
+      if (shouldAnimateEvent(event)) {
+        scheduleAnimation(event);
+      } else {
+        pendingVisualDroppedRef.current += 1;
+      }
       pendingEventsRef.current.push(event);
       if (pendingEventsRef.current.length > LIVE_FEED_CAP) {
         pendingEventsRef.current = pendingEventsRef.current.slice(-LIVE_FEED_CAP);
       }
       scheduleLiveStateFlush();
     },
-    [scheduleAnimation, scheduleLiveStateFlush],
+    [scheduleAnimation, scheduleLiveStateFlush, shouldAnimateEvent],
   );
 
   const handleLagged = useCallback((data: { droppedCount: number }) => {

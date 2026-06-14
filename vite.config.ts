@@ -24,6 +24,7 @@ export default defineConfig(({ mode }) => {
         ? {
             proxy: {
               "/api": { target: proxyTarget, changeOrigin: true, secure: true },
+              "/healthz": { target: proxyTarget, changeOrigin: true, secure: true },
               "/ws": {
                 target: proxyTarget.replace(/^http/, "ws"),
                 changeOrigin: true,

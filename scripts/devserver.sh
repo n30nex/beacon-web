@@ -2,20 +2,22 @@
 # Start/stop helper for the beacon-web Vite dev server.
 #
 # Usage:
-#   scripts/devserver.sh start      # launch on a fixed port (background)
+#   scripts/devserver.sh start      # launch on the public tunnel target port (background)
 #   scripts/devserver.sh stop       # stop the server this script started
 #   scripts/devserver.sh restart    # stop then start
 #   scripts/devserver.sh status     # is it running? on what URL?
 #   scripts/devserver.sh stop-all   # kill ALL stray vite processes (cleanup)
 #
-# Port defaults to 5173; override with BEACON_WEB_PORT=NNNN.
+# Port defaults to the Cloudflare tunnel target used by the local operator.
+# Override with BEACON_WEB_PORT=NNNN and BEACON_WEB_HOST=HOST for scratch runs.
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PORT="${BEACON_WEB_PORT:-5173}"
+HOST="${BEACON_WEB_HOST:-0.0.0.0}"
+PORT="${BEACON_WEB_PORT:-5174}"
 RUNTIME_DIR="$DIR/.scripts"
-PID_FILE="$RUNTIME_DIR/devserver.pid"
-LOG_FILE="$RUNTIME_DIR/devserver.log"
+PID_FILE="$RUNTIME_DIR/devserver-$PORT.pid"
+LOG_FILE="$RUNTIME_DIR/devserver-$PORT.log"
 VITE_BIN="$DIR/node_modules/vite/bin/vite.js"
 
 is_alive() { [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; }
@@ -31,7 +33,7 @@ start() {
   fi
   mkdir -p "$RUNTIME_DIR"
   # --strictPort: fail loudly if the port is taken instead of silently drifting.
-  nohup node "$VITE_BIN" --port "$PORT" --strictPort >"$LOG_FILE" 2>&1 &
+  nohup node "$VITE_BIN" --host "$HOST" --port "$PORT" --strictPort >"$LOG_FILE" 2>&1 &
   echo $! >"$PID_FILE"
   # Give Vite a moment to bind (or fail) so status output is accurate.
   for _ in $(seq 1 20); do
@@ -48,12 +50,6 @@ stop() {
     local pid; pid="$(cat "$PID_FILE")"
     kill "$pid" 2>/dev/null || true
     pkill -P "$pid" 2>/dev/null || true   # any children Vite spawned
-    stopped=1
-  fi
-  # Also free the port in case a previous, untracked run is holding it.
-  local port_pids; port_pids="$(lsof -ti "tcp:$PORT" 2>/dev/null || true)"
-  if [ -n "$port_pids" ]; then
-    echo "$port_pids" | xargs kill 2>/dev/null || true
     stopped=1
   fi
   rm -f "$PID_FILE"
@@ -79,7 +75,7 @@ stop_all() {
 
 # Read the actual URL Vite reported (handles the case where the port differs).
 url() {
-  grep -oE "http://localhost:[0-9]+/?" "$LOG_FILE" 2>/dev/null | head -1 || echo "http://localhost:$PORT/"
+  grep -oE "http://(localhost|127\.0\.0\.1|[0-9.]+):[0-9]+/?" "$LOG_FILE" 2>/dev/null | head -1 || echo "http://$HOST:$PORT/"
 }
 
 case "${1:-}" in

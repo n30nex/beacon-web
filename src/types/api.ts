@@ -134,6 +134,19 @@ export interface BrokerStatus {
   connected: boolean;
 }
 
+export interface HealthDependency {
+  status: string;
+  detail?: string;
+}
+
+export interface HealthStatus {
+  status: string;
+  version: string;
+  serverTime: number;
+  dependencies: Record<string, HealthDependency>;
+  brokers: BrokerStatus[];
+}
+
 // known routes — fully resolved multi-hop paths discovered at ingest, where every hop matched a node
 // at high confidence. One RouteHop per hash, in order.
 export interface RouteHop {
@@ -200,4 +213,129 @@ export interface TracePacket {
 export interface TraceDetail {
   traceTag: string;
   packets: TracePacket[];
+}
+
+export interface AtlasWindow {
+  since: number;
+  until: number;
+}
+
+export interface AtlasIata {
+  iata: string;
+  displayName?: string;
+  lat?: number;
+  lng?: number;
+  observationCount: number;
+  uniquePackets: number;
+  activeObservers: number;
+}
+
+export interface AtlasStoryBeat {
+  id: string;
+  kind: string;
+  title: string;
+  detail: string;
+  iata?: string;
+  value?: number;
+  at?: number;
+}
+
+export interface AtlasPathPoint {
+  kind: "origin" | "observer" | string;
+  label?: string;
+  iata?: string;
+  lat: number;
+  lng: number;
+  at?: number;
+}
+
+export interface AtlasReplayPacket {
+  packetHash: string;
+  payloadType: number;
+  payloadTypeName: string;
+  routeType: number;
+  routeTypeName: string;
+  scope?: string;
+  firstHeardAt: number;
+  lastHeardAt: number;
+  observationCount: number;
+  iatas: string[];
+  latestObserver?: LatestObserver;
+  origin?: ResolvedNode;
+  path: AtlasPathPoint[];
+}
+
+export interface RegionAtlasSummary {
+  region: Region;
+  window: AtlasWindow;
+  kpis: StatsOverviewShape;
+  iatas: AtlasIata[];
+  hourly: ObservationPointShape[];
+  nodeTypes: NodeTypeCount[];
+  payloadMix: PayloadBreakdownItemShape[];
+  topNodes: TopNodeShape[];
+  topObservers: TopObserverShape[];
+  radioPresets: RadioPresetShape[];
+  scopes: ScopeSummary[];
+  storyBeats: AtlasStoryBeat[];
+}
+
+export interface StatsOverviewShape {
+  totalPackets: number;
+  totalObservations: number;
+  activeObservers: number;
+  activeIatas: number;
+  windowHours: number;
+}
+
+export interface ObservationPointShape {
+  hour: number;
+  iata: string;
+  observationCount: number;
+  uniquePackets: number;
+  activeObservers: number;
+}
+
+export interface PayloadBreakdownItemShape {
+  payloadType: number;
+  payloadTypeName: string;
+  count: number;
+}
+
+export interface TopNodeShape {
+  nodeId: string;
+  nodeName?: string;
+  nodeType: number;
+  nodeTypeName: string;
+  iata: string;
+  observationCount: number;
+  lastHeard: number;
+}
+
+export interface TopObserverShape {
+  observerId: string;
+  displayName?: string;
+  observerType?: string;
+  iata: string;
+  observationCount: number;
+}
+
+export interface RadioPresetShape {
+  preset: string;
+  iata: string;
+  sourceType: string;
+  count: number;
+}
+
+export interface ScopeSummary {
+  name: string;
+  observerCount: number;
+  nodeCount: number;
+  iataCount: number;
+}
+
+export interface NodeTypeCount {
+  nodeType: number;
+  nodeTypeName: string;
+  count: number;
 }

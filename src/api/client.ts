@@ -1,5 +1,20 @@
 import { API_BASE, DEFAULT_PAGE_SIZE } from "../lib/constants";
-import type { CursorPage, PacketSummary, PacketDetail, IataCode, RegionSummary, Region, BrokerStatus, KnownRoute, CrossIATARoute, TraceTagSummary, TraceDetail } from "../types/api";
+import type {
+  CursorPage,
+  PacketSummary,
+  PacketDetail,
+  IataCode,
+  RegionSummary,
+  Region,
+  BrokerStatus,
+  KnownRoute,
+  CrossIATARoute,
+  TraceTagSummary,
+  TraceDetail,
+  RegionAtlasSummary,
+  AtlasReplayPacket,
+  HealthStatus,
+} from "../types/api";
 import type { ChannelSummary, ChannelMessage } from "../features/channels/types";
 import type { ObserverSummary, Observer, AdvertObservation } from "../features/observers/types";
 import type { NodeSummary, Node, NodeObservation, NodeNeighbor } from "../features/nodes/types";
@@ -82,8 +97,6 @@ export function getRegion(regionId: number): Promise<Region> {
   return request(`/regions/${regionId}`);
 }
 
-// /channels only honors a singular `iata`, so a one-IATA region goes through it; multi-IATA regions
-// still send `iatas` (ignored server-side, effectively global) until the backend supports it.
 export async function getChannels(params?: { iatas?: string[]; limit?: number }): Promise<ChannelSummary[]> {
   const iatas = params?.iatas ?? [];
   const page = await request<{ items: ChannelSummary[] }>("/channels", {
@@ -112,6 +125,29 @@ export async function getChannelMessagesPage(
 
 export function getBrokers(): Promise<BrokerStatus[]> {
   return request("/brokers");
+}
+
+export async function getHealth(): Promise<HealthStatus> {
+  const url = new URL("/healthz", window.location.origin);
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: { code: "unknown", message: res.statusText } }));
+    throw new ApiError(res.status, body.error?.code ?? "unknown", body.error?.message ?? res.statusText);
+  }
+  return res.json();
+}
+
+export function getAtlasRegion(
+  slug: string,
+  params?: { since?: number; until?: number },
+): Promise<RegionAtlasSummary> {
+  return request(`/atlas/regions/${slug}`, params);
+}
+
+export function getAtlasReplay(
+  params?: { region?: string; since?: number; until?: number; cursor?: number; limit?: number },
+): Promise<CursorPage<AtlasReplayPacket>> {
+  return request("/atlas/replay", params);
 }
 
 // The authoritative list of configured transport scope names (e.g. "#bc", "#west"), used to populate
@@ -256,28 +292,28 @@ export function getNodeNeighbors(nodeId: string): Promise<NodeNeighbor[]> {
 // stats endpoints. `iata` is a single code (undefined = all regions); the /stats/* endpoints filter
 // by one IATA only, unlike the comma-separated `iatas` used elsewhere.
 
-export function getStatsOverview(iata?: string): Promise<StatsOverview> {
-  return request("/stats/overview", { iata });
+export function getStatsOverview(iatas?: string[]): Promise<StatsOverview> {
+  return request("/stats/overview", { iatas: iatasParam(iatas) });
 }
 
-export function getStatsObservations(iata?: string, since?: number): Promise<ObservationPoint[]> {
-  return request("/stats/observations", { iata, since });
+export function getStatsObservations(iatas?: string[], since?: number): Promise<ObservationPoint[]> {
+  return request("/stats/observations", { iatas: iatasParam(iatas), since });
 }
 
-export function getPayloadBreakdown(iata?: string, since?: number): Promise<PayloadBreakdownItem[]> {
-  return request("/stats/payload-breakdown", { iata, since });
+export function getPayloadBreakdown(iatas?: string[], since?: number): Promise<PayloadBreakdownItem[]> {
+  return request("/stats/payload-breakdown", { iatas: iatasParam(iatas), since });
 }
 
-export function getTopNodes(iata?: string, limit = 10): Promise<TopNode[]> {
-  return request("/stats/top-nodes", { iata, limit });
+export function getTopNodes(iatas?: string[], limit = 10): Promise<TopNode[]> {
+  return request("/stats/top-nodes", { iatas: iatasParam(iatas), limit });
 }
 
-export function getTopObservers(iata?: string, since?: number, limit = 10): Promise<TopObserver[]> {
-  return request("/stats/top-observers", { iata, since, limit });
+export function getTopObservers(iatas?: string[], since?: number, limit = 10): Promise<TopObserver[]> {
+  return request("/stats/top-observers", { iatas: iatasParam(iatas), since, limit });
 }
 
-export function getRadioPresets(iata?: string): Promise<RadioPreset[]> {
-  return request("/stats/radio-presets", { iata });
+export function getRadioPresets(iatas?: string[]): Promise<RadioPreset[]> {
+  return request("/stats/radio-presets", { iatas: iatasParam(iatas) });
 }
 
 // renamed from getScopes to avoid colliding with the /scopes name list; this is the /stats/scopes

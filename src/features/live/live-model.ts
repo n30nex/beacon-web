@@ -1,5 +1,6 @@
 import type { WsPacketObservation } from "../../types/ws";
 import type { ResolvedHop } from "../../types/api";
+import { sanitizeDisplayLabel } from "../../lib/display-label";
 
 export const LIVE_FEED_CAP = 80;
 export const LIVE_TIMELINE_BINS = 48;
@@ -134,7 +135,7 @@ export function uniquePathNode(candidates: LiveRouteNode[] | undefined, iata: st
 function routePointFromNode(node: LiveRouteNode): LiveRoutePathPoint {
   return {
     coord: { lat: node.lat, lng: node.lng },
-    label: node.name || node.publicKey.slice(0, 8),
+    label: sanitizeDisplayLabel(node.name, node.publicKey.slice(0, 8)),
     nodeId: node.id,
   };
 }
@@ -145,7 +146,7 @@ function routePointFromResolvedHop(hop: ResolvedHop): LiveRoutePathPoint | null 
   if (node.latitude == null || node.longitude == null) return null;
   return {
     coord: { lat: node.latitude, lng: node.longitude },
-    label: node.name || node.publicKey.slice(0, 8),
+    label: sanitizeDisplayLabel(node.name, node.publicKey.slice(0, 8)),
     nodeId: node.id,
   };
 }
