@@ -96,7 +96,7 @@ function MoreSheet({ activeTab, onPick, onClose }: { activeTab: string; onPick: 
           role="menuitem"
           onClick={() => onPick(tab)}
           className={`w-full flex items-center gap-3 px-5 py-3 text-left text-sm font-medium cursor-pointer transition-colors uppercase ${
-            activeTab === tab ? "text-primary" : "text-text-normal hover:bg-white/3"
+            activeTab === tab ? "text-primary" : "text-text-normal hover:bg-primary/8"
           }`}
         >
           {tab}

@@ -131,7 +131,7 @@ function RegionSelector() {
             className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-xs font-mono transition-colors ${
               isAllRegions(selection)
                 ? "text-text-bright bg-primary/10"
-                : "text-text-muted hover:text-text-normal hover:bg-white/3"
+                : "text-text-muted hover:text-text-normal hover:bg-primary/8"
             }`}
             onClick={() => setSelection(ALL_REGIONS)}
           >
@@ -151,7 +151,7 @@ function RegionSelector() {
                     key={r.slug}
                     type="button"
                     className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-xs font-mono transition-colors ${
-                      checked ? "text-text-bright bg-primary/10" : "text-text-muted hover:text-text-normal hover:bg-white/3"
+                      checked ? "text-text-bright bg-primary/10" : "text-text-muted hover:text-text-normal hover:bg-primary/8"
                     }`}
                     onClick={() => toggleRegion(r.slug)}
                   >
@@ -172,7 +172,7 @@ function RegionSelector() {
                   key={i.iata}
                   type="button"
                   className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-xs font-mono transition-colors ${
-                    checked ? "text-text-bright bg-primary/10" : "text-text-muted hover:text-text-normal hover:bg-white/3"
+                    checked ? "text-text-bright bg-primary/10" : "text-text-muted hover:text-text-normal hover:bg-primary/8"
                   }`}
                   onClick={() => toggleIata(i.iata)}
                 >
@@ -222,7 +222,7 @@ function ThemePicker() {
               className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs font-mono transition-colors ${
                 t.id === themeId
                   ? "text-text-bright bg-primary/10"
-                  : "text-text-muted hover:text-text-normal hover:bg-white/3"
+                  : "text-text-muted hover:text-text-normal hover:bg-primary/8"
               }`}
               onClick={() => {
                 setThemeId(t.id);

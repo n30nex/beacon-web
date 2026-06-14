@@ -1187,7 +1187,7 @@ const LiveFeed = memo(function LiveFeed({
             <button
               key={event.id}
               type="button"
-              className="w-full grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-1 px-3 py-2 text-left border-b border-border-subtle/70 hover:bg-white/3 transition-colors"
+              className="w-full grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-1 px-3 py-2 text-left border-b border-border-subtle/70 hover:bg-primary/8 transition-colors"
               onClick={() => onAnalyze(event.packetHash)}
             >
               <span
@@ -1840,7 +1840,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       {newest && (
         <div className="absolute top-3 right-3 z-10 hidden xl:block w-72 bg-bg-surface/85 border border-border rounded backdrop-blur">
           <div className="px-3 py-2 border-b border-border-subtle font-mono text-[11px] uppercase tracking-wider text-text-muted">Latest Packet</div>
-          <button type="button" className="w-full p-3 text-left hover:bg-white/3 transition-colors" onClick={() => onAnalyze(newest.packetHash)}>
+          <button type="button" className="w-full p-3 text-left hover:bg-primary/8 transition-colors" onClick={() => onAnalyze(newest.packetHash)}>
             <div className="flex items-center justify-between gap-2">
               <span className="font-mono text-sm text-text-bright">{payloadLabel(newest.payloadTypeName)}</span>
               <span className="font-mono text-xs text-primary">{formatHex(newest.packetHash)}</span>
