@@ -53,6 +53,7 @@ function ensureTerrainSource(map: MapLibreMap) {
 // is safe to call on every moveend and after each style reload. When engaged the result is identical
 // to before; when disengaged the flat view skips the terrain render path entirely.
 function applyTerrainState(map: MapLibreMap, isDark: boolean) {
+  if (!map.isStyleLoaded()) return;
   ensureTerrainSource(map);
   const engaged = map.getPitch() > TERRAIN_ENGAGE_PITCH || map.getZoom() >= TERRAIN_ENGAGE_ZOOM;
   if (engaged) {
@@ -152,7 +153,10 @@ export function useMapLibre(
 
     // Re-evaluate terrain engagement as the camera settles, so tilting/zooming in turns on relief and
     // returning to a flat overview turns it off. Idempotent, so a plain pan at high zoom is a no-op.
-    const onCameraSettle = () => applyTerrainState(map, resolveMapStyle(styleIdRef.current).dark);
+    const onCameraSettle = () => {
+      if (!hasLoadedRef.current || swapPendingRef.current || !map.isStyleLoaded()) return;
+      applyTerrainState(map, resolveMapStyle(styleIdRef.current).dark);
+    };
     map.on("moveend", onCameraSettle);
 
     // The OpenFreeMap base styles ask for a handful of sprite icons their sprite doesn't ship (e.g.

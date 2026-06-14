@@ -50,6 +50,8 @@ function prefetchMapChunks() {
   void import("./features/live/LiveView");
 }
 
+const MAP_PREFETCH_TABS = new Set(["Atlas", "Live", "Map"]);
+
 // global singletons
 
 const queryClient = new QueryClient({
@@ -135,6 +137,7 @@ function AppInner() {
   // unknown ?tab value falls back to Atlas instead of rendering a blank pane.
   const tabParam = searchParams.get("tab");
   const activeTab = (TABS as readonly string[]).includes(tabParam ?? "") ? (tabParam as string) : "Atlas";
+  const shouldPrefetchMapChunksOnMountRef = useRef(MAP_PREFETCH_TABS.has(activeTab));
   // Resolve the starting selection once from URL → storage → legacy key (see computeInitialSelection).
   const [initialSelection] = useState(() => computeInitialSelection(searchParams));
 
@@ -227,6 +230,7 @@ function AppInner() {
   // Prefetch the maplibre-backed view chunks during idle so the default Atlas tab (and a hop to
   // Live/Map) renders from cache instead of a cold network fetch.
   useEffect(() => {
+    if (!shouldPrefetchMapChunksOnMountRef.current) return;
     const ric = (window as Window & { requestIdleCallback?: (cb: () => void) => number; cancelIdleCallback?: (id: number) => void }).requestIdleCallback;
     if (ric) {
       const id = ric(prefetchMapChunks);

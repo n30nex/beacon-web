@@ -1684,7 +1684,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       const timer = setTimeout(() => flushPropagationGroup(event.packetHash), visualPressureRef.current >= 2 ? 260 : 420);
       propagationGroupsRef.current.set(event.packetHash, { events: [event], timer });
     },
-    [flushPropagationGroup, queueAnimation, realisticPropagation],
+    [flushPropagationGroup, queueAnimation, realisticPropagation, scheduleLiveStateFlush],
   );
 
   useEffect(() => {

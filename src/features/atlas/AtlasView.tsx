@@ -189,13 +189,19 @@ export function AtlasView({ wsManager, onViewNode }: AtlasViewProps) {
   }, []);
   const { containerRef, mapRef, isReady, error } = useMapLibre(styleId, fitPoints, handleStyleError);
   const isDark = resolveMapStyle(styleId).dark;
-  const [nodeOverlayReady, setNodeOverlayReady] = useState(false);
+  const nodeOverlayKey = `${regionSlug}:${range}:${isReady ? "ready" : "loading"}:${summary.data?.window.since ?? ""}:${
+    summary.data?.window.until ?? ""
+  }`;
+  const [nodeOverlayState, setNodeOverlayState] = useState({ key: "", ready: false });
+  const nodeOverlayReady = nodeOverlayState.key === nodeOverlayKey && nodeOverlayState.ready;
   useEffect(() => {
-    setNodeOverlayReady(false);
     if (!summary.isSuccess || !isReady) return;
-    const id = window.setTimeout(() => setNodeOverlayReady(true), ATLAS_NODE_LOAD_DELAY_MS);
+    const id = window.setTimeout(
+      () => setNodeOverlayState({ key: nodeOverlayKey, ready: true }),
+      ATLAS_NODE_LOAD_DELAY_MS,
+    );
     return () => window.clearTimeout(id);
-  }, [isReady, range, regionSlug, summary.isSuccess]);
+  }, [isReady, nodeOverlayKey, summary.isSuccess]);
   const {
     nodes,
     loadedCount,
