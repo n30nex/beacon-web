@@ -1,7 +1,8 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { memo, useMemo, useState, type ReactNode } from "react";
 import { EmptyState } from "./EmptyState";
 import { SkeletonRows } from "./SkeletonRows";
 import { useIsMobile } from "../hooks/useMediaQuery";
+import { useTick } from "../hooks/useTick";
 
 export interface Column<T> {
   header: string;
@@ -11,6 +12,54 @@ export interface Column<T> {
 }
 
 type SortDirection = "asc" | "desc";
+
+// Memoized rows: a single WS patch changes one row's object ref, and selection touches two rows, so
+// only those re-render instead of the whole (un-virtualized) table. `tickVersion` is passed but not
+// read — it opts every row into the shared 10s refresh (recency-derived cells like the observer
+// status dot / "last heard" tooltips) without coupling that refresh to unrelated parent re-renders.
+interface RowProps<T> {
+  columns: Column<T>[];
+  row: T;
+  rowKeyStr: string;
+  isSelected: boolean;
+  onSelect: (key: string | null) => void;
+  tickVersion: number;
+}
+
+function TableRowInner<T>({ columns, row, rowKeyStr, isSelected, onSelect }: RowProps<T>) {
+  return (
+    <tr
+      className={`border-b border-border/40 border-l-2 cursor-pointer transition-colors ${
+        isSelected
+          ? "bg-primary/10 border-l-primary"
+          : "border-l-transparent hover:bg-primary/5 hover:border-l-primary/50"
+      }`}
+      onClick={() => onSelect(isSelected ? null : rowKeyStr)}
+    >
+      {columns.map((col) => (
+        <td key={col.header} className={`px-4 py-2 ${col.className ?? ""}`}>{col.cell(row)}</td>
+      ))}
+    </tr>
+  );
+}
+const TableRow = memo(TableRowInner) as typeof TableRowInner;
+
+function CardRowInner<T>({ row, rowKeyStr, isSelected, onSelect, renderCard }: RowProps<T> & { renderCard: (row: T) => ReactNode }) {
+  return (
+    <button
+      type="button"
+      className={`w-full text-left px-3 py-2.5 border-l-2 cursor-pointer transition-colors ${
+        isSelected
+          ? "bg-primary/10 border-l-primary"
+          : "border-l-transparent hover:bg-primary/5 hover:border-l-primary/50"
+      }`}
+      onClick={() => onSelect(isSelected ? null : rowKeyStr)}
+    >
+      {renderCard(row)}
+    </button>
+  );
+}
+const CardRow = memo(CardRowInner) as typeof CardRowInner;
 
 interface DataTableProps<T> {
   columns: Column<T>[];
@@ -35,6 +84,7 @@ const END_REACHED_THRESHOLD_PX = 200;
 
 export function DataTable<T>({ columns, rows, rowKey, selectedKey, onSelect, isLoading, emptyLabel, defaultSort, onEndReached, renderCard }: DataTableProps<T>) {
   const asCards = useIsMobile() && !!renderCard;
+  const tickVersion = useTick(); // shared 10s ticker; threaded to rows so time-derived cells stay live
   const [sort, setSort] = useState<{ header: string; direction: SortDirection }>(() => ({
     header: defaultSort?.header ?? "",
     direction: defaultSort?.direction ?? "asc",
@@ -86,20 +136,17 @@ export function DataTable<T>({ columns, rows, rowKey, selectedKey, onSelect, isL
           <div className="flex flex-col divide-y divide-border/40">
             {sortedRows.map((row) => {
               const key = rowKey(row);
-              const isSelected = key === selectedKey;
               return (
-                <button
+                <CardRow
                   key={key}
-                  type="button"
-                  className={`w-full text-left px-3 py-2.5 border-l-2 cursor-pointer transition-colors ${
-                    isSelected
-                      ? "bg-primary/10 border-l-primary"
-                      : "border-l-transparent hover:bg-primary/5 hover:border-l-primary/50"
-                  }`}
-                  onClick={() => onSelect(isSelected ? null : key)}
-                >
-                  {renderCard!(row)}
-                </button>
+                  columns={columns}
+                  row={row}
+                  rowKeyStr={key}
+                  isSelected={key === selectedKey}
+                  onSelect={onSelect}
+                  tickVersion={tickVersion}
+                  renderCard={renderCard!}
+                />
               );
             })}
           </div>
@@ -141,21 +188,16 @@ export function DataTable<T>({ columns, rows, rowKey, selectedKey, onSelect, isL
           <tbody>
             {sortedRows.map((row) => {
               const key = rowKey(row);
-              const isSelected = key === selectedKey;
               return (
-                <tr
+                <TableRow
                   key={key}
-                  className={`border-b border-border/40 border-l-2 cursor-pointer transition-colors ${
-                    isSelected
-                      ? "bg-primary/10 border-l-primary"
-                      : "border-l-transparent hover:bg-primary/5 hover:border-l-primary/50"
-                  }`}
-                  onClick={() => onSelect(isSelected ? null : key)}
-                >
-                  {columns.map((col) => (
-                    <td key={col.header} className={`px-4 py-2 ${col.className ?? ""}`}>{col.cell(row)}</td>
-                  ))}
-                </tr>
+                  columns={columns}
+                  row={row}
+                  rowKeyStr={key}
+                  isSelected={key === selectedKey}
+                  onSelect={onSelect}
+                  tickVersion={tickVersion}
+                />
               );
             })}
           </tbody>

@@ -1,11 +1,10 @@
 import { useState, useCallback, useMemo } from "react";
-import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { getNodesPage } from "../../api/client";
 import { useRegion } from "../../hooks/useRegion";
 import { useScopes } from "../../hooks/useScopes";
-import { useTick } from "../../hooks/useTick";
 import { useInfinitePages } from "../../hooks/useInfinitePages";
-import { patchInfinitePages } from "../../lib/infinite-pages";
+import { useCoalescedInfinitePatch } from "../../hooks/useCoalescedInfinitePatch";
 import { useWsNodeUpdateHandler } from "../../hooks/useWsHandlers";
 import { formatHex, timeAgoMs, formatRadio } from "../../lib/formatters";
 import { Badge } from "../../components/Badge";
@@ -16,11 +15,11 @@ import { LoadingPill } from "../../components/LoadingPill";
 import { NodeFilterBar, type MultibyteFilter } from "./NodeFilterBar";
 import { patchNodeSummary } from "./node-updates";
 import type { NodeSummary } from "./types";
-import type { CursorPage } from "../../types/api";
 import type { WsManager } from "../../api/ws-manager";
 import type { WsNodeUpdate } from "../../types/ws";
 
 const nodeId = (n: NodeSummary) => n.id; // stable id accessor for the paged hook's dedup
+const nodeUpdateKey = (d: WsNodeUpdate["data"]) => d.nodeId; // collapse repeat updates to one node per frame
 
 interface NodeTableProps {
   wsManager: WsManager;
@@ -129,8 +128,6 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
   const [search, setSearch] = useState("");
   const [searchField, setSearchField] = useState("name");
 
-  useTick();
-
   const queryKey = useMemo(
     () => ["nodes", regionKey, typeFilter, pathsFilter, tracesFilter, search, searchField],
     [regionKey, typeFilter, pathsFilter, tracesFilter, search, searchField],
@@ -160,19 +157,20 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
     [nodes, scopeFilter],
   );
 
-  const handleNodeUpdate = useCallback(
+  // refresh the open node's detail panel live; this side effect runs per event (not coalesced)
+  const onNodeUpdate = useCallback(
     (data: WsNodeUpdate["data"]) => {
-      queryClient.setQueryData<InfiniteData<CursorPage<NodeSummary>>>(queryKey, (old) =>
-        patchInfinitePages(old, (items) => patchNodeSummary(items, data) ?? items),
-      );
       if (selectedNodeId === data.nodeId) {
         queryClient.invalidateQueries({ queryKey: ["node", data.nodeId] });
       }
     },
-    [queryClient, queryKey, selectedNodeId],
+    [queryClient, selectedNodeId],
   );
-
-  useWsNodeUpdateHandler(wsManager, handleNodeUpdate);
+  // cache patches are coalesced per frame so an advert flood is one items rebuild + one table render
+  useWsNodeUpdateHandler(
+    wsManager,
+    useCoalescedInfinitePatch<NodeSummary, WsNodeUpdate["data"]>(queryKey, nodeUpdateKey, patchNodeSummary, onNodeUpdate),
+  );
 
   return (
     <div className="flex flex-1 min-h-0">

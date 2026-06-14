@@ -39,8 +39,11 @@ function subscribe(intervalMs: number, listener: () => void): () => void {
   };
 }
 
-export function useTick(intervalMs = 10_000): void {
-  useSyncExternalStore(
+// Returns the current tick version (increments each interval). Callers that only want the re-render
+// can ignore it; callers that memoize children can thread it as a prop to opt those children into the
+// refresh (e.g. DataTable passes it to memoized rows so recency-derived cells stay live).
+export function useTick(intervalMs = 10_000): number {
+  return useSyncExternalStore(
     (listener) => subscribe(intervalMs, listener),
     () => getTicker(intervalMs).version,
     () => 0,

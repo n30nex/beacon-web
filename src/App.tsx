@@ -15,8 +15,6 @@ import { ThemeProvider } from "./hooks/useTheme";
 import { useIsMobile } from "./hooks/useMediaQuery";
 import { AppShell } from "./components/AppShell";
 import { SplashScreen } from "./components/SplashScreen";
-import { LiveView } from "./features/live/LiveView";
-import { AtlasView } from "./features/atlas/AtlasView";
 import { PacketList } from "./features/packets/PacketList";
 import { PacketAnalyzerDrawer } from "./features/packets/PacketAnalyzerDrawer";
 import { PacketAnalyzerOverlay } from "./features/packets/PacketAnalyzerOverlay";
@@ -32,12 +30,27 @@ import { getPacketDetail } from "./api/client";
 import { WsManager } from "./api/ws-manager";
 import { WS_URL, TABS } from "./lib/constants";
 
-// Map is the only heavy tab (maplibre-gl is ~1MB), so lazy-load it — its chunk is fetched the
-// first time someone opens the Map tab instead of bloating the initial bundle.
+// All map-bearing tabs are lazy so maplibre-gl (~800KB) leaves the entry graph entirely and streams
+// in its own cacheable chunk instead of blocking first paint. Atlas/Live are the default landing
+// tabs, so AppInner idle-prefetches their chunk right after the shell mounts (see effect below) —
+// perceived load on the default view is unchanged, but users who deep-link to a non-map tab
+// (?tab=Packets/Nodes/Stats/…) never download the WebGL engine.
+const AtlasView = lazy(() => import("./features/atlas/AtlasView").then((m) => ({ default: m.AtlasView })));
+const LiveView = lazy(() => import("./features/live/LiveView").then((m) => ({ default: m.LiveView })));
 const MapView = lazy(() => import("./features/map/MapView").then((m) => ({ default: m.MapView })));
 
 // Stats pulls in ECharts (~150-200KB gz), so lazy-load it too — the chunk loads on first visit to Stats.
 const StatsOverview = lazy(() => import("./features/stats/StatsOverview").then((m) => ({ default: m.StatsOverview })));
+
+// Warm the maplibre-backed chunks during idle once the shell is up, so landing on the default Atlas
+// tab (or switching to Live/Map) doesn't wait on a cold fetch. Safe to call repeatedly — the dynamic
+// import is cached after the first hit.
+function prefetchMapChunks() {
+  void import("./features/atlas/AtlasView");
+  void import("./features/live/LiveView");
+}
+
+const MAP_PREFETCH_TABS = new Set(["Atlas", "Live", "Map"]);
 
 // global singletons
 
@@ -124,6 +137,7 @@ function AppInner() {
   // unknown ?tab value falls back to Atlas instead of rendering a blank pane.
   const tabParam = searchParams.get("tab");
   const activeTab = (TABS as readonly string[]).includes(tabParam ?? "") ? (tabParam as string) : "Atlas";
+  const shouldPrefetchMapChunksOnMountRef = useRef(MAP_PREFETCH_TABS.has(activeTab));
   // Resolve the starting selection once from URL → storage → legacy key (see computeInitialSelection).
   const [initialSelection] = useState(() => computeInitialSelection(searchParams));
 
@@ -211,6 +225,19 @@ function AppInner() {
     wsManager.connect({ iatas: resolveIatas(initialSelection, new Map()), events: WS_EVENTS });
     return () => wsManager.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Prefetch the maplibre-backed view chunks during idle so the default Atlas tab (and a hop to
+  // Live/Map) renders from cache instead of a cold network fetch.
+  useEffect(() => {
+    if (!shouldPrefetchMapChunksOnMountRef.current) return;
+    const ric = (window as Window & { requestIdleCallback?: (cb: () => void) => number; cancelIdleCallback?: (id: number) => void }).requestIdleCallback;
+    if (ric) {
+      const id = ric(prefetchMapChunks);
+      return () => (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(id);
+    }
+    const t = window.setTimeout(prefetchMapChunks, 200);
+    return () => window.clearTimeout(t);
   }, []);
 
   const tabContent: Record<string, React.ReactNode> = {

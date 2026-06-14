@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type RefObject } from "react";
-import { useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useMapLibre } from "../map/useMapLibre";
@@ -14,13 +14,13 @@ import { useRegion } from "../../hooks/useRegion";
 import { useTheme } from "../../hooks/useTheme";
 import { useWsLaggedHandler, useWsNodeUpdateHandler, useWsPacketHandler } from "../../hooks/useWsHandlers";
 import { getIatas } from "../../api/client";
-import { upsertNodePages } from "../nodes/node-updates";
+import { useCoalescedNodeUpdates } from "../map/useNodeUpdates";
 import { formatAbsolute, formatCount, formatHex, timeAgoMs } from "../../lib/formatters";
 import { nullableDisplayLabel } from "../../lib/display-label";
 import type { WsManager } from "../../api/ws-manager";
-import type { IataCode, CursorPage } from "../../types/api";
+import type { IataCode } from "../../types/api";
 import type { NodeSummary } from "../nodes/types";
-import type { WsNodeUpdate, WsPacketObservation } from "../../types/ws";
+import type { WsPacketObservation } from "../../types/ws";
 import {
   LIVE_FEED_CAP,
   buildTrueRoutePath,
@@ -363,6 +363,7 @@ function useLiveAnimationCanvas(
     let idleTimer = 0;
     let drawCount = 0;
     let lastPublishedCount = -1;
+    let lastActivePublishedAt = 0;
     let lastPerfPublishedAt = 0;
     let lastRenderedAt = 0;
     let canvasHasContent = false;
@@ -376,6 +377,24 @@ function useLiveAnimationCanvas(
     const frameSamples: number[] = [];
     const matrixColor = readCssVar("--color-green", "#22C55E");
     const debugPerf = new URLSearchParams(window.location.search).has("livePerf");
+
+    // Prebuild the heat radial ramp once and stamp it per point with drawImage, instead of allocating
+    // a fresh createRadialGradient (+4 addColorStop) for every heat point every frame (up to ~48).
+    // The sprite holds the same color-stop ratios at full alpha; per-point globalAlpha scales them
+    // uniformly, so under "lighter" the additive output is identical to the old per-point gradient.
+    const HEAT_SPRITE_R = 128;
+    const heatSprite = document.createElement("canvas");
+    heatSprite.width = heatSprite.height = HEAT_SPRITE_R * 2;
+    const heatSpriteCtx = heatSprite.getContext("2d");
+    if (heatSpriteCtx) {
+      const ramp = heatSpriteCtx.createRadialGradient(HEAT_SPRITE_R, HEAT_SPRITE_R, 0, HEAT_SPRITE_R, HEAT_SPRITE_R, HEAT_SPRITE_R);
+      ramp.addColorStop(0, "rgba(255, 87, 34, 1)");
+      ramp.addColorStop(0.38, "rgba(255, 202, 40, 0.5)");
+      ramp.addColorStop(0.72, "rgba(66, 165, 245, 0.24)");
+      ramp.addColorStop(1, "rgba(13, 71, 161, 0)");
+      heatSpriteCtx.fillStyle = ramp;
+      heatSpriteCtx.fillRect(0, 0, HEAT_SPRITE_R * 2, HEAT_SPRITE_R * 2);
+    }
     type ProjectedPoint = { x: number; y: number };
     interface ProjectedLivePath {
       distances: number[];
@@ -570,9 +589,11 @@ function useLiveAnimationCanvas(
       }
 
       const frameAge = now - lastRenderedAt;
-      const currentCaps = liveVisualCaps(cssWidth, drawPressure);
-      if (lastRenderedAt > 0 && frameAge >= 0 && frameAge < currentCaps.targetFrameMs - LIVE_FRAME_TOLERANCE_MS) {
-        requestFrame(Math.max(1, currentCaps.targetFrameMs - frameAge - LIVE_FRAME_TOLERANCE_MS));
+      // One caps computation per frame — it probes matchMedia + navigator, so recomputing it for the
+      // early-return check and again below was pure duplicate work within the same frame.
+      const frameCaps = liveVisualCaps(cssWidth, drawPressure);
+      if (lastRenderedAt > 0 && frameAge >= 0 && frameAge < frameCaps.targetFrameMs - LIVE_FRAME_TOLERANCE_MS) {
+        requestFrame(Math.max(1, frameCaps.targetFrameMs - frameAge - LIVE_FRAME_TOLERANCE_MS));
         return;
       }
       const frameMs = lastRenderedAt > 0 ? frameAge : 0;
@@ -580,7 +601,6 @@ function useLiveAnimationCanvas(
       drawCount += 1;
       const drawStartedAt = performance.now();
 
-      const frameCaps = liveVisualCaps(cssWidth, drawPressure);
       ctx.clearRect(0, 0, cssWidth, cssHeight);
 
       const nextHeat: LiveHeatPoint[] = [];
@@ -594,18 +614,11 @@ function useLiveAnimationCanvas(
           const point = projectCoord(heat.coord);
           const radius = 16 + Math.min(22, heat.intensity * 5) + 12 * (1 - progress);
           const alpha = (1 - progress) * Math.min(0.08, 0.03 + heat.intensity * 0.014);
-          const gradient = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius);
-          gradient.addColorStop(0, `rgba(255, 87, 34, ${alpha})`);
-          gradient.addColorStop(0.38, `rgba(255, 202, 40, ${alpha * 0.5})`);
-          gradient.addColorStop(0.72, `rgba(66, 165, 245, ${alpha * 0.24})`);
-          gradient.addColorStop(1, "rgba(13, 71, 161, 0)");
 
           ctx.save();
           ctx.globalCompositeOperation = "lighter";
-          ctx.fillStyle = gradient;
-          ctx.beginPath();
-          ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.globalAlpha = alpha;
+          ctx.drawImage(heatSprite, point.x - radius, point.y - radius, radius * 2, radius * 2);
           ctx.restore();
         }
       } else if (heatRef.current.length) {
@@ -829,7 +842,8 @@ function useLiveAnimationCanvas(
               ctx.globalAlpha = i === 0 ? Math.min(0.72, alphaByte + 0.12) : alphaByte;
               ctx.font = `${i === 0 ? "700 " : ""}${Math.max(10, 15 - i)}px JetBrains Mono, monospace`;
               ctx.fillStyle = i === 0 ? "#FFFFFF" : matrixColor;
-              ctx.shadowBlur = i === 0 ? 9 : 4;
+              // respect the adaptive shadows cap (this block ignored it); trailing glyphs read fine flat
+              ctx.shadowBlur = frameCaps.shadows ? (i === 0 ? 9 : 0) : 0;
               ctx.shadowColor = matrixColor;
               ctx.fillText(anim.bytes[(Math.floor(progress * anim.bytes.length * 1.8) + i) % anim.bytes.length]!, bx, by);
             }
@@ -880,7 +894,12 @@ function useLiveAnimationCanvas(
       pulsesRef.current = tailWindow(nextPulses, frameCaps.pulses);
       rainRef.current = tailWindow(nextRain, frameCaps.rainDrops);
       heatRef.current = tailWindow(nextHeat, frameCaps.heatPoints);
-      if (lastPublishedCount !== cappedNext.length) {
+      // Throttle intermediate active-count publishes to ~4Hz (each flows into React state, so an
+      // unthrottled publish would re-render the whole view every frame during motion). Always let the
+      // terminal drop to 0 through, so the badge can't stay stuck on a stale count when the loop halts
+      // on the very frame the last animation drains (e.g. trails off, no residue keeps it ticking).
+      if (lastPublishedCount !== cappedNext.length && (cappedNext.length === 0 || now - lastActivePublishedAt > 250)) {
+        lastActivePublishedAt = now;
         lastPublishedCount = cappedNext.length;
         onActiveCount(cappedNext.length);
       }
@@ -959,7 +978,7 @@ function useLiveAnimationCanvas(
   ]);
 }
 
-function LiveStat({
+const LiveStat = memo(function LiveStat({
   className = "",
   label,
   value,
@@ -977,7 +996,7 @@ function LiveStat({
       <div className={`font-mono text-lg leading-none font-semibold ${toneClass}`}>{value}</div>
     </div>
   );
-}
+});
 
 function LiveControlButton({
   active,
@@ -1012,7 +1031,7 @@ function LiveControlButton({
   );
 }
 
-function LiveControlDock({
+const LiveControlDock = memo(function LiveControlDock({
   activeAnimations,
   audioBpm,
   audioEnabled,
@@ -1076,7 +1095,7 @@ function LiveControlDock({
   visualQueueSize: number;
 }) {
   return (
-    <div className="absolute left-2 right-2 bottom-2 z-20 flex max-w-[calc(100vw-16px)] flex-nowrap items-center gap-1.5 overflow-x-auto rounded border border-border bg-bg-surface/88 p-1.5 shadow-xl backdrop-blur md:left-auto md:right-3 md:bottom-3 md:w-fit md:max-w-[calc(100vw-24px)] md:flex-wrap md:gap-2 md:p-2">
+    <div className="absolute left-2 right-2 bottom-2 z-20 flex max-w-[calc(100vw-16px)] flex-nowrap items-center gap-1.5 overflow-x-auto rounded border border-border bg-bg-surface p-1.5 shadow-xl md:left-auto md:right-3 md:bottom-3 md:w-fit md:max-w-[calc(100vw-24px)] md:flex-wrap md:gap-2 md:p-2">
       <div className="flex min-w-0 shrink-0 items-center gap-1.5 pr-1 md:gap-2">
         <LiveControlButton label={paused ? "Resume" : "Pause"} active={paused} onClick={onTogglePaused} />
         <div
@@ -1137,7 +1156,7 @@ function LiveControlDock({
       <LiveControlButton className="hidden sm:inline-flex" label="Clear" danger onClick={onClear} title="Clear local live buffer" />
     </div>
   );
-}
+});
 
 const LiveFeed = memo(function LiveFeed({
   clockTick,
@@ -1151,7 +1170,7 @@ const LiveFeed = memo(function LiveFeed({
   return (
     <div
       data-live-clock={clockTick}
-      className="absolute left-3 bottom-[92px] md:bottom-3 z-10 w-[min(430px,calc(100vw-24px))] max-h-[36dvh] sm:max-h-[42dvh] flex flex-col bg-bg-surface/90 border border-border rounded backdrop-blur shadow-xl"
+      className="absolute left-3 bottom-[92px] md:bottom-3 z-10 w-[min(430px,calc(100vw-24px))] max-h-[36dvh] sm:max-h-[42dvh] flex flex-col bg-bg-surface border border-border rounded shadow-xl"
     >
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-subtle">
         <div className="font-mono text-[11px] uppercase tracking-wider text-text-muted">Packet Feed</div>
@@ -1196,7 +1215,7 @@ const LiveFeed = memo(function LiveFeed({
 
 const PayloadLegend = memo(function PayloadLegend({ payloads }: { payloads: Array<{ typeName: string; count: number; color: string }> }) {
   return (
-    <div className="absolute right-3 bottom-[86px] z-10 hidden lg:block w-56 bg-bg-surface/85 border border-border rounded backdrop-blur">
+    <div className="absolute right-3 bottom-[86px] z-10 hidden lg:block w-56 bg-bg-surface border border-border rounded shadow-xl">
       <div className="px-3 py-2 border-b border-border-subtle font-mono text-[11px] uppercase tracking-wider text-text-muted">Payloads</div>
       <div className="p-3 space-y-2">
         {(payloads.length ? payloads : Object.entries({ ADVERT: 0, GRP_TXT: 0, TRACE: 0, ACK: 0 })).map((payload) => {
@@ -1218,7 +1237,6 @@ const PayloadLegend = memo(function PayloadLegend({ payloads }: { payloads: Arra
 });
 
 export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
-  const queryClient = useQueryClient();
   const { iatas: selectedIatas, regionKey } = useRegion();
   const { themeId, themes } = useTheme();
   const themeKey = themes.length ? themeId : "";
@@ -1666,7 +1684,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       const timer = setTimeout(() => flushPropagationGroup(event.packetHash), visualPressureRef.current >= 2 ? 260 : 420);
       propagationGroupsRef.current.set(event.packetHash, { events: [event], timer });
     },
-    [flushPropagationGroup, queueAnimation, realisticPropagation],
+    [flushPropagationGroup, queueAnimation, realisticPropagation, scheduleLiveStateFlush],
   );
 
   useEffect(() => {
@@ -1738,20 +1756,11 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     setLaggedCount((count) => count + data.droppedCount);
   }, []);
 
-  const handleNodeUpdate = useCallback(
-    (data: WsNodeUpdate["data"]) => {
-      queryClient.setQueryData<InfiniteData<CursorPage<NodeSummary>>>(nodesKey, (old) =>
-        upsertNodePages(old, data),
-      );
-    },
-    [nodesKey, queryClient],
-  );
-
   useWsPacketHandler(wsManager, handlePacketObservation);
   useWsLaggedHandler(wsManager, handleLagged);
-  useWsNodeUpdateHandler(wsManager, handleNodeUpdate);
+  useWsNodeUpdateHandler(wsManager, useCoalescedNodeUpdates(nodesKey));
 
-  const resumeLive = () => {
+  const resumeLive = useCallback(() => {
     flushLiveState();
     setPaused(false);
     setQueuedEvents((queued) => {
@@ -1759,9 +1768,24 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       setEvents((current) => mergeQueuedEvents(current, queued));
       return [];
     });
-  };
+  }, [flushLiveState, scheduleAnimation]);
 
-  const clearFeed = () => {
+  // Stable toggles so the memoized LiveControlDock skips re-rendering on idle now-ticks (its numeric
+  // props are unchanged then; only stable handler identities were missing).
+  const togglePaused = useCallback(() => {
+    if (pausedRef.current) resumeLive();
+    else setPaused(true);
+  }, [resumeLive]);
+  const toggleAudio = useCallback(() => setAudioEnabled((v) => !v), []);
+  const toggleColorByHash = useCallback(() => setColorByHash((v) => !v), []);
+  const toggleFeed = useCallback(() => setFeedVisible((v) => !v), []);
+  const toggleHeat = useCallback(() => setHeatVisible((v) => !v), []);
+  const toggleMatrix = useCallback(() => setMatrixMode((v) => !v), []);
+  const toggleRain = useCallback(() => setMatrixRain((v) => !v), []);
+  const togglePropagation = useCallback(() => setRealisticPropagation((v) => !v), []);
+  const toggleTrails = useCallback(() => setTrails((v) => !v), []);
+
+  const clearFeed = useCallback(() => {
     if (liveStateFlushTimerRef.current !== 0) {
       window.clearTimeout(liveStateFlushTimerRef.current);
       liveStateFlushTimerRef.current = 0;
@@ -1785,7 +1809,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     setVisualQueueSize(0);
     setVisualDroppedCount(0);
     requestCanvasFrameRef.current?.();
-  };
+  }, []);
 
   const feedClock = Math.floor(now / 5_000);
   const ratePerMin = useMemo(() => countRecent(events, now, 60_000), [events, now]);
@@ -1816,7 +1840,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       </div>
 
       {newest && (
-        <div className="absolute top-3 right-3 z-10 hidden xl:block w-72 bg-bg-surface/85 border border-border rounded backdrop-blur">
+        <div className="absolute top-3 right-3 z-10 hidden xl:block w-72 bg-bg-surface border border-border rounded shadow-xl">
           <div className="px-3 py-2 border-b border-border-subtle font-mono text-[11px] uppercase tracking-wider text-text-muted">Latest Packet</div>
           <button type="button" className="w-full p-3 text-left hover:bg-white/3 transition-colors" onClick={() => onAnalyze(newest.packetHash)}>
             <div className="flex items-center justify-between gap-2">
@@ -1861,15 +1885,15 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
         onClear={clearFeed}
         onAudioBpmChange={setAudioBpm}
         onAudioVolumeChange={setAudioVolume}
-        onToggleAudio={() => setAudioEnabled((value) => !value)}
-        onToggleColorByHash={() => setColorByHash((v) => !v)}
-        onToggleFeed={() => setFeedVisible((v) => !v)}
-        onToggleHeat={() => setHeatVisible((v) => !v)}
-        onToggleMatrix={() => setMatrixMode((v) => !v)}
-        onToggleRain={() => setMatrixRain((v) => !v)}
-        onTogglePaused={paused ? resumeLive : () => setPaused(true)}
-        onTogglePropagation={() => setRealisticPropagation((v) => !v)}
-        onToggleTrails={() => setTrails((v) => !v)}
+        onToggleAudio={toggleAudio}
+        onToggleColorByHash={toggleColorByHash}
+        onToggleFeed={toggleFeed}
+        onToggleHeat={toggleHeat}
+        onToggleMatrix={toggleMatrix}
+        onToggleRain={toggleRain}
+        onTogglePaused={togglePaused}
+        onTogglePropagation={togglePropagation}
+        onToggleTrails={toggleTrails}
         paused={paused}
         queuedCount={queuedEvents.length}
         ratePerMin={ratePerMin}

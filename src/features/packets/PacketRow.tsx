@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { formatHex } from "../../lib/formatters";
 import { Timestamp } from "../../components/Timestamp";
 import type { PacketSummary } from "../../types/api";
@@ -11,12 +12,15 @@ interface PacketRowProps {
   packet: PacketSummary;
   expanded: boolean;
   isFresh?: boolean;
-  onToggle: () => void;
+  // takes the hash so the parent can pass one stable handler for every row (a per-row inline closure
+  // would change identity each render and defeat the memo below)
+  onToggle: (hash: string) => void;
 }
 
-// selectable packet card; observations live in the analyzer drawer
-
-export function PacketRow({ packet, expanded, isFresh, onToggle }: PacketRowProps) {
+// Selectable packet card; observations live in the analyzer drawer. Memoized because the virtualized
+// list re-renders on every rAF batch during a flood — only rows whose packet/expanded/isFresh props
+// actually changed should re-render.
+export const PacketRow = memo(function PacketRow({ packet, expanded, isFresh, onToggle }: PacketRowProps) {
   return (
     <div
       className={`group bg-bg-surface border rounded-md px-3.5 py-2.5 cursor-pointer ${
@@ -26,13 +30,13 @@ export function PacketRow({ packet, expanded, isFresh, onToggle }: PacketRowProp
             ? "packet-fresh"
             : "border-border hover:border-text-dim/30 hover:bg-bg-raised/50"
       }`}
-      onClick={() => onToggle()}
+      onClick={() => onToggle(packet.packetHash)}
       aria-pressed={expanded}
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onToggle();
+          onToggle(packet.packetHash);
         }
       }}
     >
@@ -78,4 +82,4 @@ export function PacketRow({ packet, expanded, isFresh, onToggle }: PacketRowProp
       </div>
     </div>
   );
-}
+});

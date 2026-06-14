@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useTick } from "../hooks/useTick";
 import { Tooltip } from "./Tooltip";
 import { timeAgoMs, formatAbsolute } from "../lib/formatters";
@@ -17,7 +18,9 @@ export function Timestamp({ value, mode = "relative", ms, className }: Timestamp
   useTick(); // keep the relative label fresh
 
   const relative = `${timeAgoMs(value)} ago`;
-  const absolute = formatAbsolute(value, { ms });
+  // The absolute time is invariant for a given timestamp, so don't re-derive it (an Intl format) on
+  // every 10s tick re-render — only the relative label needs to change.
+  const absolute = useMemo(() => formatAbsolute(value, { ms }), [value, ms]);
 
   return (
     <Tooltip label={mode === "absolute" ? relative : absolute} className={className}>
