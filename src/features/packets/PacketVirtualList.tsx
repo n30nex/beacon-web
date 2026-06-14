@@ -133,7 +133,7 @@ export function PacketVirtualList({
                   packet={packet}
                   expanded={expandedHash === packet.packetHash}
                   isFresh={freshHashes.has(packet.packetHash)}
-                  onToggle={() => onToggleExpand(packet.packetHash)}
+                  onToggle={onToggleExpand}
                 />
               </div>
             </div>

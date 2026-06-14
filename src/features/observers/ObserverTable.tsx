@@ -1,10 +1,10 @@
 import { useState, useCallback, useMemo } from "react";
-import { useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getObserversPage, getBrokers } from "../../api/client";
 import { useRegion } from "../../hooks/useRegion";
 import { useScopes } from "../../hooks/useScopes";
 import { useInfinitePages } from "../../hooks/useInfinitePages";
-import { patchInfinitePages } from "../../lib/infinite-pages";
+import { useCoalescedInfinitePatch } from "../../hooks/useCoalescedInfinitePatch";
 import { useWsObserverStatusHandler } from "../../hooks/useWsHandlers";
 import { formatHex, formatRadio } from "../../lib/formatters";
 import { Badge } from "../../components/Badge";
@@ -14,13 +14,12 @@ import { ObserverFilterBar } from "./ObserverFilterBar";
 import { ObserverDetailPanel } from "./ObserverDetailPanel";
 import { patchObserverSummary } from "./observer-updates";
 import { deriveObserverStatus } from "./observer-status";
-import { useTick } from "../../hooks/useTick";
 import type { ObserverSummary } from "./types";
-import type { CursorPage } from "../../types/api";
 import type { WsManager } from "../../api/ws-manager";
 import type { WsObserverStatus } from "../../types/ws";
 
 const observerId = (o: ObserverSummary) => o.id; // stable id accessor for the paged hook's dedup
+const observerStatusKey = (d: WsObserverStatus["data"]) => d.observerId; // one update per observer per frame
 
 interface ObserverTableProps {
   wsManager: WsManager;
@@ -105,8 +104,6 @@ export function ObserverTable({ wsManager, selectedObserverId, onSelectObserver,
   const [brokerFilter, setBrokerFilter] = useState("");
   const [scopeFilter, setScopeFilter] = useState(""); // "" = Any; applied client-side over the loaded set
 
-  useTick(); // keep recency-derived status badges fresh
-
   const { data: brokers } = useQuery({
     queryKey: ["brokers"],
     queryFn: getBrokers,
@@ -158,20 +155,20 @@ export function ObserverTable({ wsManager, selectedObserverId, onSelectObserver,
   // patch the live status into the paged cache (mirrors NodeTable). A brand-new observer not on any
   // loaded page isn't pulled in here — it surfaces on the next reload/region switch (see the
   // beacon-docs ticket about carrying the full summary in WS events for true live insertion).
-  const handleObserverStatus = useCallback(
+  // refresh the open observer's detail panel live; this side effect runs per event (not coalesced)
+  const onObserverStatus = useCallback(
     (data: WsObserverStatus["data"]) => {
-      queryClient.setQueryData<InfiniteData<CursorPage<ObserverSummary>>>(queryKey, (old) =>
-        patchInfinitePages(old, (items) => patchObserverSummary(items, data) ?? items),
-      );
-      // refresh detail panel if it's showing this observer
       if (selectedObserverId === data.observerId) {
         queryClient.invalidateQueries({ queryKey: ["observer", data.observerId] });
       }
     },
-    [queryClient, queryKey, selectedObserverId],
+    [queryClient, selectedObserverId],
   );
-
-  useWsObserverStatusHandler(wsManager, handleObserverStatus);
+  // cache patches are coalesced per frame so a status burst is one items rebuild + one table render
+  useWsObserverStatusHandler(
+    wsManager,
+    useCoalescedInfinitePatch<ObserverSummary, WsObserverStatus["data"]>(queryKey, observerStatusKey, patchObserverSummary, onObserverStatus),
+  );
 
   return (
     <div className="flex flex-1 min-h-0">

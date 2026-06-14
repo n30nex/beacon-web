@@ -1,4 +1,4 @@
-import { useMemo, useRef, useLayoutEffect, useState, useCallback } from "react";
+import { memo, useMemo, useRef, useLayoutEffect, useState, useCallback } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { getChannelMessagesPage } from "../../api/client";
 import { Badge } from "../../components/Badge";
@@ -22,8 +22,10 @@ function senderColor(name: string): string {
   return SENDER_COLORS[Math.abs(h) % SENDER_COLORS.length] ?? "text-primary";
 }
 
-// keyed on packetHash by the caller — live WS messages carry no id (REST ones do)
-function MessageRow({ msg, heardCount, onAnalyze }: { msg: ChannelMessage; heardCount?: number; onAnalyze?: (hash: string) => void }) {
+// keyed on packetHash by the caller — live WS messages carry no id (REST ones do). Memoized so an
+// incoming live message only renders its own new row, not all N rows of the active channel (msg refs
+// are stable across the cache update, onAnalyze is a stable useCallback, heardCount is a primitive).
+const MessageRow = memo(function MessageRow({ msg, heardCount, onAnalyze }: { msg: ChannelMessage; heardCount?: number; onAnalyze?: (hash: string) => void }) {
   // REST carries the server-side total; the live WS counter augments it during the session
   const reach = Math.max(msg.observationCount ?? 0, heardCount ?? 0);
   return (
@@ -41,7 +43,7 @@ function MessageRow({ msg, heardCount, onAnalyze }: { msg: ChannelMessage; heard
       <div className="text-text-normal text-xs mt-0.5">{msg.content}</div>
     </div>
   );
-}
+});
 
 interface MessagePanelProps {
   channel: ChannelSummary | null;
