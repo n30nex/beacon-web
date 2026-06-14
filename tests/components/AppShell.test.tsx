@@ -34,6 +34,9 @@ function renderShell() {
 }
 
 beforeEach(() => {
+  localStorage.clear();
+  delete document.documentElement.dataset.fontMode;
+  delete document.documentElement.dataset.scanlines;
   vi.mocked(getIatas).mockReset();
   vi.mocked(getRegions).mockReset().mockResolvedValue([]);
 });
@@ -51,6 +54,28 @@ describe("AppShell", () => {
     fireEvent.click(screen.getByRole("button", { name: /REGION/ }));
 
     await waitFor(() => expect(screen.getByText("Failed to load")).toBeInTheDocument());
-    expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Loading/)).not.toBeInTheDocument();
+  });
+
+  it("defaults to retro fonts and scanlines, then persists readable display toggles", async () => {
+    vi.mocked(getIatas).mockResolvedValue([]);
+    renderShell();
+
+    await waitFor(() => {
+      expect(document.documentElement.dataset.fontMode).toBe("retro");
+      expect(document.documentElement.dataset.scanlines).toBe("on");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Font retro" }));
+    fireEvent.click(screen.getByRole("button", { name: "Scan on" }));
+
+    await waitFor(() => {
+      expect(document.documentElement.dataset.fontMode).toBe("modern");
+      expect(document.documentElement.dataset.scanlines).toBe("off");
+    });
+    expect(localStorage.getItem("beacon-font-mode")).toBe("modern");
+    expect(localStorage.getItem("beacon-scanlines")).toBe("off");
+    expect(screen.getByRole("button", { name: "Font modern" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Scan off" })).toHaveAttribute("aria-pressed", "true");
   });
 });

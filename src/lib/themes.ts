@@ -76,6 +76,7 @@ function updateFavicon(primary: string, bg: string) {
 
 export function applyTheme(theme: Theme) {
   const root = document.documentElement;
+  root.dataset.theme = theme.id;
   for (const [prop, value] of Object.entries(theme.vars)) {
     root.style.setProperty(prop, value);
   }

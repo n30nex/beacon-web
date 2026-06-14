@@ -1,0 +1,8 @@
+Oldschool PC font files in this directory are from:
+The Ultimate Oldschool PC Font Pack v2.2 by VileR / INT10h.org
+
+Source:
+https://int10h.org/oldschool-pc-fonts/download/
+
+License:
+CC BY-SA 4.0, as distributed with LICENSE.TXT in this directory.

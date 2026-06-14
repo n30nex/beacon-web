@@ -16,6 +16,36 @@ import type { WsManager } from "../api/ws-manager";
 
 // header widgets: WS status, region picker, theme picker
 
+type FontMode = "retro" | "modern";
+type ScanlineMode = "on" | "off";
+
+const FONT_MODE_KEY = "beacon-font-mode";
+const SCANLINES_KEY = "beacon-scanlines";
+
+function readFontMode(): FontMode {
+  try {
+    return localStorage.getItem(FONT_MODE_KEY) === "modern" ? "modern" : "retro";
+  } catch {
+    return "retro";
+  }
+}
+
+function readScanlines(): ScanlineMode {
+  try {
+    return localStorage.getItem(SCANLINES_KEY) === "off" ? "off" : "on";
+  } catch {
+    return "on";
+  }
+}
+
+function writeDisplayPref(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Storage can be unavailable in privacy modes; the active page still updates.
+  }
+}
+
 function LiveBadge({ wsManager }: { wsManager: WsManager }) {
   const { status } = useWsStatus(wsManager);
   const [staleStr, setStaleStr] = useState("");
@@ -246,6 +276,46 @@ function ThemePicker() {
   );
 }
 
+function DisplayPreferences() {
+  const [fontMode, setFontMode] = useState<FontMode>(readFontMode);
+  const [scanlines, setScanlines] = useState<ScanlineMode>(readScanlines);
+
+  useEffect(() => {
+    document.documentElement.dataset.fontMode = fontMode;
+    document.documentElement.dataset.scanlines = scanlines;
+    writeDisplayPref(FONT_MODE_KEY, fontMode);
+    writeDisplayPref(SCANLINES_KEY, scanlines);
+  }, [fontMode, scanlines]);
+
+  const fontReadable = fontMode === "modern";
+  const scanlinesReadable = scanlines === "off";
+
+  return (
+    <div className="display-preferences fixed left-2 bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] z-50 flex max-w-[calc(100vw-1rem)] gap-1.5 md:bottom-8">
+      <button
+        type="button"
+        aria-pressed={fontReadable}
+        className={`crt-panel shrink-0 rounded-sm border px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+          fontReadable ? "border-green/45 bg-green/10 text-green" : "border-primary/45 bg-primary/8 text-primary"
+        }`}
+        onClick={() => setFontMode((mode) => (mode === "retro" ? "modern" : "retro"))}
+      >
+        Font {fontMode}
+      </button>
+      <button
+        type="button"
+        aria-pressed={scanlinesReadable}
+        className={`crt-panel shrink-0 rounded-sm border px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+          scanlinesReadable ? "border-green/45 bg-green/10 text-green" : "border-primary/45 bg-primary/8 text-primary"
+        }`}
+        onClick={() => setScanlines((mode) => (mode === "on" ? "off" : "on"))}
+      >
+        Scan {scanlines}
+      </button>
+    </div>
+  );
+}
+
 // top-level layout: header, tabs, content, footer
 
 interface AppShellProps {
@@ -295,6 +365,7 @@ export function AppShell({ activeTab, onTabChange, wsManager, children }: AppShe
       </footer>
 
       <BottomNav activeTab={activeTab} onTabChange={onTabChange} />
+      <DisplayPreferences />
     </div>
   );
 }
