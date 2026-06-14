@@ -6,7 +6,6 @@ import { RegionProvider } from "../../src/hooks/useRegion";
 import { ALL_REGIONS } from "../../src/hooks/region-selection";
 import { getIatas, getRegions } from "../../src/api/client";
 import type { WsManager } from "../../src/api/ws-manager";
-import pkg from "../../package.json";
 
 vi.mock("../../src/api/client", () => ({
   getIatas: vi.fn(),
@@ -42,10 +41,13 @@ beforeEach(() => {
 });
 
 describe("AppShell", () => {
-  it("footer shows the package.json version", () => {
+  it("footer shows the display version with a green pulse", () => {
     vi.mocked(getIatas).mockResolvedValue([]);
     renderShell();
-    expect(screen.getByText(`BEACON v${pkg.version}`)).toBeInTheDocument();
+    expect(screen.getByText("BEACON v", { exact: false })).toHaveTextContent("BEACON v133.7");
+    const version = screen.getByText("133.7");
+    expect(version).toHaveClass("animate-pulse");
+    expect(version).toHaveClass("text-green");
   });
 
   it("region picker shows an error state when the IATA list fails to load", async () => {

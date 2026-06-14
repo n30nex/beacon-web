@@ -21,6 +21,7 @@ type ScanlineMode = "on" | "off";
 
 const FONT_MODE_KEY = "beacon-font-mode";
 const SCANLINES_KEY = "beacon-scanlines";
+const DISPLAY_VERSION = "133.7";
 
 function readFontMode(): FontMode {
   try {
@@ -291,11 +292,11 @@ function DisplayPreferences() {
   const scanlinesReadable = scanlines === "off";
 
   return (
-    <div className="display-preferences fixed left-2 bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] z-50 flex max-w-[calc(100vw-1rem)] gap-1.5 md:bottom-8">
+    <div className="display-preferences flex min-w-0 items-center gap-1.5">
       <button
         type="button"
         aria-pressed={fontReadable}
-        className={`crt-panel shrink-0 rounded-sm border px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+        className={`shrink-0 rounded-sm border px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider leading-none transition-colors ${
           fontReadable ? "border-green/45 bg-green/10 text-green" : "border-primary/45 bg-primary/8 text-primary"
         }`}
         onClick={() => setFontMode((mode) => (mode === "retro" ? "modern" : "retro"))}
@@ -305,7 +306,7 @@ function DisplayPreferences() {
       <button
         type="button"
         aria-pressed={scanlinesReadable}
-        className={`crt-panel shrink-0 rounded-sm border px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+        className={`shrink-0 rounded-sm border px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider leading-none transition-colors ${
           scanlinesReadable ? "border-green/45 bg-green/10 text-green" : "border-primary/45 bg-primary/8 text-primary"
         }`}
         onClick={() => setScanlines((mode) => (mode === "on" ? "off" : "on"))}
@@ -360,12 +361,15 @@ export function AppShell({ activeTab, onTabChange, wsManager, children }: AppShe
         <ErrorBoundary>{children}</ErrorBoundary>
       </main>
 
-      <footer className="crt-panel hidden md:flex items-center px-4 py-1.5 bg-bg-surface border-t border-border font-mono text-[11px] text-text-dim shrink-0">
-        <span>BEACON v{__APP_VERSION__}</span>
+      <footer className="crt-panel flex items-center gap-2 px-2 py-1 bg-bg-surface border-t border-border font-mono text-[10px] text-text-dim shrink-0 md:px-4 md:text-[11px]">
+        <span className="shrink-0">
+          BEACON v<span className="animate-pulse font-bold text-green">{DISPLAY_VERSION}</span>
+        </span>
+        <span className="text-border-subtle" aria-hidden>|</span>
+        <DisplayPreferences />
       </footer>
 
       <BottomNav activeTab={activeTab} onTabChange={onTabChange} />
-      <DisplayPreferences />
     </div>
   );
 }
