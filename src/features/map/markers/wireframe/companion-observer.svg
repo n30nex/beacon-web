@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none" role="img" aria-label="client observer master" style="color:var(--node-color,#ff5cc8);filter:drop-shadow(0 0 4px currentColor);overflow:visible">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none" role="img" aria-label="client observer master" style="color:var(--node-color,#ffb000);filter:drop-shadow(0 0 4px currentColor);overflow:visible">
   <circle cx="32" cy="32" r="29" fill="none" stroke="currentColor" stroke-width="2" opacity="0.9"></circle>
   <g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
     <rect x="24" y="22" width="16" height="30" rx="4"></rect>

@@ -290,6 +290,25 @@ function readCssVar(name: string, fallback: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
 
+function cssColorToRgb(color: string, fallback: [number, number, number]): [number, number, number] {
+  const hex = color.trim().match(/^#?([\da-f]{3}|[\da-f]{6})$/i)?.[1];
+  if (hex) {
+    const full = hex.length === 3 ? hex.split("").map((part) => part + part).join("") : hex;
+    return [
+      Number.parseInt(full.slice(0, 2), 16),
+      Number.parseInt(full.slice(2, 4), 16),
+      Number.parseInt(full.slice(4, 6), 16),
+    ];
+  }
+  const rgb = color.match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
+  if (rgb) return [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])];
+  return fallback;
+}
+
+function rgba(parts: [number, number, number], alpha: number): string {
+  return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${Math.max(0, Math.min(1, alpha))})`;
+}
+
 function storedNumber(key: string, fallback: number, min: number, max: number): number {
   if (typeof window === "undefined") return fallback;
   const raw = Number.parseFloat(localStorage.getItem(key) ?? "");
@@ -375,6 +394,9 @@ function useLiveAnimationCanvas(
     let slowFrames = 0;
     const frameSamples: number[] = [];
     const matrixColor = readCssVar("--color-green", "#42ff7c");
+    const heatCoreColor = cssColorToRgb(readCssVar("--crt-phosphor", "#ffb000"), [255, 176, 0]);
+    const heatMidColor = cssColorToRgb(readCssVar("--crt-phosphor-soft", "#ff7a18"), [255, 122, 24]);
+    const heatEdgeColor = cssColorToRgb(readCssVar("--color-secondary", "#42ff7c"), [66, 255, 124]);
     const debugPerf = new URLSearchParams(window.location.search).has("livePerf");
     type ProjectedPoint = { x: number; y: number };
     interface ProjectedLivePath {
@@ -595,10 +617,10 @@ function useLiveAnimationCanvas(
           const radius = 16 + Math.min(22, heat.intensity * 5) + 12 * (1 - progress);
           const alpha = (1 - progress) * Math.min(0.08, 0.03 + heat.intensity * 0.014);
           const gradient = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius);
-          gradient.addColorStop(0, `rgba(255, 87, 34, ${alpha})`);
-          gradient.addColorStop(0.38, `rgba(255, 202, 40, ${alpha * 0.5})`);
-          gradient.addColorStop(0.72, `rgba(66, 165, 245, ${alpha * 0.24})`);
-          gradient.addColorStop(1, "rgba(13, 71, 161, 0)");
+          gradient.addColorStop(0, rgba(heatCoreColor, alpha));
+          gradient.addColorStop(0.38, rgba(heatMidColor, alpha * 0.5));
+          gradient.addColorStop(0.72, rgba(heatEdgeColor, alpha * 0.24));
+          gradient.addColorStop(1, rgba(heatCoreColor, 0));
 
           ctx.save();
           ctx.globalCompositeOperation = "lighter";

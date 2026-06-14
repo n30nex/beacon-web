@@ -302,8 +302,6 @@ export function AtlasView({ wsManager, onViewNode }: AtlasViewProps) {
     <div className="relative flex min-h-0 flex-1 overflow-hidden bg-bg-base">
       <div ref={containerRef} data-dark={isDark} className="flex-1" />
 
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_40%,rgba(0,0,0,0.46)_100%)]" />
-
       <div className="absolute left-3 top-3 z-10 flex w-[min(560px,calc(100vw-24px))] flex-col gap-2">
         <div className="rounded border border-border bg-bg-surface/92 p-3 shadow-2xl backdrop-blur">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
