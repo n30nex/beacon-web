@@ -36,6 +36,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       const match = loaded.find((t) => t.id === saved) ?? loaded[0];
       if (!match) return;
       applyTheme(match);
+      if (saved !== match.id) localStorage.setItem(STORAGE_KEY, match.id);
       setPaletteRev((r) => r + 1);
       setThemeIdState(match.id);
     });

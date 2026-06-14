@@ -374,7 +374,7 @@ function useLiveAnimationCanvas(
     let recoveryFrames = 0;
     let slowFrames = 0;
     const frameSamples: number[] = [];
-    const matrixColor = readCssVar("--color-green", "#22C55E");
+    const matrixColor = readCssVar("--color-green", "#42ff7c");
     const debugPerf = new URLSearchParams(window.location.search).has("livePerf");
     type ProjectedPoint = { x: number; y: number };
     interface ProjectedLivePath {
@@ -718,13 +718,13 @@ function useLiveAnimationCanvas(
             const byte = drop.bytes[(scrollOffset + i) % drop.bytes.length]!;
             if (i === 0) {
               ctx.globalAlpha = Math.min(0.72, fade);
-              ctx.font = `700 ${matrixMode ? 16 : 14}px JetBrains Mono, monospace`;
+              ctx.font = `700 ${matrixMode ? 16 : 14}px Share Tech Mono, JetBrains Mono, monospace`;
               ctx.fillStyle = matrixMode ? "#FFFFFF" : drop.color;
               ctx.shadowColor = matrixMode ? matrixColor : drop.color;
               ctx.shadowBlur = frameCaps.shadows ? (matrixMode ? 9 : 6) : 0;
             } else {
               ctx.globalAlpha = fade * (matrixMode ? 0.42 : 0.26);
-              ctx.font = `${matrixMode ? 13 : 12}px JetBrains Mono, monospace`;
+              ctx.font = `${matrixMode ? 13 : 12}px Share Tech Mono, JetBrains Mono, monospace`;
               ctx.fillStyle = matrixMode ? matrixColor : drop.color;
               ctx.shadowColor = matrixMode ? matrixColor : drop.color;
               ctx.shadowBlur = frameCaps.shadows ? (matrixMode ? 3 : 2) : 0;
@@ -827,7 +827,7 @@ function useLiveAnimationCanvas(
               const by = current.from.y + dy * t + ny * 10;
               const alphaByte = Math.max(0.08, (1 - i / 4) * (1 - progress * 0.28) * 0.58);
               ctx.globalAlpha = i === 0 ? Math.min(0.72, alphaByte + 0.12) : alphaByte;
-              ctx.font = `${i === 0 ? "700 " : ""}${Math.max(10, 15 - i)}px JetBrains Mono, monospace`;
+              ctx.font = `${i === 0 ? "700 " : ""}${Math.max(10, 15 - i)}px Share Tech Mono, JetBrains Mono, monospace`;
               ctx.fillStyle = i === 0 ? "#FFFFFF" : matrixColor;
               ctx.shadowBlur = i === 0 ? 9 : 4;
               ctx.shadowColor = matrixColor;
@@ -866,7 +866,7 @@ function useLiveAnimationCanvas(
         if (frameCaps.labels && pathDistance > 72 && progress > 0.16 && progress < 0.9) {
           ctx.globalAlpha = matrixMode ? 0.28 : 0.19;
           ctx.shadowBlur = 0;
-          ctx.font = "10px JetBrains Mono, monospace";
+          ctx.font = "10px Share Tech Mono, JetBrains Mono, monospace";
           ctx.fillStyle = color;
           ctx.fillText(payloadLabel(anim.event.payloadTypeName).slice(0, 10), x + 8, y - 8);
         }
@@ -1666,7 +1666,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       const timer = setTimeout(() => flushPropagationGroup(event.packetHash), visualPressureRef.current >= 2 ? 260 : 420);
       propagationGroupsRef.current.set(event.packetHash, { events: [event], timer });
     },
-    [flushPropagationGroup, queueAnimation, realisticPropagation],
+    [flushPropagationGroup, queueAnimation, realisticPropagation, scheduleLiveStateFlush],
   );
 
   useEffect(() => {

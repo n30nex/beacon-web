@@ -10,9 +10,9 @@ interface UseMapNodesDataOptions {
   limit?: number;
 }
 
-// Page the selected region's nodes 50 at a time for the map, so the canvas fills batch by batch
-// instead of waiting for one big response. Thin wrapper over the shared useInfinitePages (which owns
-// the auto-chain, dedup, and error handling). Loads once per region; WS updates keep nodes live.
+// Load the selected region's complete node set for the map. The shared pager owns cursor chaining,
+// dedup, and error handling, while callers can raise the per-request limit when a one-shot overlay is
+// preferable. Loads once per region; WS updates keep nodes live.
 export function useMapNodesData(selectedIatas: string[] | undefined, regionKey: string, options: UseMapNodesDataOptions = {}) {
   const { items, loadedCount, isPaging, isError, hasMore, loadMore } = useInfinitePages<NodeSummary>({
     queryKey: ["map-nodes", regionKey],

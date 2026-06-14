@@ -56,8 +56,8 @@ export function MapView({ wsManager, selectedNodeId, onSelectNode }: MapViewProp
   const themeKey = themes.length ? themeId : "";
   const { data: iatas } = useQuery({ queryKey: ["iatas"], queryFn: getIatas, staleTime: 60_000 });
 
-  // nodes for the selected region (its own key, independent of the Nodes-table filters/page cap).
-  // Pages in 50 at a time so the map fills batch by batch; nodesKey matches the hook's query key.
+  // Nodes for the selected region, keyed independently from the Nodes-table filters/page cap.
+  // The pager auto-chains until the full regional set is present; nodesKey matches the hook's key.
   const nodesKey = useMemo(() => ["map-nodes", regionKey], [regionKey]);
   const { nodes, loadedCount, isPaging, isError: nodesError } = useMapNodesData(selectedIatas, regionKey);
 
@@ -112,7 +112,7 @@ export function MapView({ wsManager, selectedNodeId, onSelectNode }: MapViewProp
         clustered={clustered}
         onClusteredChange={setClustered}
       />
-      {/* streams in 50 at a time; the count climbs as pages land, then the pill disappears */}
+      {/* The count climbs as the full regional node set lands, then the pill disappears. */}
       <LoadingPill loading={isPaging} error={nodesError} count={loadedCount} noun="nodes" />
       {error && (
         // z-20 so the failure overlay covers the settings card (z-10) instead of it floating on top

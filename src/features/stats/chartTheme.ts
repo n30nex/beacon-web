@@ -62,21 +62,21 @@ function blend(a: string, b: string, t = 0.5): string {
 
 export function readChartColors(): ChartColors {
   const c = {
-    primary: readVar("--color-primary") || "#3B82F6",
-    primaryDim: readVar("--color-primary-dim") || "#1D4ED8",
-    secondary: readVar("--color-secondary") || "#A78BFA",
-    green: readVar("--color-green") || "#22C55E",
-    warn: readVar("--color-warn") || "#EAB308",
-    danger: readVar("--color-danger") || "#EF4444",
-    textBright: readVar("--color-text-bright") || "#FAFAFA",
-    textNormal: readVar("--color-text-normal") || "#A1A1AA",
-    textMuted: readVar("--color-text-muted") || "#73737B",
-    textDim: readVar("--color-text-dim") || "#5F5F65",
-    bgBase: readVar("--color-bg-base") || "#09090B",
-    bgSurface: readVar("--color-bg-surface") || "#111114",
-    bgRaised: readVar("--color-bg-raised") || "#1A1A1F",
-    border: readVar("--color-border") || "#27272A",
-    borderSubtle: readVar("--color-border-subtle") || "#1E1E22",
+    primary: readVar("--color-primary") || "#ffb000",
+    primaryDim: readVar("--color-primary-dim") || "#a96500",
+    secondary: readVar("--color-secondary") || "#42ff7c",
+    green: readVar("--color-green") || "#42ff7c",
+    warn: readVar("--color-warn") || "#ffd166",
+    danger: readVar("--color-danger") || "#ff5f2e",
+    textBright: readVar("--color-text-bright") || "#ffe9a8",
+    textNormal: readVar("--color-text-normal") || "#ffc766",
+    textMuted: readVar("--color-text-muted") || "#b97c24",
+    textDim: readVar("--color-text-dim") || "#6e4818",
+    bgBase: readVar("--color-bg-base") || "#090500",
+    bgSurface: readVar("--color-bg-surface") || "#120900",
+    bgRaised: readVar("--color-bg-raised") || "#1d1002",
+    border: readVar("--color-border") || "#5f3708",
+    borderSubtle: readVar("--color-border-subtle") || "#332006",
   };
   // 8 categorical colors blended from the palette so any theme stays cohesive.
   const series = [
@@ -107,6 +107,6 @@ export function tooltipStyle(c: ChartColors) {
     borderColor: c.border,
     borderWidth: 1,
     padding: [7, 11] as [number, number],
-    textStyle: { color: c.textBright, fontFamily: "JetBrains Mono, monospace", fontSize: 11 },
+    textStyle: { color: c.textBright, fontFamily: "Share Tech Mono, JetBrains Mono, monospace", fontSize: 11 },
   };
 }

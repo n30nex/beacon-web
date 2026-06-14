@@ -191,13 +191,15 @@ export function AtlasView({ wsManager, onViewNode }: AtlasViewProps) {
   }, []);
   const { containerRef, mapRef, isReady, error } = useMapLibre(styleId, fitPoints, handleStyleError);
   const isDark = resolveMapStyle(styleId).dark;
-  const [nodeOverlayReady, setNodeOverlayReady] = useState(false);
+  const nodeOverlayKey =
+    summary.isSuccess && isReady ? `${summary.data.region.slug}:${atlasIatas?.join(",") ?? "all"}:${range}` : "";
+  const [readyNodeOverlayKey, setReadyNodeOverlayKey] = useState("");
+  const nodeOverlayReady = nodeOverlayKey !== "" && readyNodeOverlayKey === nodeOverlayKey;
   useEffect(() => {
-    setNodeOverlayReady(false);
-    if (!summary.isSuccess || !isReady) return;
-    const id = window.setTimeout(() => setNodeOverlayReady(true), ATLAS_NODE_LOAD_DELAY_MS);
+    if (!nodeOverlayKey) return;
+    const id = window.setTimeout(() => setReadyNodeOverlayKey(nodeOverlayKey), ATLAS_NODE_LOAD_DELAY_MS);
     return () => window.clearTimeout(id);
-  }, [isReady, range, regionSlug, summary.isSuccess]);
+  }, [nodeOverlayKey]);
   const {
     nodes,
     loadedCount,
@@ -304,12 +306,12 @@ export function AtlasView({ wsManager, onViewNode }: AtlasViewProps) {
 
       <div className="absolute left-3 top-3 z-10 flex w-[min(560px,calc(100vw-24px))] flex-col gap-2">
         <div className="rounded border border-border bg-bg-surface/92 p-3 shadow-2xl backdrop-blur">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
               <div className="font-mono text-[10px] uppercase tracking-wider text-text-dim">Atlas</div>
               <div className="text-lg font-semibold text-text-bright">{summary.data?.region.name ?? "Regional Atlas"}</div>
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex max-w-full gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:justify-end sm:overflow-visible sm:pb-0">
               {ATLAS_REGION_OPTIONS.map((option) => (
                 <PillButton
                   key={option.slug}

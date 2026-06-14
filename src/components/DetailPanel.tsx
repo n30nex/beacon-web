@@ -30,7 +30,7 @@ interface DetailPanelProps {
 
 export function DetailPanel({ title, onClose, isLoading, notFound, notFoundIcon, notFoundLabel = "Not found", children }: DetailPanelProps) {
   return (
-    <div className="absolute inset-0 z-30 w-full md:static md:inset-auto md:z-auto md:shrink-0 md:w-[400px] md:border-l border-border bg-bg-surface flex flex-col min-h-0 overflow-hidden">
+    <div className="crt-panel absolute inset-0 z-30 w-full md:static md:inset-auto md:z-auto md:shrink-0 md:w-[400px] md:border-l border-border bg-bg-surface flex flex-col min-h-0 overflow-hidden">
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-subtle shrink-0">
         <span className="text-[13px] font-mono font-medium text-text-dim uppercase tracking-wider">{title}</span>
         <CloseButton onClose={onClose} label="Close detail panel" className="-mr-1" />

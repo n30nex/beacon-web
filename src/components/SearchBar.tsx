@@ -62,7 +62,7 @@ export function SearchBar({ value, onChange, fields, field, onFieldChange }: Sea
         renderTrigger={({ toggle }) => (
           <button
             type="button"
-            className="flex items-center gap-1 text-[11px] font-mono px-2 py-1 rounded-l-sm border border-r-0 border-border bg-bg-surface text-text-muted hover:text-text-normal transition-colors cursor-pointer"
+            className="crt-panel flex items-center gap-1 text-[11px] font-mono px-2 py-1 rounded-l-sm border border-r-0 border-border bg-bg-surface text-text-muted hover:text-text-normal transition-colors cursor-pointer"
             onClick={toggle}
           >
             {currentField?.label ?? ""}
@@ -110,7 +110,7 @@ export function SearchBar({ value, onChange, fields, field, onFieldChange }: Sea
           value={localValue}
           onChange={(e) => handleChange(e.target.value)}
           placeholder={`Search by ${(currentField?.label ?? "").toLowerCase()}...`}
-          className="w-full text-[11px] font-mono bg-bg-surface border border-border rounded-r-sm pl-7 pr-7 py-1 text-text-bright placeholder:text-text-dim transition-colors"
+          className="w-full text-[11px] font-mono bg-bg-surface border border-border rounded-r-sm pl-7 pr-7 py-1 text-text-bright placeholder:text-text-dim transition-colors shadow-[inset_0_0_14px_rgba(0,0,0,0.45)] focus:border-primary"
         />
         {localValue && (
           <button
