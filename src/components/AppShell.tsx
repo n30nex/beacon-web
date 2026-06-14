@@ -10,6 +10,7 @@ import { BottomNav } from "./BottomNav";
 import { BeaconWordmark } from "./BeaconWordmark";
 import { getIatas } from "../api/client";
 import { TABS } from "../lib/constants";
+import { sanitizeDisplayLabel } from "../lib/display-label";
 import type { WsManager } from "../api/ws-manager";
 
 // header widgets: WS status, region picker, theme picker
@@ -31,7 +32,7 @@ function LiveBadge({ wsManager }: { wsManager: WsManager }) {
 
   if (status === "connected") {
     return (
-      <div className="flex items-center gap-1.5 font-mono text-[11px] text-green bg-green/8 border border-green/15 px-2 py-0.5 rounded-sm">
+      <div className="crt-panel flex items-center gap-1.5 font-mono text-[11px] text-green bg-green/8 border border-green/25 px-2 py-0.5 rounded-sm">
         <span className="w-1.5 h-1.5 rounded-full bg-green animate-pulse" />
         LIVE
       </div>
@@ -40,14 +41,14 @@ function LiveBadge({ wsManager }: { wsManager: WsManager }) {
 
   if (status === "connecting") {
     return (
-      <div className="flex items-center gap-1.5 font-mono text-[11px] text-warn bg-warn/7 border border-warn/15 px-2 py-0.5 rounded-sm">
+      <div className="crt-panel flex items-center gap-1.5 font-mono text-[11px] text-warn bg-warn/7 border border-warn/25 px-2 py-0.5 rounded-sm">
         STALE {staleStr}
       </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-1.5 font-mono text-[11px] text-danger bg-danger/8 border border-danger/15 px-2 py-0.5 rounded-sm">
+    <div className="crt-panel flex items-center gap-1.5 font-mono text-[11px] text-danger bg-danger/8 border border-danger/25 px-2 py-0.5 rounded-sm">
       OFFLINE
     </div>
   );
@@ -115,7 +116,7 @@ function RegionSelector() {
       renderTrigger={({ toggle }) => (
         <button
           type="button"
-          className="flex items-center gap-1.5 bg-bg-raised border border-border rounded px-3 py-1 text-text-bright font-mono text-xs font-semibold hover:border-text-dim/30 transition-colors"
+          className="crt-panel flex items-center gap-1.5 bg-bg-raised border border-border rounded px-3 py-1 text-text-bright font-mono text-xs font-semibold hover:border-primary transition-colors"
           onClick={toggle}
         >
           <span className="text-text-muted font-normal text-[11px]">REGION</span>
@@ -131,7 +132,7 @@ function RegionSelector() {
             className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-xs font-mono transition-colors ${
               isAllRegions(selection)
                 ? "text-text-bright bg-primary/10"
-                : "text-text-muted hover:text-text-normal hover:bg-white/3"
+                : "text-text-muted hover:text-text-normal hover:bg-primary/8"
             }`}
             onClick={() => setSelection(ALL_REGIONS)}
           >
@@ -151,7 +152,7 @@ function RegionSelector() {
                     key={r.slug}
                     type="button"
                     className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-xs font-mono transition-colors ${
-                      checked ? "text-text-bright bg-primary/10" : "text-text-muted hover:text-text-normal hover:bg-white/3"
+                      checked ? "text-text-bright bg-primary/10" : "text-text-muted hover:text-text-normal hover:bg-primary/8"
                     }`}
                     onClick={() => toggleRegion(r.slug)}
                   >
@@ -172,13 +173,13 @@ function RegionSelector() {
                   key={i.iata}
                   type="button"
                   className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-xs font-mono transition-colors ${
-                    checked ? "text-text-bright bg-primary/10" : "text-text-muted hover:text-text-normal hover:bg-white/3"
+                    checked ? "text-text-bright bg-primary/10" : "text-text-muted hover:text-text-normal hover:bg-primary/8"
                   }`}
                   onClick={() => toggleIata(i.iata)}
                 >
                   <CheckBox checked={checked} />
                   <span className="font-semibold text-primary w-8 shrink-0">{i.iata}</span>
-                  <span className="text-text-dim truncate">{i.displayName || i.iata}</span>
+                  <span className="text-text-dim truncate">{sanitizeDisplayLabel(i.displayName, i.iata)}</span>
                 </button>
               );
             })
@@ -202,11 +203,11 @@ function ThemePicker() {
       renderTrigger={({ toggle }) => (
         <button
           type="button"
-          className="flex items-center gap-1.5 bg-bg-raised border border-border rounded px-2 py-1 text-text-muted font-mono text-[11px] hover:text-text-normal hover:border-text-dim transition-colors"
+          className="crt-panel flex items-center gap-1.5 bg-bg-raised border border-border rounded px-2 py-1 text-text-muted font-mono text-[11px] hover:text-text-normal hover:border-primary transition-colors"
           onClick={toggle}
         >
           <span
-            className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/10"
+            className="w-2.5 h-2.5 shrink-0 border border-primary/40 shadow-[0_0_8px_currentColor]"
             style={{ background: current?.vars["--palette-primary"] }}
           />
           <span className="text-text-dim text-[11px]">▾</span>
@@ -222,7 +223,7 @@ function ThemePicker() {
               className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs font-mono transition-colors ${
                 t.id === themeId
                   ? "text-text-bright bg-primary/10"
-                  : "text-text-muted hover:text-text-normal hover:bg-white/3"
+                  : "text-text-muted hover:text-text-normal hover:bg-primary/8"
               }`}
               onClick={() => {
                 setThemeId(t.id);
@@ -230,7 +231,7 @@ function ThemePicker() {
               }}
             >
               <span
-                className="w-3 h-3 rounded-full shrink-0 border border-white/10"
+                className="w-3 h-3 shrink-0 border border-primary/40 shadow-[0_0_8px_currentColor]"
                 style={{ background: t.vars["--palette-primary"] }}
               />
               {t.name}
@@ -253,8 +254,8 @@ interface AppShellProps {
 
 export function AppShell({ activeTab, onTabChange, wsManager, children }: AppShellProps) {
   return (
-    <div className="flex flex-col h-dvh">
-      <header className="flex items-center justify-between gap-2 px-3 md:px-4 h-[42px] bg-bg-surface border-b border-border shrink-0">
+    <div className="crt-shell flex flex-col h-dvh">
+      <header className="crt-panel flex items-center justify-between gap-2 px-3 md:px-4 h-[46px] bg-bg-surface border-b border-border shrink-0">
         <BeaconWordmark iconSize={22} textClassName="text-sm" />
         <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
           <RegionSelector />
@@ -263,14 +264,14 @@ export function AppShell({ activeTab, onTabChange, wsManager, children }: AppShe
         </div>
       </header>
 
-      <nav className="hidden md:flex bg-bg-surface border-b border-border px-4 shrink-0" role="tablist">
+      <nav className="crt-panel hidden md:flex bg-bg-surface border-b border-border px-4 shrink-0" role="tablist">
         {TABS.map((tab) => (
           <button
             key={tab}
             type="button"
             role="tab"
             aria-selected={activeTab === tab}
-            className={`px-[18px] py-2.5 text-xs font-medium tracking-wider border-b-2 cursor-pointer transition-colors ${
+            className={`px-[18px] py-2.5 text-xs font-medium tracking-wider border-b-2 cursor-pointer transition-colors uppercase ${
               activeTab === tab
                 ? "text-primary border-primary"
                 : "text-text-muted border-transparent hover:text-text-normal"
@@ -286,7 +287,7 @@ export function AppShell({ activeTab, onTabChange, wsManager, children }: AppShe
         <ErrorBoundary>{children}</ErrorBoundary>
       </main>
 
-      <footer className="hidden md:flex items-center px-4 py-1.5 bg-bg-surface border-t border-border font-mono text-[11px] text-text-dim shrink-0">
+      <footer className="crt-panel hidden md:flex items-center px-4 py-1.5 bg-bg-surface border-t border-border font-mono text-[11px] text-text-dim shrink-0">
         <span>BEACON v{__APP_VERSION__}</span>
       </footer>
 

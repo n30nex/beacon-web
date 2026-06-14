@@ -3,7 +3,7 @@ import { type ChartColors, tooltipStyle, withAlpha } from "./chartTheme";
 import { formatCount } from "../../lib/formatters";
 import type { TelemetryPoint } from "./types";
 
-const MONO = "JetBrains Mono, monospace";
+const MONO = "Share Tech Mono, JetBrains Mono, monospace";
 
 function timeAxis(c: ChartColors) {
   return {

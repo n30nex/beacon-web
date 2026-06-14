@@ -5,6 +5,7 @@ import { useRegion } from "../../hooks/useRegion";
 import type { WsPacketObservation, WsLagged } from "../../types/ws";
 import type { PacketSummary } from "../../types/api";
 import { LIVE_BUFFER_CAP, MAX_INFINITE_PAGES } from "../../lib/constants";
+import { sanitizeDisplayLabel } from "../../lib/display-label";
 
 // merge and deduplicate live + paginated packets
 
@@ -176,7 +177,7 @@ export function usePackets() {
         scope: data.packet.scope,
         latestObserver: {
           id: data.observation.observerId,
-          displayName: data.observation.observerName,
+          displayName: sanitizeDisplayLabel(data.observation.observerName, ""),
           iata: data.observation.iata,
         },
       };
@@ -246,7 +247,7 @@ export function usePackets() {
     const map = new Map<string, string>();
     for (const p of allPackets) {
       if (p.latestObserver && !map.has(p.latestObserver.id)) {
-        map.set(p.latestObserver.id, p.latestObserver.displayName ?? p.latestObserver.id.slice(0, 8));
+        map.set(p.latestObserver.id, sanitizeDisplayLabel(p.latestObserver.displayName, p.latestObserver.id.slice(0, 8)));
       }
     }
     return Array.from(map.entries())

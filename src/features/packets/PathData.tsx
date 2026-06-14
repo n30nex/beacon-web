@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useLayoutEffect, type MouseEvent as ReactM
 import { createPortal } from "react-dom";
 import { useHasHover } from "../../hooks/useMediaQuery";
 import { formatSnr, snrLevel, SIGNAL_LEVEL_CLASSES } from "../../lib/formatters";
+import { sanitizeDisplayLabel } from "../../lib/display-label";
 import type { ResolvedHop, ResolvedNode } from "../../types/api";
 import type { PathConfidence } from "../../types/enums";
 
@@ -13,7 +14,7 @@ const HOP_BLOCK_CLASSES: Record<PathConfidence, string> = {
 };
 
 function nodeLabel(node: ResolvedNode): string {
-  return node.name ?? node.publicKey.slice(0, 8);
+  return sanitizeDisplayLabel(node.name, node.publicKey.slice(0, 8));
 }
 
 // Portals to <body> so the drawer's overflow doesn't clip it; a close delay bridges the mouse gap.

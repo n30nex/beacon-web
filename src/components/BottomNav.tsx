@@ -75,7 +75,7 @@ function NavButton({ label, icon, active, onClick, role, ariaSelected, ariaHasPo
       aria-haspopup={ariaHasPopup}
       aria-expanded={ariaExpanded}
       onClick={onClick}
-      className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-medium tracking-wide cursor-pointer transition-colors ${
+      className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-medium tracking-wide cursor-pointer transition-colors uppercase crt-icon ${
         active ? "text-primary" : "text-text-muted hover:text-text-normal"
       }`}
     >
@@ -95,8 +95,8 @@ function MoreSheet({ activeTab, onPick, onClose }: { activeTab: string; onPick: 
           type="button"
           role="menuitem"
           onClick={() => onPick(tab)}
-          className={`w-full flex items-center gap-3 px-5 py-3 text-left text-sm font-medium cursor-pointer transition-colors ${
-            activeTab === tab ? "text-primary" : "text-text-normal hover:bg-white/3"
+          className={`w-full flex items-center gap-3 px-5 py-3 text-left text-sm font-medium cursor-pointer transition-colors uppercase ${
+            activeTab === tab ? "text-primary" : "text-text-normal hover:bg-primary/8"
           }`}
         >
           {tab}
@@ -117,7 +117,7 @@ export function BottomNav({ activeTab, onTabChange }: { activeTab: string; onTab
 
   return (
     <>
-      <nav className="flex md:hidden shrink-0 bg-bg-surface border-t border-border" role="tablist" aria-label="Primary">
+      <nav className="crt-panel flex md:hidden shrink-0 bg-bg-surface border-t border-border" role="tablist" aria-label="Primary">
         {PRIMARY_TABS.map((tab) => (
           <NavButton
             key={tab}

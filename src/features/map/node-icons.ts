@@ -32,20 +32,20 @@ function svgText(type: string, observer: boolean, isDark: boolean): string | und
 
 // Per-type node color (theme palette var + hard fallback). Drives the glyph via the SVG's currentColor.
 const NODE_TYPE_COLOR: Record<string, { colorVar: string; fallback: string }> = {
-  companion: { colorVar: "--palette-primary", fallback: "#3B82F6" },
-  repeater: { colorVar: "--palette-secondary", fallback: "#A78BFA" },
-  room_server: { colorVar: "--palette-green", fallback: "#22C55E" },
-  sensor: { colorVar: "--palette-warn", fallback: "#EAB308" },
+  companion: { colorVar: "--palette-primary", fallback: "#ffb000" },
+  repeater: { colorVar: "--palette-secondary", fallback: "#42ff7c" },
+  room_server: { colorVar: "--palette-green", fallback: "#42ff7c" },
+  sensor: { colorVar: "--palette-warn", fallback: "#ffd166" },
 };
 
-// Observer is a ROLE pip layered on any type; keep a fixed accent so it reads consistently and
-// contrasts the (theme-tinted) node color.
-const OBSERVER_COLOR = "#c79bff";
+// Observer is a ROLE pip layered on any type; use the active secondary phosphor so it belongs to
+// the selected CRT profile while still separating observers from plain nodes.
+const OBSERVER_COLOR = { colorVar: "--palette-secondary", fallback: "#42ff7c" };
 
 // On the light basemaps the hollow Wireframe glyph loses contrast, so a near-white disc is filled
 // behind it (a dark disc clashed with the saturated glyph). Sized to the outer ring (r=29 in the
 // 88-unit padded viewBox) so it lines up.
-const WIREFRAME_BACKING = "rgba(255, 255, 255, 0.95)";
+const WIREFRAME_BACKING = "rgba(8, 5, 0, 0.92)";
 const RING_R = 29; // outer ring radius in the (padded) 88-unit viewBox
 
 export const nodeObserverIconId = (type: string): string => `${nodeIconId(type)}-observer`;
@@ -68,7 +68,7 @@ const CLUSTER_SIZE = 56; // logical px for the cluster hexagon (72 hex in a 96 p
 
 // Cluster color tracks --palette-primary like the per-type glyphs (count + gauge inherit it via
 // currentColor), keeping clusters on-theme rather than set apart.
-const CLUSTER_COLOR = { colorVar: "--palette-primary", fallback: "#3B82F6" };
+const CLUSTER_COLOR = { colorVar: "--palette-primary", fallback: "#ffb000" };
 
 // Render at ~2x device pixel ratio (capped): resolution headroom so icons stay crisp at icon-size 1,
 // under the cluster layer's up-to-1.5x scaling, under sub-pixel placement, and across DPR changes.
@@ -82,17 +82,18 @@ function currentScale(): number {
 function styleSvg(
   svg: string,
   nodeColor: string,
+  observerColor: string,
   isDark: boolean,
   box: { base: number; padded: number } = { base: 64, padded: 88 },
 ): string {
   const pad = (box.padded - box.base) / 2;
   let out = svg
     .replace(/var\(--node-color,\s*#[0-9a-fA-F]{3,8}\)/g, nodeColor)
-    .replace(/var\(--observer-color,\s*#[0-9a-fA-F]{3,8}\)/g, OBSERVER_COLOR)
+    .replace(/var\(--observer-color,\s*#[0-9a-fA-F]{3,8}\)/g, observerColor)
     .replace(`viewBox="0 0 ${box.base} ${box.base}"`, `viewBox="${-pad} ${-pad} ${box.padded} ${box.padded}"`)
     .replace(`width="${box.base}" height="${box.base}"`, `width="${box.padded}" height="${box.padded}"`);
   if (!isDark) {
-    out = out.replace("drop-shadow(0 0 4px currentColor)", "drop-shadow(0 0 2px rgba(0,0,0,0.55))");
+    out = out.replace("drop-shadow(0 0 4px currentColor)", "drop-shadow(0 0 3px currentColor)");
   }
   return out;
 }
@@ -137,6 +138,8 @@ function drawRing(color: string, scale: number): ImageData {
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d")!;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = size * 0.18;
   ctx.beginPath();
   ctx.arc(size / 2, size / 2, size * 0.34, 0, Math.PI * 2);
   ctx.lineWidth = Math.max(1, size * 0.08) * 1.5;
@@ -154,6 +157,8 @@ function drawSelectionRing(color: string, scale: number): ImageData {
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d")!;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = size * 0.22;
   ctx.beginPath();
   ctx.arc(size / 2, size / 2, 13 * scale, 0, Math.PI * 2);
   ctx.lineWidth = 2.5 * scale;
@@ -189,7 +194,7 @@ function clusterSvg(lit: number): string {
     ([x1, y1, x2, y2], i) =>
       `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" opacity="${i < lit ? CLUSTER_LIT : CLUSTER_DIM}"></line>`,
   ).join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" width="72" height="72" fill="none" role="img" aria-label="cluster" style="color:var(--node-color,#bcd8ff);filter:drop-shadow(0 0 4px currentColor);overflow:visible"><polygon points="36.0,10.0 58.5,23.0 58.5,49.0 36.0,62.0 13.5,49.0 13.5,23.0" fill="#0c1018" fill-opacity="0.92" stroke="currentColor" stroke-width="2.25" stroke-linejoin="round"></polygon>${lines}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" width="72" height="72" fill="none" role="img" aria-label="cluster" style="color:var(--node-color,#ffb000);filter:drop-shadow(0 0 6px currentColor);overflow:visible"><polygon points="36.0,10.0 58.5,23.0 58.5,49.0 36.0,62.0 13.5,49.0 13.5,23.0" fill="#090500" fill-opacity="0.92" stroke="currentColor" stroke-width="2.25" stroke-linejoin="round"></polygon>${lines}</svg>`;
 }
 
 export interface RasterIcon {
@@ -209,16 +214,17 @@ export async function rasterizeNodeIcon(id: string, isDark: boolean): Promise<Ra
     const bucket = CLUSTER_BUCKETS.find((b) => b.id === id);
     if (!bucket) return null;
     const color = styles.getPropertyValue(CLUSTER_COLOR.colorVar).trim() || CLUSTER_COLOR.fallback;
-    const svg = styleSvg(clusterSvg(bucket.lit), color, isDark, { base: 72, padded: 96 });
+    const observerColor = styles.getPropertyValue(OBSERVER_COLOR.colorVar).trim() || OBSERVER_COLOR.fallback;
+    const svg = styleSvg(clusterSvg(bucket.lit), color, observerColor, isDark, { base: 72, padded: 96 });
     const data = await rasterizeSvg(svg, scale, CLUSTER_SIZE);
     return { data, pixelRatio: scale };
   }
   if (id === NODE_ICON_UNKNOWN) {
-    const muted = styles.getPropertyValue("--palette-text-muted").trim() || "#73737B";
+    const muted = styles.getPropertyValue("--palette-text-muted").trim() || "#b97c24";
     return { data: drawRing(muted, scale), pixelRatio: scale };
   }
   if (id === SELECTION_RING_ICON_ID) {
-    const primary = styles.getPropertyValue("--palette-primary").trim() || "#3B82F6";
+    const primary = styles.getPropertyValue("--palette-primary").trim() || "#ffb000";
     return { data: drawSelectionRing(primary, scale), pixelRatio: scale };
   }
 
@@ -230,8 +236,9 @@ export async function rasterizeNodeIcon(id: string, isDark: boolean): Promise<Ra
   const svg = svgText(type, observer, isDark);
   if (!color || !svg) return null;
   const nodeColor = styles.getPropertyValue(color.colorVar).trim() || color.fallback;
+  const observerColor = styles.getPropertyValue(OBSERVER_COLOR.colorVar).trim() || OBSERVER_COLOR.fallback;
   // light basemaps use the hollow Wireframe glyph -> give it a solid backing for contrast
   const backing = isDark ? undefined : WIREFRAME_BACKING;
-  const data = await rasterizeSvg(styleSvg(svg, nodeColor, isDark), scale, MARKER_SIZE, backing);
+  const data = await rasterizeSvg(styleSvg(svg, nodeColor, observerColor, isDark), scale, MARKER_SIZE, backing);
   return { data, pixelRatio: scale };
 }

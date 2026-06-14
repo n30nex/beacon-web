@@ -16,6 +16,7 @@ export interface LivePacketEvent {
   routeTypeName: string;
   rawHex?: string;
   observationCount: number;
+  observationId?: number;
   observerId: string;
   observerName: string;
   iata: string;
@@ -51,19 +52,19 @@ export interface LiveRoutePathPoint {
 }
 
 export const PAYLOAD_COLORS: Record<string, string> = {
-  ADVERT: "#22C55E",
-  GRP_TXT: "#3B82F6",
-  TXT_MSG: "#EAB308",
-  ACK: "#73737B",
-  REQUEST: "#A78BFA",
-  RESPONSE: "#06B6D4",
-  TRACE: "#EC4899",
-  PATH: "#14B8A6",
-  ANON_REQ: "#F43F5E",
-  GRP_DATA: "#8B5CF6",
-  MULTIPART: "#0D9488",
-  CONTROL: "#B45309",
-  RAW_CUSTOM: "#C026D3",
+  ADVERT: "#42ff7c",
+  GRP_TXT: "#ffb000",
+  TXT_MSG: "#ffd166",
+  ACK: "#b97c24",
+  REQUEST: "#7cffec",
+  RESPONSE: "#8dffb0",
+  TRACE: "#ff8a3d",
+  PATH: "#33ff66",
+  ANON_REQ: "#ff5f2e",
+  GRP_DATA: "#ffee78",
+  MULTIPART: "#9dff5c",
+  CONTROL: "#a96500",
+  RAW_CUSTOM: "#ffc766",
 };
 
 const PAYLOAD_ALIASES: Record<string, string> = {
@@ -89,7 +90,7 @@ export function payloadLabel(typeName: string): string {
 }
 
 export function payloadColor(typeName: string): string {
-  return PAYLOAD_COLORS[payloadLabel(typeName)] ?? "#A1A1AA";
+  return PAYLOAD_COLORS[payloadLabel(typeName)] ?? "#ffc766";
 }
 
 export function normalizeHex(value: string | undefined): string {
@@ -222,7 +223,7 @@ export function toLivePacketEvent(
   receivedAt = Date.now(),
 ): LivePacketEvent {
   return {
-    id: `${receivedAt}-${sequence}-${data.packetHash}`,
+    id: `${data.observation.id ?? receivedAt}-${sequence}-${data.packetHash}`,
     sequence,
     packetHash: data.packetHash,
     payloadType: data.packet.payloadType,
@@ -231,9 +232,10 @@ export function toLivePacketEvent(
     routeTypeName: data.packet.routeTypeName,
     rawHex: data.packet.rawHex,
     observationCount: data.packet.observationCount,
+    observationId: data.observation.id,
     scope: data.packet.scope,
     observerId: data.observation.observerId,
-    observerName: data.observation.observerName,
+    observerName: sanitizeDisplayLabel(data.observation.observerName, ""),
     iata: data.observation.iata,
     heardAt: data.observation.heardAt,
     receivedAt,
@@ -246,6 +248,23 @@ export function toLivePacketEvent(
     propagationTimeMs: data.observation.propagationTimeMs,
     resolvedPath: data.observation.resolvedPath,
   };
+}
+
+export function mergeLiveEventsByObservation(
+  current: readonly LivePacketEvent[],
+  incoming: readonly LivePacketEvent[],
+  cap = LIVE_FEED_CAP,
+): LivePacketEvent[] {
+  const seen = new Set<number | string>();
+  const merged: LivePacketEvent[] = [];
+  for (const event of [...incoming, ...current]) {
+    const key = event.observationId ?? event.id;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(event);
+    if (merged.length >= cap) break;
+  }
+  return merged;
 }
 
 export function prependBounded<T>(items: readonly T[], item: T, cap: number): T[] {

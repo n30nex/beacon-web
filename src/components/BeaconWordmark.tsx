@@ -1,4 +1,4 @@
-// BEACON wordmark: beacon icon + "BEACON" text in Chakra Petch.
+// BEACON wordmark: beacon icon + "BEACON" text in the active CRT display face.
 // `text-primary` on the wrapper drives both the icon (currentColor) and the
 // text color, so the whole mark follows the active theme.
 
@@ -18,11 +18,10 @@ export function BeaconWordmark({
   pulse = false,
 }: BeaconWordmarkProps) {
   return (
-    <span className={`inline-flex items-center gap-2 text-primary ${className ?? ""}`}>
+    <span className={`inline-flex items-center gap-2 text-primary crt-icon ${className ?? ""}`}>
       <BeaconLogo size={iconSize} pulse={pulse} />
       <span
-        className={`font-medium tracking-[0.18em] uppercase leading-none ${textClassName}`}
-        style={{ fontFamily: "'Chakra Petch', sans-serif" }}
+        className={`font-medium tracking-[0.18em] uppercase leading-none crt-title crt-terminal-cursor ${textClassName}`}
       >
         BEACON
       </span>

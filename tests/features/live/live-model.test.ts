@@ -6,6 +6,7 @@ import {
   countRecent,
   hashColor,
   hexBytes,
+  mergeLiveEventsByObservation,
   mergeQueuedEvents,
   normalizeHex,
   pathChunks,
@@ -33,6 +34,7 @@ function wsPacket(hash: string, overrides: Partial<WsPacketObservation["data"]> 
       scope: "#bc",
     },
     observation: {
+      id: 101,
       observerId: "obs-1",
       observerName: "Observer 1",
       iata: "YOW",
@@ -72,6 +74,7 @@ describe("live packet model", () => {
       payloadTypeName: "ADVERT",
       routeTypeName: "FLOOD",
       observerName: "Observer 1",
+      observationId: 101,
       iata: "YOW",
       receivedAt: 2000,
       scope: "#bc",
@@ -98,6 +101,13 @@ describe("live packet model", () => {
     const current = [event("h1", 100), event("h0", 90)];
     const queued = [event("h3", 300), event("h2", 200)];
     expect(mergeQueuedEvents(current, queued, 3).map((e) => e.packetHash)).toEqual(["h3", "h2", "h1"]);
+  });
+
+  it("dedupes merged live events by observation ID", () => {
+    const current = [toLivePacketEvent(wsPacket("h1", { observation: { ...wsPacket("h1").observation, id: 10 } }), 1, 1000)];
+    const duplicate = toLivePacketEvent(wsPacket("h1", { observation: { ...wsPacket("h1").observation, id: 10 } }), 2, 1100);
+    const fresh = toLivePacketEvent(wsPacket("h2", { observation: { ...wsPacket("h2").observation, id: 11 } }), 3, 1200);
+    expect(mergeLiveEventsByObservation(current, [duplicate, fresh]).map((item) => item.observationId)).toEqual([10, 11]);
   });
 
   it("counts recent packets and builds fixed activity bins", () => {

@@ -20,7 +20,7 @@ export function ModalOverlay({ label, onClose, inactive = false, children }: {
   return (
     <div
       ref={ref}
-      className="absolute inset-0 z-40 flex justify-end bg-black/50 fade-in"
+      className="absolute inset-0 z-40 flex justify-end bg-black/65 fade-in backdrop-sepia"
       role="dialog"
       aria-modal={!inactive}
       aria-label={label}
@@ -29,7 +29,7 @@ export function ModalOverlay({ label, onClose, inactive = false, children }: {
       onMouseDown={(e) => { pressedBackdrop.current = e.target === e.currentTarget; }}
       onClick={() => { if (pressedBackdrop.current) onClose(); }}
     >
-      <div className="h-full flex shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="crt-float-panel flex h-full border-l border-border" onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
     </div>

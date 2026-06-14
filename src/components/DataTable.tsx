@@ -31,8 +31,8 @@ function TableRowInner<T>({ columns, row, rowKeyStr, isSelected, onSelect }: Row
     <tr
       className={`border-b border-border/40 border-l-2 cursor-pointer transition-colors ${
         isSelected
-          ? "bg-primary/10 border-l-primary"
-          : "border-l-transparent hover:bg-primary/5 hover:border-l-primary/50"
+          ? "bg-primary/12 border-l-primary shadow-[inset_0_0_18px_color-mix(in_srgb,var(--color-primary)_16%,transparent)]"
+          : "border-l-transparent hover:bg-primary/7 hover:border-l-primary/50"
       }`}
       onClick={() => onSelect(isSelected ? null : rowKeyStr)}
     >
@@ -50,8 +50,8 @@ function CardRowInner<T>({ row, rowKeyStr, isSelected, onSelect, renderCard }: R
       type="button"
       className={`w-full text-left px-3 py-2.5 border-l-2 cursor-pointer transition-colors ${
         isSelected
-          ? "bg-primary/10 border-l-primary"
-          : "border-l-transparent hover:bg-primary/5 hover:border-l-primary/50"
+          ? "bg-primary/12 border-l-primary shadow-[inset_0_0_18px_color-mix(in_srgb,var(--color-primary)_16%,transparent)]"
+          : "border-l-transparent hover:bg-primary/7 hover:border-l-primary/50"
       }`}
       onClick={() => onSelect(isSelected ? null : rowKeyStr)}
     >
@@ -133,7 +133,7 @@ export function DataTable<T>({ columns, rows, rowKey, selectedKey, onSelect, isL
     return (
       <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
         {sortedRows && sortedRows.length > 0 ? (
-          <div className="flex flex-col divide-y divide-border/40">
+          <div className="flex flex-col divide-y divide-border/60">
             {sortedRows.map((row) => {
               const key = rowKey(row);
               return (
@@ -161,7 +161,7 @@ export function DataTable<T>({ columns, rows, rowKey, selectedKey, onSelect, isL
     <div className="flex-1 overflow-y-auto overflow-x-auto" onScroll={handleScroll}>
       {sortedRows && sortedRows.length > 0 ? (
         <table className="w-full text-xs font-mono">
-          <thead className="sticky top-0 bg-bg-surface z-10">
+          <thead className="crt-panel sticky top-0 bg-bg-surface z-10">
             <tr className="text-text-muted text-[11px] uppercase tracking-wider border-b border-border">
               {columns.map((col) => {
                 if (!col.sortValue) {

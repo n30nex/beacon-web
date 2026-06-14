@@ -11,6 +11,7 @@ import { MultiSelectDropdown } from "../../components/MultiSelectDropdown";
 import { RouteDetailPanel } from "./RouteDetailPanel";
 import { ResolvedHopBlock } from "../packets/PathData";
 import { formatHex } from "../../lib/formatters";
+import { sanitizeDisplayLabel } from "../../lib/display-label";
 import type { KnownRoute, CrossIATARoute, ResolvedHop, ResolvedNode, RouteHop } from "../../types/api";
 
 const inputClass =
@@ -20,7 +21,7 @@ const inputClass =
 // stable id accessor for the paginator's dedup (module-level so the memo isn't rebuilt each render)
 const routeId = (r: KnownRoute) => String(r.id);
 
-const nodeLabel = (n: ResolvedNode) => n.name ?? formatHex(n.publicKey);
+const nodeLabel = (n: ResolvedNode) => sanitizeDisplayLabel(n.name, formatHex(n.publicKey));
 
 // A run of route hops as a hash chain (reusing the packet path renderer); hops are high-confidence.
 function HopChain({ hops }: { hops: RouteHop[] }) {
@@ -205,7 +206,10 @@ export function RouteTable() {
     staleTime: 5 * 60_000,
   });
   const iataOptions = useMemo(
-    () => (iataCodes ?? []).map((i) => ({ value: i.iata, label: i.displayName ? `${i.iata} — ${i.displayName}` : i.iata })),
+    () => (iataCodes ?? []).map((i) => {
+      const label = sanitizeDisplayLabel(i.displayName, "");
+      return { value: i.iata, label: label ? `${i.iata} - ${label}` : i.iata };
+    }),
     [iataCodes],
   );
 

@@ -4,18 +4,21 @@ import { Badge } from "../../components/Badge";
 import { DetailPanel, Section, Field } from "../../components/DetailPanel";
 import { IataChip } from "../../components/IataChip";
 import { formatHex, formatSnr, snrLevel, formatRadio, SIGNAL_LEVEL_CLASSES } from "../../lib/formatters";
+import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { Timestamp } from "../../components/Timestamp";
 import type { NodeObservation, NodeNeighbor } from "./types";
 
 function NodeNeighborRow({ neighbor, onClick }: { neighbor: NodeNeighbor; onClick?: () => void }) {
+  const label = sanitizeDisplayLabel(neighbor.name, formatHex(neighbor.id));
+  const hasName = Boolean(neighbor.name && label !== formatHex(neighbor.id));
   return (
     <div
-      className={`bg-bg-base border border-border rounded px-3 py-2 ${onClick ? "cursor-pointer hover:bg-white/3" : ""}`}
+      className={`bg-bg-base border border-border rounded px-3 py-2 ${onClick ? "cursor-pointer hover:bg-primary/8" : ""}`}
       onClick={onClick}
     >
       <div className="flex items-center gap-2 text-[11px]">
-        <span className={`font-mono font-semibold tracking-wider truncate ${neighbor.name ? "text-primary" : "text-text-dim italic"}`}>
-          {neighbor.name ?? formatHex(neighbor.id)}
+        <span className={`font-mono font-semibold tracking-wider truncate ${hasName ? "text-primary" : "text-text-dim italic"}`}>
+          {label}
         </span>
         <Badge variant="default">{neighbor.nodeTypeName}</Badge>
         <IataChip>{neighbor.iata}</IataChip>
@@ -32,7 +35,7 @@ function NodeObservationRow({ obs, onClick }: { obs: NodeObservation; onClick?: 
   const level = snrLevel(obs.snr);
   return (
     <div
-      className={`bg-bg-base border border-border rounded px-3 py-2 border-l-2 border-l-primary ${onClick ? "cursor-pointer hover:bg-white/3" : ""}`}
+      className={`bg-bg-base border border-border rounded px-3 py-2 border-l-2 border-l-primary ${onClick ? "cursor-pointer hover:bg-primary/8" : ""}`}
       onClick={onClick}
     >
       <div className="flex items-center gap-2 text-[11px] mb-1.5">
@@ -76,6 +79,8 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, o
     queryFn: () => getNode(nodeId),
     staleTime: 30_000,
   });
+  const nodeLabel = node ? sanitizeDisplayLabel(node.name, formatHex(node.id)) : "";
+  const hasNodeName = Boolean(node?.name && nodeLabel !== formatHex(node.id));
 
   const { data: observations } = useQuery({
     queryKey: ["node-observations", nodeId],
@@ -108,8 +113,8 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, o
         <>
           <Section title="Summary" first>
               <div className="flex items-center gap-2 mb-2">
-                <span className={`font-mono text-xs font-semibold tracking-wider ${node.name ? "text-primary" : "text-text-dim italic"}`}>
-                  {node.name ?? formatHex(node.id)}
+                <span className={`font-mono text-xs font-semibold tracking-wider ${hasNodeName ? "text-primary" : "text-text-dim italic"}`}>
+                  {nodeLabel}
                 </span>
                 <Badge variant="default">{node.nodeTypeName}</Badge>
               </div>

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type RefObject } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject, type RefObject } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -6,21 +6,22 @@ import { useMapLibre } from "../map/useMapLibre";
 import { useMapNodes } from "../map/useMapNodes";
 import { useMapNodesData } from "../map/useMapNodesData";
 import { nodesToFeatureCollection, filterByNodeType } from "../map/node-geojson";
-import { MapSettingsPanel } from "../map/MapSettingsPanel";
-import { MAP_STYLE_STORAGE_KEY, DEFAULT_STYLE_ID, resolveMapStyle } from "../map/types";
+import { MapStyleSwitcher } from "../map/MapStyleSwitcher";
+import { SegmentedControl } from "../map/SegmentedControl";
+import { MAP_STYLE_STORAGE_KEY, DEFAULT_STYLE_ID, NODE_TYPE_FILTER_OPTIONS, resolveMapStyle } from "../map/types";
 import { LoadingPill } from "../../components/LoadingPill";
 import { EmptyState } from "../../components/EmptyState";
 import { useRegion } from "../../hooks/useRegion";
 import { useTheme } from "../../hooks/useTheme";
 import { useWsLaggedHandler, useWsNodeUpdateHandler, useWsPacketHandler } from "../../hooks/useWsHandlers";
-import { getIatas } from "../../api/client";
+import { getIatas, getLiveBackfill, getLiveSummary } from "../../api/client";
 import { useCoalescedNodeUpdates } from "../map/useNodeUpdates";
 import { formatAbsolute, formatCount, formatHex, timeAgoMs } from "../../lib/formatters";
 import { nullableDisplayLabel } from "../../lib/display-label";
 import type { WsManager } from "../../api/ws-manager";
-import type { IataCode } from "../../types/api";
+import type { IataCode, LiveSummary } from "../../types/api";
 import type { NodeSummary } from "../nodes/types";
-import type { WsPacketObservation } from "../../types/ws";
+import type { WsLagged, WsPacketObservation } from "../../types/ws";
 import {
   LIVE_FEED_CAP,
   buildTrueRoutePath,
@@ -28,7 +29,7 @@ import {
   hashColor,
   hashSeed,
   hexBytes,
-  mergeQueuedEvents,
+  mergeLiveEventsByObservation,
   payloadColor,
   payloadLabel,
   sameRouteCoord,
@@ -151,6 +152,7 @@ const LIVE_DRAW_PRESSURE_RECOVERY_FRAMES = 120;
 const LIVE_STATE_FLUSH_MS = 250;
 const AUDIO_MIN_INTERVAL_MS = 85;
 const AUDIO_SCALE = [220, 247, 277, 330, 370, 415, 494, 554, 659, 740, 831, 988];
+const LIVE_DESKTOP_LAYOUT_WIDTH = 1024;
 
 type LiveVisualQuality = "high" | "balanced" | "constrained";
 
@@ -185,6 +187,52 @@ interface LiveVisualCaps {
   shadows: boolean;
   targetFrameMs: number;
   trails: number;
+}
+
+function liveCommandDockStyle(desktop: boolean): CSSProperties {
+  if (desktop) {
+    return {
+      bottom: "0.75rem",
+      flexWrap: "wrap",
+      gap: "0.5rem",
+      left: "auto",
+      maxWidth: "calc(100vw - 372px)",
+      overflowX: "auto",
+      padding: "0.5rem",
+      right: 360,
+      width: "fit-content",
+    };
+  }
+  return {
+    bottom: "0.375rem",
+    flexWrap: "nowrap",
+    gap: "0.25rem",
+    left: "0.5rem",
+    maxWidth: "calc(100vw - 1rem)",
+    overflowX: "auto",
+    padding: "0.25rem",
+    right: "0.5rem",
+  };
+}
+
+function liveInspectorRailStyle(desktop: boolean, expanded: boolean): CSSProperties {
+  if (desktop) {
+    return {
+      bottom: 86,
+      left: "auto",
+      maxHeight: "none",
+      right: "0.75rem",
+      top: "0.75rem",
+      width: 340,
+    };
+  }
+  return {
+    bottom: 58,
+    height: expanded ? undefined : 96,
+    left: "0.5rem",
+    maxHeight: expanded ? "46dvh" : 96,
+    right: "0.5rem",
+  };
 }
 
 function liveVisualCaps(width?: number, pressure = 0): LiveVisualCaps {
@@ -290,6 +338,25 @@ function readCssVar(name: string, fallback: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
 
+function cssColorToRgb(color: string, fallback: [number, number, number]): [number, number, number] {
+  const hex = color.trim().match(/^#?([\da-f]{3}|[\da-f]{6})$/i)?.[1];
+  if (hex) {
+    const full = hex.length === 3 ? hex.split("").map((part) => part + part).join("") : hex;
+    return [
+      Number.parseInt(full.slice(0, 2), 16),
+      Number.parseInt(full.slice(2, 4), 16),
+      Number.parseInt(full.slice(4, 6), 16),
+    ];
+  }
+  const rgb = color.match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
+  if (rgb) return [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])];
+  return fallback;
+}
+
+function rgba(parts: [number, number, number], alpha: number): string {
+  return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${Math.max(0, Math.min(1, alpha))})`;
+}
+
 function storedNumber(key: string, fallback: number, min: number, max: number): number {
   if (typeof window === "undefined") return fallback;
   const raw = Number.parseFloat(localStorage.getItem(key) ?? "");
@@ -375,26 +442,26 @@ function useLiveAnimationCanvas(
     let recoveryFrames = 0;
     let slowFrames = 0;
     const frameSamples: number[] = [];
-    const matrixColor = readCssVar("--color-green", "#22C55E");
+    const matrixColor = readCssVar("--crt-phosphor", readCssVar("--color-primary", "#ffb000"));
+    const heatCoreColor = cssColorToRgb(readCssVar("--crt-phosphor", "#ffb000"), [255, 176, 0]);
+    const heatMidColor = cssColorToRgb(readCssVar("--crt-phosphor-soft", "#ff7a18"), [255, 122, 24]);
+    const heatEdgeColor = cssColorToRgb(readCssVar("--color-secondary", "#42ff7c"), [66, 255, 124]);
     const debugPerf = new URLSearchParams(window.location.search).has("livePerf");
 
-    // Prebuild the heat radial ramp once and stamp it per point with drawImage, instead of allocating
-    // a fresh createRadialGradient (+4 addColorStop) for every heat point every frame (up to ~48).
-    // The sprite holds the same color-stop ratios at full alpha; per-point globalAlpha scales them
-    // uniformly, so under "lighter" the additive output is identical to the old per-point gradient.
     const HEAT_SPRITE_R = 128;
     const heatSprite = document.createElement("canvas");
     heatSprite.width = heatSprite.height = HEAT_SPRITE_R * 2;
     const heatSpriteCtx = heatSprite.getContext("2d");
     if (heatSpriteCtx) {
       const ramp = heatSpriteCtx.createRadialGradient(HEAT_SPRITE_R, HEAT_SPRITE_R, 0, HEAT_SPRITE_R, HEAT_SPRITE_R, HEAT_SPRITE_R);
-      ramp.addColorStop(0, "rgba(255, 87, 34, 1)");
-      ramp.addColorStop(0.38, "rgba(255, 202, 40, 0.5)");
-      ramp.addColorStop(0.72, "rgba(66, 165, 245, 0.24)");
-      ramp.addColorStop(1, "rgba(13, 71, 161, 0)");
+      ramp.addColorStop(0, rgba(heatCoreColor, 1));
+      ramp.addColorStop(0.38, rgba(heatMidColor, 0.5));
+      ramp.addColorStop(0.72, rgba(heatEdgeColor, 0.24));
+      ramp.addColorStop(1, rgba(heatCoreColor, 0));
       heatSpriteCtx.fillStyle = ramp;
       heatSpriteCtx.fillRect(0, 0, HEAT_SPRITE_R * 2, HEAT_SPRITE_R * 2);
     }
+
     type ProjectedPoint = { x: number; y: number };
     interface ProjectedLivePath {
       distances: number[];
@@ -589,8 +656,6 @@ function useLiveAnimationCanvas(
       }
 
       const frameAge = now - lastRenderedAt;
-      // One caps computation per frame — it probes matchMedia + navigator, so recomputing it for the
-      // early-return check and again below was pure duplicate work within the same frame.
       const frameCaps = liveVisualCaps(cssWidth, drawPressure);
       if (lastRenderedAt > 0 && frameAge >= 0 && frameAge < frameCaps.targetFrameMs - LIVE_FRAME_TOLERANCE_MS) {
         requestFrame(Math.max(1, frameCaps.targetFrameMs - frameAge - LIVE_FRAME_TOLERANCE_MS));
@@ -731,13 +796,13 @@ function useLiveAnimationCanvas(
             const byte = drop.bytes[(scrollOffset + i) % drop.bytes.length]!;
             if (i === 0) {
               ctx.globalAlpha = Math.min(0.72, fade);
-              ctx.font = `700 ${matrixMode ? 16 : 14}px JetBrains Mono, monospace`;
+              ctx.font = `700 ${matrixMode ? 16 : 14}px Share Tech Mono, JetBrains Mono, monospace`;
               ctx.fillStyle = matrixMode ? "#FFFFFF" : drop.color;
               ctx.shadowColor = matrixMode ? matrixColor : drop.color;
               ctx.shadowBlur = frameCaps.shadows ? (matrixMode ? 9 : 6) : 0;
             } else {
               ctx.globalAlpha = fade * (matrixMode ? 0.42 : 0.26);
-              ctx.font = `${matrixMode ? 13 : 12}px JetBrains Mono, monospace`;
+              ctx.font = `${matrixMode ? 13 : 12}px Share Tech Mono, JetBrains Mono, monospace`;
               ctx.fillStyle = matrixMode ? matrixColor : drop.color;
               ctx.shadowColor = matrixMode ? matrixColor : drop.color;
               ctx.shadowBlur = frameCaps.shadows ? (matrixMode ? 3 : 2) : 0;
@@ -840,10 +905,9 @@ function useLiveAnimationCanvas(
               const by = current.from.y + dy * t + ny * 10;
               const alphaByte = Math.max(0.08, (1 - i / 4) * (1 - progress * 0.28) * 0.58);
               ctx.globalAlpha = i === 0 ? Math.min(0.72, alphaByte + 0.12) : alphaByte;
-              ctx.font = `${i === 0 ? "700 " : ""}${Math.max(10, 15 - i)}px JetBrains Mono, monospace`;
+              ctx.font = `${i === 0 ? "700 " : ""}${Math.max(10, 15 - i)}px Share Tech Mono, JetBrains Mono, monospace`;
               ctx.fillStyle = i === 0 ? "#FFFFFF" : matrixColor;
-              // respect the adaptive shadows cap (this block ignored it); trailing glyphs read fine flat
-              ctx.shadowBlur = frameCaps.shadows ? (i === 0 ? 9 : 0) : 0;
+              ctx.shadowBlur = i === 0 ? 9 : 4;
               ctx.shadowColor = matrixColor;
               ctx.fillText(anim.bytes[(Math.floor(progress * anim.bytes.length * 1.8) + i) % anim.bytes.length]!, bx, by);
             }
@@ -880,7 +944,7 @@ function useLiveAnimationCanvas(
         if (frameCaps.labels && pathDistance > 72 && progress > 0.16 && progress < 0.9) {
           ctx.globalAlpha = matrixMode ? 0.28 : 0.19;
           ctx.shadowBlur = 0;
-          ctx.font = "10px JetBrains Mono, monospace";
+          ctx.font = "10px Share Tech Mono, JetBrains Mono, monospace";
           ctx.fillStyle = color;
           ctx.fillText(payloadLabel(anim.event.payloadTypeName).slice(0, 10), x + 8, y - 8);
         }
@@ -894,10 +958,6 @@ function useLiveAnimationCanvas(
       pulsesRef.current = tailWindow(nextPulses, frameCaps.pulses);
       rainRef.current = tailWindow(nextRain, frameCaps.rainDrops);
       heatRef.current = tailWindow(nextHeat, frameCaps.heatPoints);
-      // Throttle intermediate active-count publishes to ~4Hz (each flows into React state, so an
-      // unthrottled publish would re-render the whole view every frame during motion). Always let the
-      // terminal drop to 0 through, so the badge can't stay stuck on a stale count when the loop halts
-      // on the very frame the last animation drains (e.g. trails off, no residue keeps it ticking).
       if (lastPublishedCount !== cappedNext.length && (cappedNext.length === 0 || now - lastActivePublishedAt > 250)) {
         lastActivePublishedAt = now;
         lastPublishedCount = cappedNext.length;
@@ -991,7 +1051,7 @@ const LiveStat = memo(function LiveStat({
 }) {
   const toneClass = tone === "green" ? "text-green" : tone === "warn" ? "text-warn" : "text-primary";
   return (
-    <div className={`min-w-18 px-3 py-2 bg-bg-surface/88 border border-border rounded backdrop-blur ${className}`}>
+    <div className={`crt-float-panel min-w-18 rounded-sm border border-border px-3 py-2 ${className}`}>
       <div className="text-[10px] font-mono uppercase tracking-wider text-text-dim">{label}</div>
       <div className={`font-mono text-lg leading-none font-semibold ${toneClass}`}>{value}</div>
     </div>
@@ -1001,14 +1061,18 @@ const LiveStat = memo(function LiveStat({
 function LiveControlButton({
   active,
   className = "",
+  compact = false,
   danger,
+  icon,
   label,
   onClick,
   title,
 }: {
   active?: boolean;
   className?: string;
+  compact?: boolean;
   danger?: boolean;
+  icon?: LiveIconName;
   label: string;
   onClick: () => void;
   title?: string;
@@ -1021,95 +1085,152 @@ function LiveControlButton({
   return (
     <button
       type="button"
-      className={`shrink-0 rounded border px-2 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors md:px-2.5 md:text-[11px] ${activeClass} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-sm border font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors md:text-[11px] ${
+        compact ? "h-8 w-8 px-0" : "h-9 px-2 md:px-2.5"
+      } ${activeClass} ${className}`}
       onClick={onClick}
       aria-pressed={active}
-      title={title}
+      title={title ?? label}
     >
-      {label}
+      {icon && <LiveIcon name={icon} />}
+      <span className={icon ? (compact ? "sr-only" : "hidden sm:inline") : ""}>{label}</span>
     </button>
   );
 }
 
+type LiveIconName = "audio" | "bytes" | "clear" | "color" | "crt" | "feed" | "heat" | "pace" | "pause" | "play" | "settings" | "trail";
+
+function LiveIcon({ name }: { name: LiveIconName }) {
+  const common = {
+    width: 15,
+    height: 15,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+  };
+  switch (name) {
+    case "play":
+      return <svg {...common}><path d="M8 5v14l11-7z" fill="currentColor" stroke="none" /></svg>;
+    case "pause":
+      return <svg {...common}><path d="M8 5v14M16 5v14" /></svg>;
+    case "trail":
+      return <svg {...common}><path d="M4 17c4-7 8 2 16-8" /><path d="M4 17h.01M12 13h.01M20 9h.01" /></svg>;
+    case "pace":
+      return <svg {...common}><path d="M4 12h3l2-5 4 10 2-5h5" /><circle cx="12" cy="12" r="9" /></svg>;
+    case "heat":
+      return <svg {...common}><path d="M12 3c2 3-1 4 1 7 1.5 2.2 4 2.5 4 6a5 5 0 0 1-10 0c0-2.5 1.8-4.1 3.3-5.6C11.6 9 12.5 7.2 12 3z" /></svg>;
+    case "color":
+      return <svg {...common}><circle cx="12" cy="12" r="7" /><path d="M12 5v14M5 12h14" /></svg>;
+    case "settings":
+      return <svg {...common}><path d="M4 7h10M4 17h10" /><circle cx="17" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></svg>;
+    case "feed":
+      return <svg {...common}><path d="M5 6h14M5 12h14M5 18h9" /></svg>;
+    case "clear":
+      return <svg {...common}><path d="M5 6h14M9 6v12m6-12v12M8 6l1-2h6l1 2M6 6l1 14h10l1-14" /></svg>;
+    case "crt":
+      return <svg {...common}><rect x="4" y="5" width="16" height="11" rx="1.5" /><path d="M8 20h8M12 16v4" /></svg>;
+    case "bytes":
+      return <svg {...common}><path d="M7 5v14M17 5v14M4 8h6M4 16h6M14 12h6" /></svg>;
+    case "audio":
+      return <svg {...common}><path d="M5 14H3v-4h2l4-4v12z" /><path d="M14 9c1 1 1 5 0 6M17 7c2 2 2 8 0 10" /></svg>;
+  }
+}
+
 const LiveControlDock = memo(function LiveControlDock({
   activeAnimations,
-  audioBpm,
-  audioEnabled,
-  audioVolume,
   colorByHash,
+  compact,
   feedVisible,
   heatVisible,
   laggedCount,
-  matrixRain,
-  matrixMode,
   onClear,
-  onAudioBpmChange,
-  onAudioVolumeChange,
   onToggleColorByHash,
-  onToggleAudio,
   onToggleFeed,
   onToggleHeat,
-  onToggleMatrix,
-  onToggleRain,
   onTogglePaused,
   onTogglePropagation,
+  onToggleSettings,
   onToggleTrails,
   paused,
+  quality,
   queuedCount,
   ratePerMin,
   realisticPropagation,
+  settingsOpen,
+  style,
   totalPackets,
   trails,
   visualDroppedCount,
   visualQueueSize,
 }: {
   activeAnimations: number;
-  audioBpm: number;
-  audioEnabled: boolean;
-  audioVolume: number;
   colorByHash: boolean;
+  compact: boolean;
   feedVisible: boolean;
   heatVisible: boolean;
   laggedCount: number;
-  matrixRain: boolean;
-  matrixMode: boolean;
   onClear: () => void;
-  onAudioBpmChange: (value: number) => void;
-  onAudioVolumeChange: (value: number) => void;
-  onToggleAudio: () => void;
   onToggleColorByHash: () => void;
   onToggleFeed: () => void;
   onToggleHeat: () => void;
-  onToggleMatrix: () => void;
-  onToggleRain: () => void;
   onTogglePaused: () => void;
   onTogglePropagation: () => void;
+  onToggleSettings: () => void;
   onToggleTrails: () => void;
   paused: boolean;
+  quality: LiveVisualQuality;
   queuedCount: number;
   ratePerMin: number;
   realisticPropagation: boolean;
+  settingsOpen: boolean;
+  style: CSSProperties;
   totalPackets: number;
   trails: boolean;
   visualDroppedCount: number;
   visualQueueSize: number;
 }) {
+  if (compact) {
+    return (
+      <div className="crt-float-panel live-command-dock absolute z-30 flex items-center rounded-sm border border-border" style={style}>
+        <LiveControlButton compact icon={paused ? "play" : "pause"} label={paused ? "Resume" : "Pause"} active={paused} onClick={onTogglePaused} />
+        <div
+          className={`flex h-8 shrink-0 items-center gap-1.5 rounded border px-2 font-mono text-[10px] font-semibold tracking-wider ${
+            paused ? "border-warn/25 bg-warn/8 text-warn" : "border-green/20 bg-green/8 text-green"
+          }`}
+        >
+          <span className={`crt-glow-dot h-1.5 w-1.5 rounded-full ${paused ? "bg-warn text-warn" : "bg-green text-green animate-pulse"}`} />
+          {paused ? "PAUSE" : "LIVE"}
+        </div>
+        <LiveControlButton compact icon="trail" label="Trails" active={trails} onClick={onToggleTrails} title="Toggle persistent map trails" />
+        <LiveControlButton compact icon="pace" label="Pace" active={realisticPropagation} onClick={onTogglePropagation} title="Pace repeated observations before rendering" />
+        <LiveControlButton compact icon="feed" label="Feed" active={feedVisible} onClick={onToggleFeed} title="Toggle packet feed" />
+        <LiveControlButton compact icon="settings" label="Settings" active={settingsOpen} onClick={onToggleSettings} title="Open Live settings" />
+        <LiveControlButton compact icon="clear" label="Clear" danger onClick={onClear} title="Clear local live buffer" />
+      </div>
+    );
+  }
+
   return (
-    <div className="absolute left-2 right-2 bottom-2 z-20 flex max-w-[calc(100vw-16px)] flex-nowrap items-center gap-1.5 overflow-x-auto rounded border border-border bg-bg-surface p-1.5 shadow-xl md:left-auto md:right-3 md:bottom-3 md:w-fit md:max-w-[calc(100vw-24px)] md:flex-wrap md:gap-2 md:p-2">
+    <div className="crt-float-panel live-command-dock absolute z-30 flex items-center rounded-sm border border-border" style={style}>
       <div className="flex min-w-0 shrink-0 items-center gap-1.5 pr-1 md:gap-2">
-        <LiveControlButton label={paused ? "Resume" : "Pause"} active={paused} onClick={onTogglePaused} />
+        <LiveControlButton icon={paused ? "play" : "pause"} label={paused ? "Resume" : "Pause"} active={paused} onClick={onTogglePaused} />
         <div
           className={`flex items-center gap-1.5 rounded border px-2 py-1.5 font-mono text-[10px] font-semibold tracking-wider md:px-2.5 md:text-[11px] ${
             paused ? "border-warn/25 bg-warn/8 text-warn" : "border-green/20 bg-green/8 text-green"
           }`}
         >
-          <span className={`h-1.5 w-1.5 rounded-full ${paused ? "bg-warn" : "bg-green animate-pulse"}`} />
+          <span className={`crt-glow-dot h-1.5 w-1.5 rounded-full ${paused ? "bg-warn text-warn" : "bg-green text-green animate-pulse"}`} />
           {paused ? "PAUSED" : "LIVE"}
         </div>
         <div className="hidden min-w-0 items-center gap-3 font-mono text-[11px] text-text-muted xl:flex">
           <span>{formatCount(totalPackets)} pkts</span>
           <span>{ratePerMin}/m</span>
           <span>{activeAnimations} active</span>
+          <span>{quality}</span>
           {queuedCount > 0 && <span className="text-warn">{queuedCount} queued</span>}
           {visualQueueSize > 0 && <span className="text-primary">{visualQueueSize} visual q</span>}
           {laggedCount > 0 && <span className="text-danger">{laggedCount} dropped</span>}
@@ -1117,60 +1238,34 @@ const LiveControlDock = memo(function LiveControlDock({
         </div>
       </div>
 
-      <LiveControlButton label="Trails" active={trails} onClick={onToggleTrails} title="Toggle persistent map trails" />
-      <LiveControlButton label="Pace" active={realisticPropagation} onClick={onTogglePropagation} title="Pace repeated observations before rendering" />
-      <LiveControlButton className="hidden sm:inline-flex" label="Heat" active={heatVisible} onClick={onToggleHeat} title="Toggle live activity heat overlay" />
-      <LiveControlButton className="hidden sm:inline-flex" label="Color" active={colorByHash} onClick={onToggleColorByHash} title="Color packet paths by hash" />
-      <LiveControlButton className="hidden sm:inline-flex" label="Matrix" active={matrixMode} onClick={onToggleMatrix} title="Toggle matrix scan view" />
-      <LiveControlButton className="hidden sm:inline-flex" label="Rain" active={matrixRain} onClick={onToggleRain} title="Toggle packet byte rain" />
-      <LiveControlButton className="hidden sm:inline-flex" label="Audio" active={audioEnabled} onClick={onToggleAudio} title="Sonify paced live packets" />
-      {audioEnabled && (
-        <div className="hidden shrink-0 items-center gap-2 rounded border border-border bg-bg-raised px-2 py-1 font-mono text-[10px] font-semibold text-text-muted sm:flex">
-          <label className="flex items-center gap-1">
-            VOL
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={Math.round(audioVolume * 100)}
-              onChange={(event) => onAudioVolumeChange(Number(event.currentTarget.value) / 100)}
-              className="h-1.5 w-12 accent-primary sm:w-16"
-              aria-label="Audio volume"
-            />
-          </label>
-          <label className="hidden items-center gap-1 lg:flex">
-            BPM
-            <input
-              type="range"
-              min={60}
-              max={240}
-              value={audioBpm}
-              onChange={(event) => onAudioBpmChange(Number(event.currentTarget.value))}
-              className="h-1.5 w-14 accent-primary"
-              aria-label="Audio BPM"
-            />
-          </label>
-        </div>
-      )}
-      <LiveControlButton label="Feed" active={feedVisible} onClick={onToggleFeed} title="Toggle packet feed" />
-      <LiveControlButton className="hidden sm:inline-flex" label="Clear" danger onClick={onClear} title="Clear local live buffer" />
+      <LiveControlButton icon="trail" label="Trails" active={trails} onClick={onToggleTrails} title="Toggle persistent map trails" />
+      <LiveControlButton icon="pace" label="Pace" active={realisticPropagation} onClick={onTogglePropagation} title="Pace repeated observations before rendering" />
+      <LiveControlButton icon="heat" className="hidden sm:inline-flex" label="Heat" active={heatVisible} onClick={onToggleHeat} title="Toggle live activity heat overlay" />
+      <LiveControlButton icon="color" className="hidden sm:inline-flex" label="Color" active={colorByHash} onClick={onToggleColorByHash} title="Color packet paths by hash" />
+      <LiveControlButton icon="feed" label="Feed" active={feedVisible} onClick={onToggleFeed} title="Toggle packet feed" />
+      <LiveControlButton icon="settings" label="Settings" active={settingsOpen} onClick={onToggleSettings} title="Open Live settings" />
+      <LiveControlButton icon="clear" className="hidden sm:inline-flex" label="Clear" danger onClick={onClear} title="Clear local live buffer" />
     </div>
   );
 });
 
-const LiveFeed = memo(function LiveFeed({
+const LiveFeedPanel = memo(function LiveFeedPanel({
   clockTick,
   events,
+  onSelect,
   onAnalyze,
+  selectedId,
 }: {
   clockTick: number;
   events: LivePacketEvent[];
+  onSelect: (event: LivePacketEvent) => void;
   onAnalyze: (hash: string) => void;
+  selectedId?: string;
 }) {
   return (
     <div
       data-live-clock={clockTick}
-      className="absolute left-3 bottom-[92px] md:bottom-3 z-10 w-[min(430px,calc(100vw-24px))] max-h-[36dvh] sm:max-h-[42dvh] flex flex-col bg-bg-surface border border-border rounded shadow-xl"
+      className="flex min-h-0 flex-1 flex-col"
     >
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-subtle">
         <div className="font-mono text-[11px] uppercase tracking-wider text-text-muted">Packet Feed</div>
@@ -1184,11 +1279,12 @@ const LiveFeed = memo(function LiveFeed({
             <button
               key={event.id}
               type="button"
-              className="w-full grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-1 px-3 py-2 text-left border-b border-border-subtle/70 hover:bg-white/3 transition-colors"
-              onClick={() => onAnalyze(event.packetHash)}
+              className={`w-full grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-1 px-3 py-2 text-left border-b border-border-subtle/70 transition-colors hover:bg-primary/8 ${selectedId === event.id ? "bg-primary/10" : ""}`}
+              onClick={() => onSelect(event)}
+              onDoubleClick={() => onAnalyze(event.packetHash)}
             >
               <span
-                className="mt-1 h-2.5 w-2.5 rounded-full shadow-[0_0_12px_currentColor]"
+                className="crt-glow-dot mt-1 h-2.5 w-2.5 rounded-full"
                 style={{ color: payloadColor(event.payloadTypeName), backgroundColor: payloadColor(event.payloadTypeName) }}
               />
               <span className="min-w-0">
@@ -1213,28 +1309,364 @@ const LiveFeed = memo(function LiveFeed({
   );
 });
 
-const PayloadLegend = memo(function PayloadLegend({ payloads }: { payloads: Array<{ typeName: string; count: number; color: string }> }) {
+function LiveKV({ label, value, tone = "normal" }: { label: string; value: string | number; tone?: "normal" | "primary" | "green" | "warn" }) {
+  const toneClass = tone === "primary" ? "text-primary" : tone === "green" ? "text-green" : tone === "warn" ? "text-warn" : "text-text-bright";
   return (
-    <div className="absolute right-3 bottom-[86px] z-10 hidden lg:block w-56 bg-bg-surface border border-border rounded shadow-xl">
-      <div className="px-3 py-2 border-b border-border-subtle font-mono text-[11px] uppercase tracking-wider text-text-muted">Payloads</div>
-      <div className="p-3 space-y-2">
-        {(payloads.length ? payloads : Object.entries({ ADVERT: 0, GRP_TXT: 0, TRACE: 0, ACK: 0 })).map((payload) => {
-          const typeName = Array.isArray(payload) ? payload[0] : payload.typeName;
-          const count = Array.isArray(payload) ? payload[1] : payload.count;
-          const color = Array.isArray(payload) ? payloadColor(typeName) : payload.color;
-          const label = payloadLabel(typeName);
-          return (
-            <div key={label} className="flex items-center gap-2 font-mono text-[11px]">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 10px ${color}` }} />
-              <span className="flex-1 text-text-muted truncate">{label}</span>
-              <span className="text-text-dim">{count}</span>
-            </div>
-          );
-        })}
+    <div className="min-w-0 rounded border border-border-subtle bg-bg-base/45 px-2 py-1.5">
+      <div className="font-mono text-[9px] uppercase tracking-wider text-text-dim">{label}</div>
+      <div className={`truncate font-mono text-xs font-semibold ${toneClass}`}>{value}</div>
+    </div>
+  );
+}
+
+function LiveMixList({ title, items }: { title: string; items: Array<{ label: string; count: number; color?: string }> }) {
+  const max = Math.max(1, ...items.map((item) => item.count));
+  return (
+    <div className="space-y-2">
+      <div className="font-mono text-[10px] uppercase tracking-wider text-text-dim">{title}</div>
+      {(items.length ? items : [{ label: "No data", count: 0 }]).slice(0, 5).map((item) => (
+        <div key={item.label} className="space-y-1 font-mono text-[11px]">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color ?? "var(--color-border)", color: item.color }} />
+            <span className="min-w-0 flex-1 truncate text-text-muted">{item.label}</span>
+            <span className="text-text-dim">{item.count}</span>
+          </div>
+          <div className="h-1 overflow-hidden rounded bg-bg-base">
+            <div className="h-full bg-primary/70" style={{ width: `${Math.max(4, (item.count / max) * 100)}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LiveSettingsPanel({
+  audioBpm,
+  audioEnabled,
+  audioVolume,
+  clustered,
+  matrixMode,
+  matrixRain,
+  onAudioBpmChange,
+  onAudioVolumeChange,
+  onClusteredChange,
+  onStyleChange,
+  onToggleAudio,
+  onToggleMatrix,
+  onToggleRain,
+  onTypeChange,
+  styleId,
+  typeFilter,
+}: {
+  audioBpm: number;
+  audioEnabled: boolean;
+  audioVolume: number;
+  clustered: boolean;
+  matrixMode: boolean;
+  matrixRain: boolean;
+  onAudioBpmChange: (value: number) => void;
+  onAudioVolumeChange: (value: number) => void;
+  onClusteredChange: (value: boolean) => void;
+  onStyleChange: (id: string) => void;
+  onToggleAudio: () => void;
+  onToggleMatrix: () => void;
+  onToggleRain: () => void;
+  onTypeChange: (value: string) => void;
+  styleId: string;
+  typeFilter: string;
+}) {
+  return (
+    <div className="border-b border-border-subtle p-3">
+      <div className="mb-3 font-mono text-[11px] uppercase tracking-wider text-text-muted">Live Settings</div>
+      <div className="space-y-4">
+        <div>
+          <div className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-text-dim">Map Tiles</div>
+          <MapStyleSwitcher styleId={styleId} onChange={onStyleChange} className="w-full" />
+        </div>
+        <div>
+          <div className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-text-dim">Node Type</div>
+          <SegmentedControl
+            wrap
+            ariaLabel="Live node type"
+            options={[{ value: "", label: "All" }, ...NODE_TYPE_FILTER_OPTIONS]}
+            value={typeFilter}
+            onChange={onTypeChange}
+          />
+        </div>
+        <div>
+          <div className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-text-dim">Clustering</div>
+          <SegmentedControl
+            ariaLabel="Live clustering"
+            options={[{ value: "off", label: "Off" }, { value: "on", label: "On" }]}
+            value={clustered ? "on" : "off"}
+            onChange={(value) => onClusteredChange(value === "on")}
+            className="w-full"
+          />
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <LiveControlButton icon="crt" label="CRT" active={matrixMode} onClick={onToggleMatrix} title="Toggle phosphor scan view" />
+          <LiveControlButton icon="bytes" label="Bytes" active={matrixRain} onClick={onToggleRain} title="Toggle packet byte phosphor rain" />
+          <LiveControlButton icon="audio" label="Audio" active={audioEnabled} onClick={onToggleAudio} title="Toggle packet sonification" />
+        </div>
+        {audioEnabled && (
+          <div className="space-y-3 rounded border border-border-subtle bg-bg-base/45 p-2 font-mono text-[10px] text-text-muted">
+            <label className="flex items-center gap-2">
+              VOL
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(audioVolume * 100)}
+                onChange={(event) => onAudioVolumeChange(Number(event.currentTarget.value) / 100)}
+                className="h-1.5 flex-1 accent-primary"
+                aria-label="Audio volume"
+              />
+            </label>
+            <label className="flex items-center gap-2">
+              BPM
+              <input
+                type="range"
+                min={60}
+                max={240}
+                value={audioBpm}
+                onChange={(event) => onAudioBpmChange(Number(event.currentTarget.value))}
+                className="h-1.5 flex-1 accent-primary"
+                aria-label="Audio BPM"
+              />
+            </label>
+          </div>
+        )}
       </div>
     </div>
   );
-});
+}
+
+function LiveInspectorRail({
+  activeAnimations,
+  audioBpm,
+  audioEnabled,
+  audioVolume,
+  backfillCount,
+  backfillStatus,
+  clockTick,
+  clustered,
+  compact,
+  events,
+  feedVisible,
+  laggedCount,
+  matrixMode,
+  matrixRain,
+  onAnalyze,
+  onAudioBpmChange,
+  onAudioVolumeChange,
+  onClusteredChange,
+  onSelect,
+  onStyleChange,
+  onToggleAudio,
+  onToggleMatrix,
+  onToggleRain,
+  onTypeChange,
+  quality,
+  ratePerMin,
+  selectedEvent,
+  settingsOpen,
+  styleId,
+  style,
+  summary,
+  totalPackets,
+  typeFilter,
+  visualDroppedCount,
+}: {
+  activeAnimations: number;
+  audioBpm: number;
+  audioEnabled: boolean;
+  audioVolume: number;
+  backfillCount: number;
+  backfillStatus: string;
+  clockTick: number;
+  clustered: boolean;
+  compact: boolean;
+  events: LivePacketEvent[];
+  feedVisible: boolean;
+  laggedCount: number;
+  matrixMode: boolean;
+  matrixRain: boolean;
+  onAnalyze: (hash: string) => void;
+  onAudioBpmChange: (value: number) => void;
+  onAudioVolumeChange: (value: number) => void;
+  onClusteredChange: (value: boolean) => void;
+  onSelect: (event: LivePacketEvent) => void;
+  onStyleChange: (id: string) => void;
+  onToggleAudio: () => void;
+  onToggleMatrix: () => void;
+  onToggleRain: () => void;
+  onTypeChange: (value: string) => void;
+  quality: LiveVisualQuality;
+  ratePerMin: number;
+  selectedEvent?: LivePacketEvent;
+  settingsOpen: boolean;
+  styleId: string;
+  style: CSSProperties;
+  summary?: LiveSummary;
+  totalPackets: number;
+  typeFilter: string;
+  visualDroppedCount: number;
+}) {
+  const event = selectedEvent ?? events[0];
+  const payloadItems =
+    summary?.payloadMix.map((item) => ({ label: payloadLabel(item.payloadTypeName), count: item.count, color: payloadColor(item.payloadTypeName) })) ??
+    topPayloads(events).map((item) => ({ label: item.typeName, count: item.count, color: item.color }));
+  const routeItems =
+    summary?.routeMix.map((item) => ({ label: item.routeTypeName, count: item.count })) ??
+    Array.from(events.reduce((map, item) => map.set(item.routeTypeName, (map.get(item.routeTypeName) ?? 0) + 1), new Map<string, number>()), ([label, count]) => ({ label, count }));
+
+  if (compact) {
+    if (settingsOpen) {
+      return (
+        <div className="crt-float-panel live-inspector-rail absolute z-20 flex min-h-0 flex-col overflow-hidden rounded-sm border border-border" style={style}>
+          <div className="flex shrink-0 items-center justify-between border-b border-border-subtle px-3 py-2">
+            <div className="font-mono text-[11px] uppercase tracking-wider text-text-muted">Live Settings</div>
+            <div className="font-mono text-[10px] uppercase text-text-dim">{quality}</div>
+          </div>
+          <div className="min-h-0 overflow-y-auto">
+            <LiveSettingsPanel
+              audioBpm={audioBpm}
+              audioEnabled={audioEnabled}
+              audioVolume={audioVolume}
+              clustered={clustered}
+              matrixMode={matrixMode}
+              matrixRain={matrixRain}
+              onAudioBpmChange={onAudioBpmChange}
+              onAudioVolumeChange={onAudioVolumeChange}
+              onClusteredChange={onClusteredChange}
+              onStyleChange={onStyleChange}
+              onToggleAudio={onToggleAudio}
+              onToggleMatrix={onToggleMatrix}
+              onToggleRain={onToggleRain}
+              onTypeChange={onTypeChange}
+              styleId={styleId}
+              typeFilter={typeFilter}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    if (feedVisible) {
+      return (
+        <div className="crt-float-panel live-inspector-rail absolute z-20 flex min-h-0 flex-col overflow-hidden rounded-sm border border-border" style={style}>
+          <div className="flex shrink-0 items-center justify-between border-b border-border-subtle px-3 py-2">
+            <div className="font-mono text-[11px] uppercase tracking-wider text-text-muted">Packet Feed</div>
+            <div className="font-mono text-[10px] uppercase text-text-dim">{events.length}/{LIVE_FEED_CAP}</div>
+          </div>
+          <div className="grid shrink-0 grid-cols-4 gap-1.5 border-b border-border-subtle p-2">
+            <LiveKV label="Pkts" value={formatCount(summary?.packetCount ?? totalPackets)} tone="green" />
+            <LiveKV label="Rate" value={`${ratePerMin}/m`} tone="primary" />
+            <LiveKV label="Act" value={activeAnimations} tone={activeAnimations > 0 ? "warn" : "normal"} />
+            <LiveKV label="Lag" value={laggedCount > 0 ? laggedCount : backfillStatus} tone={laggedCount > 0 ? "warn" : "normal"} />
+          </div>
+          <LiveFeedPanel clockTick={clockTick} events={events} onAnalyze={onAnalyze} onSelect={onSelect} selectedId={selectedEvent?.id} />
+        </div>
+      );
+    }
+
+    return (
+      <div className="crt-float-panel live-inspector-rail absolute z-20 flex flex-col justify-between overflow-hidden rounded-sm border border-border" style={style}>
+        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-1.5 p-2">
+          <LiveKV label="Packets" value={formatCount(summary?.packetCount ?? totalPackets)} tone="green" />
+          <LiveKV label="Rate" value={`${ratePerMin}/m`} tone="primary" />
+          <LiveKV label="Active" value={activeAnimations} tone={activeAnimations > 0 ? "warn" : "normal"} />
+          <LiveKV label="Lag" value={laggedCount > 0 ? laggedCount : backfillStatus} tone={laggedCount > 0 ? "warn" : "normal"} />
+        </div>
+        {event ? (
+          <button type="button" className="mx-2 mb-2 min-w-0 rounded border border-border-subtle bg-bg-base/35 px-2 py-1.5 text-left" onClick={() => onSelect(event)}>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="crt-glow-dot h-2 w-2 shrink-0 rounded-full" style={{ color: payloadColor(event.payloadTypeName), backgroundColor: payloadColor(event.payloadTypeName) }} />
+              <span className="min-w-0 flex-1 truncate font-mono text-xs font-semibold text-text-bright">{payloadLabel(event.payloadTypeName)}</span>
+              <span className="font-mono text-[10px] text-primary">{event.iata}</span>
+              <span className="font-mono text-[10px] text-text-dim">{timeAgoMs(event.receivedAt)}</span>
+            </div>
+            <div className="mt-1 truncate font-mono text-[10px] text-text-muted">
+              {event.routeTypeName} / {event.rssi} dBm / {event.snr.toFixed(1)} dB
+            </div>
+          </button>
+        ) : (
+          <div className="mx-2 mb-2 rounded border border-border-subtle bg-bg-base/35 px-2 py-2 text-center font-mono text-[11px] text-text-dim">Waiting for packets</div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="crt-float-panel live-inspector-rail absolute z-20 flex min-h-0 flex-col overflow-hidden rounded-sm border border-border" style={style}>
+      <div className="flex items-center justify-between border-b border-border-subtle px-3 py-2">
+        <div className="font-mono text-[11px] uppercase tracking-wider text-text-muted">Live Console</div>
+        <div className="font-mono text-[10px] uppercase text-text-dim">{quality}</div>
+      </div>
+      {settingsOpen && (
+        <LiveSettingsPanel
+          audioBpm={audioBpm}
+          audioEnabled={audioEnabled}
+          audioVolume={audioVolume}
+          clustered={clustered}
+          matrixMode={matrixMode}
+          matrixRain={matrixRain}
+          onAudioBpmChange={onAudioBpmChange}
+          onAudioVolumeChange={onAudioVolumeChange}
+          onClusteredChange={onClusteredChange}
+          onStyleChange={onStyleChange}
+          onToggleAudio={onToggleAudio}
+          onToggleMatrix={onToggleMatrix}
+          onToggleRain={onToggleRain}
+          onTypeChange={onTypeChange}
+          styleId={styleId}
+          typeFilter={typeFilter}
+        />
+      )}
+      <div className="grid grid-cols-4 gap-2 border-b border-border-subtle p-3">
+        <LiveKV label="Packets" value={formatCount(summary?.packetCount ?? totalPackets)} tone="green" />
+        <LiveKV label="Rate" value={`${ratePerMin}/m`} tone="primary" />
+        <LiveKV label="Active" value={activeAnimations} tone={activeAnimations > 0 ? "warn" : "normal"} />
+        <LiveKV label="Lag" value={laggedCount > 0 ? laggedCount : backfillStatus} tone={laggedCount > 0 ? "warn" : "normal"} />
+      </div>
+      <div className="border-b border-border-subtle p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="font-mono text-[10px] uppercase tracking-wider text-text-dim">Packet Inspector</div>
+          {backfillCount > 0 && <div className="font-mono text-[10px] text-green">{backfillCount} recovered</div>}
+        </div>
+        {event ? (
+          <button type="button" className="w-full text-left" onClick={() => onAnalyze(event.packetHash)}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-sm font-semibold text-text-bright">{payloadLabel(event.payloadTypeName)}</span>
+              <span className="font-mono text-xs text-primary">{formatHex(event.packetHash)}</span>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <LiveKV label="IATA" value={event.iata} />
+              <LiveKV label="Route" value={event.routeTypeName} />
+              <LiveKV label="RSSI" value={`${event.rssi} dBm`} />
+              <LiveKV label="SNR" value={`${event.snr.toFixed(1)} dB`} />
+            </div>
+            <div className="mt-2 truncate font-mono text-[10px] text-text-dim" title={formatAbsolute(event.heardAt, { ms: true })}>
+              {event.observerName || event.observerId} / {timeAgoMs(event.receivedAt)}
+            </div>
+          </button>
+        ) : (
+          <div className="py-5 text-center font-mono text-xs text-text-dim">Waiting for packets</div>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-3 border-b border-border-subtle p-3">
+        <LiveMixList title="Payload Mix" items={payloadItems} />
+        <LiveMixList title="Route Mix" items={routeItems} />
+      </div>
+      <div className="grid grid-cols-3 gap-2 border-b border-border-subtle p-3">
+        <LiveKV label="Obs" value={formatCount(summary?.observationCount ?? events.length)} />
+        <LiveKV label="Observers" value={summary?.activeObservers ?? "--"} />
+        <LiveKV label="Skipped" value={visualDroppedCount} tone={visualDroppedCount > 0 ? "warn" : "normal"} />
+      </div>
+      {feedVisible && <LiveFeedPanel clockTick={clockTick} events={events} onAnalyze={onAnalyze} onSelect={onSelect} selectedId={selectedEvent?.id} />}
+    </div>
+  );
+}
 
 export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   const { iatas: selectedIatas, regionKey } = useRegion();
@@ -1256,6 +1688,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   const visualPressureRef = useRef(0);
   const lastVisualByPacketRef = useRef(new Map<string, number>());
   const publishedVisualQueueSizeRef = useRef(0);
+  const publishedVisualQualityRef = useRef<LiveVisualQuality>("high");
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioGainRef = useRef<GainNode | null>(null);
   const audioEnabledRef = useRef(false);
@@ -1265,6 +1698,10 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   const propagationGroupsRef = useRef(new Map<string, PropagationGroup>());
   const sequenceRef = useRef(0);
   const pausedRef = useRef(false);
+  const lastObservationIdRef = useRef(0);
+  const backfillInFlightRef = useRef(false);
+  const seenObservationIdsRef = useRef(new Set<number>());
+  const seenObservationOrderRef = useRef<number[]>([]);
 
   const [styleId, setStyleId] = useState(
     () => resolveMapStyle(localStorage.getItem(MAP_STYLE_STORAGE_KEY) ?? DEFAULT_STYLE_ID).id,
@@ -1290,7 +1727,13 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   const [visualDroppedCount, setVisualDroppedCount] = useState(0);
   const [activeAnimations, setActiveAnimations] = useState(0);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<LivePacketEvent | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [backfillStatus, setBackfillStatus] = useState("ok");
+  const [backfillCount, setBackfillCount] = useState(0);
+  const [visualQuality, setVisualQuality] = useState<LiveVisualQuality>("high");
   const [now, setNow] = useState(0);
+  const [viewportWidth, setViewportWidth] = useState(() => (typeof window === "undefined" ? LIVE_DESKTOP_LAYOUT_WIDTH : window.innerWidth));
 
   useEffect(() => {
     pausedRef.current = paused;
@@ -1312,14 +1755,14 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     if (pendingEvents.length > 0) {
       pendingEventsRef.current = [];
       const newestFirst = pendingEvents.slice().reverse();
-      setEvents((items) => [...newestFirst, ...items].slice(0, LIVE_FEED_CAP));
+      setEvents((items) => mergeLiveEventsByObservation(items, newestFirst, LIVE_FEED_CAP));
     }
 
     const pendingQueuedEvents = pendingQueuedEventsRef.current;
     if (pendingQueuedEvents.length > 0) {
       pendingQueuedEventsRef.current = [];
       const newestFirst = pendingQueuedEvents.slice().reverse();
-      setQueuedEvents((items) => [...newestFirst, ...items].slice(0, LIVE_FEED_CAP));
+      setQueuedEvents((items) => mergeLiveEventsByObservation(items, newestFirst, LIVE_FEED_CAP));
     }
 
     const pendingVisualDropped = pendingVisualDroppedRef.current;
@@ -1411,6 +1854,28 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     return () => clearInterval(id);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      lastObservationIdRef.current = 0;
+      seenObservationIdsRef.current.clear();
+      seenObservationOrderRef.current = [];
+      setEvents([]);
+      setQueuedEvents([]);
+      setSelectedEvent(null);
+      setLaggedCount(0);
+      setBackfillCount(0);
+      setBackfillStatus("ok");
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [regionKey]);
+
   const handleStyleChange = useCallback((id: string) => {
     setStyleId(id);
     localStorage.setItem(MAP_STYLE_STORAGE_KEY, id);
@@ -1422,6 +1887,12 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   }, []);
 
   const { data: iataCodes } = useQuery({ queryKey: ["iatas"], queryFn: getIatas, staleTime: 60_000 });
+  const { data: liveSummary } = useQuery({
+    queryKey: ["live-summary", regionKey],
+    queryFn: () => getLiveSummary(selectedIatas),
+    refetchInterval: 5_000,
+    staleTime: 3_000,
+  });
   const nodesKey = useMemo(() => ["map-nodes", regionKey], [regionKey]);
   const { nodes, loadedCount, isPaging, isError: nodesError } = useMapNodesData(selectedIatas, regionKey);
   const { byKey: nodeCoords, byPathPrefix } = useMemo(() => buildNodeCoordMaps(nodes), [nodes]);
@@ -1634,6 +2105,10 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
         publishedVisualQueueSizeRef.current = visualQueueRef.current.length;
         setVisualQueueSize(visualQueueRef.current.length);
       }
+      if (publishedVisualQualityRef.current !== caps.quality) {
+        publishedVisualQualityRef.current = caps.quality;
+        setVisualQuality(caps.quality);
+      }
     }, VISUAL_DRAIN_INTERVAL_MS);
 
     return () => clearInterval(id);
@@ -1726,9 +2201,25 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     return previous == null || now - previous > LIVE_VISUAL_COALESCE_MS;
   }, []);
 
-  const handlePacketObservation = useCallback(
-    (data: WsPacketObservation["data"]) => {
-      const event = toLivePacketEvent(data, ++sequenceRef.current);
+  const rememberObservation = useCallback((event: LivePacketEvent) => {
+    const id = event.observationId;
+    if (typeof id !== "number" || id <= 0) return true;
+    lastObservationIdRef.current = Math.max(lastObservationIdRef.current, id);
+    const seen = seenObservationIdsRef.current;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    seenObservationOrderRef.current.push(id);
+    if (seenObservationOrderRef.current.length > 1_200) {
+      for (const old of seenObservationOrderRef.current.splice(0, 300)) {
+        seen.delete(old);
+      }
+    }
+    return true;
+  }, []);
+
+  const acceptLiveEvent = useCallback(
+    (event: LivePacketEvent, options: { animate?: boolean } = {}) => {
+      if (!rememberObservation(event)) return false;
       pendingTotalPacketsRef.current += 1;
       if (pausedRef.current) {
         pendingQueuedEventsRef.current.push(event);
@@ -1736,11 +2227,12 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
           pendingQueuedEventsRef.current = pendingQueuedEventsRef.current.slice(-LIVE_FEED_CAP);
         }
         scheduleLiveStateFlush();
-        return;
+        return true;
       }
-      if (shouldAnimateEvent(event)) {
+      const animate = options.animate ?? true;
+      if (animate && shouldAnimateEvent(event)) {
         scheduleAnimation(event);
-      } else {
+      } else if (animate) {
         pendingVisualDroppedRef.current += 1;
       }
       pendingEventsRef.current.push(event);
@@ -1748,13 +2240,55 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
         pendingEventsRef.current = pendingEventsRef.current.slice(-LIVE_FEED_CAP);
       }
       scheduleLiveStateFlush();
+      return true;
     },
-    [scheduleAnimation, scheduleLiveStateFlush, shouldAnimateEvent],
+    [rememberObservation, scheduleAnimation, scheduleLiveStateFlush, shouldAnimateEvent],
   );
 
-  const handleLagged = useCallback((data: { droppedCount: number }) => {
-    setLaggedCount((count) => count + data.droppedCount);
-  }, []);
+  const fetchLiveBackfill = useCallback(
+    async (afterObservationId: number) => {
+      if (backfillInFlightRef.current || afterObservationId <= 0) return;
+      backfillInFlightRef.current = true;
+      setBackfillStatus("sync");
+      try {
+        const page = await getLiveBackfill(selectedIatas, { afterObservationId, limit: 100 });
+        const normalized = page.items.map((item) => toLivePacketEvent(item, ++sequenceRef.current));
+        const animateIds = new Set(normalized.slice(-Math.min(8, liveVisualCaps(undefined, visualPressureRef.current).activeAnimations)).map((event) => event.id));
+        let accepted = 0;
+        for (const event of normalized) {
+          if (acceptLiveEvent(event, { animate: animateIds.has(event.id) })) {
+            accepted += 1;
+          }
+        }
+        if (accepted > 0) {
+          setBackfillCount((count) => count + accepted);
+        }
+        setBackfillStatus(page.hasMore ? "more" : "ok");
+      } catch {
+        setBackfillStatus("degraded");
+      } finally {
+        backfillInFlightRef.current = false;
+      }
+    },
+    [acceptLiveEvent, selectedIatas],
+  );
+
+  const handlePacketObservation = useCallback(
+    (data: WsPacketObservation["data"]) => {
+      const event = toLivePacketEvent(data, ++sequenceRef.current);
+      acceptLiveEvent(event);
+    },
+    [acceptLiveEvent],
+  );
+
+  const handleLagged = useCallback(
+    (data: WsLagged) => {
+      setLaggedCount((count) => count + data.droppedCount);
+      const cursor = lastObservationIdRef.current;
+      if (cursor > 0) void fetchLiveBackfill(cursor);
+    },
+    [fetchLiveBackfill],
+  );
 
   useWsPacketHandler(wsManager, handlePacketObservation);
   useWsLaggedHandler(wsManager, handleLagged);
@@ -1765,24 +2299,20 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     setPaused(false);
     setQueuedEvents((queued) => {
       for (const event of queued.slice().reverse()) scheduleAnimation(event);
-      setEvents((current) => mergeQueuedEvents(current, queued));
+      setEvents((current) => mergeLiveEventsByObservation(current, queued, LIVE_FEED_CAP));
       return [];
     });
   }, [flushLiveState, scheduleAnimation]);
 
-  // Stable toggles so the memoized LiveControlDock skips re-rendering on idle now-ticks (its numeric
-  // props are unchanged then; only stable handler identities were missing).
   const togglePaused = useCallback(() => {
     if (pausedRef.current) resumeLive();
     else setPaused(true);
   }, [resumeLive]);
-  const toggleAudio = useCallback(() => setAudioEnabled((v) => !v), []);
   const toggleColorByHash = useCallback(() => setColorByHash((v) => !v), []);
   const toggleFeed = useCallback(() => setFeedVisible((v) => !v), []);
   const toggleHeat = useCallback(() => setHeatVisible((v) => !v), []);
-  const toggleMatrix = useCallback(() => setMatrixMode((v) => !v), []);
-  const toggleRain = useCallback(() => setMatrixRain((v) => !v), []);
   const togglePropagation = useCallback(() => setRealisticPropagation((v) => !v), []);
+  const toggleSettings = useCallback(() => setSettingsOpen((v) => !v), []);
   const toggleTrails = useCallback(() => setTrails((v) => !v), []);
 
   const clearFeed = useCallback(() => {
@@ -1798,7 +2328,13 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     pendingVisualDroppedRef.current = 0;
     setEvents([]);
     setQueuedEvents([]);
+    setSelectedEvent(null);
     setLaggedCount(0);
+    setBackfillCount(0);
+    setBackfillStatus("ok");
+    lastObservationIdRef.current = 0;
+    seenObservationIdsRef.current.clear();
+    seenObservationOrderRef.current = [];
     animationsRef.current = [];
     trailsRef.current = [];
     pulsesRef.current = [];
@@ -1813,8 +2349,11 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
 
   const feedClock = Math.floor(now / 5_000);
   const ratePerMin = useMemo(() => countRecent(events, now, 60_000), [events, now]);
-  const payloads = useMemo(() => topPayloads(events), [events]);
-  const newest = events[0];
+  const desktopLiveLayout = viewportWidth >= LIVE_DESKTOP_LAYOUT_WIDTH;
+  const compactLiveLayout = viewportWidth < 768;
+  const mobileConsoleExpanded = compactLiveLayout && (feedVisible || settingsOpen);
+  const commandDockStyle = useMemo(() => liveCommandDockStyle(desktopLiveLayout), [desktopLiveLayout]);
+  const inspectorRailStyle = useMemo(() => liveInspectorRailStyle(desktopLiveLayout, mobileConsoleExpanded), [desktopLiveLayout, mobileConsoleExpanded]);
 
   return (
     <div className="relative flex flex-1 min-h-0 overflow-hidden bg-bg-base">
@@ -1822,16 +2361,16 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       <canvas ref={canvasRef} className="absolute inset-0 z-[5] h-full w-full pointer-events-none" aria-hidden="true" />
       {matrixMode && <div className="live-matrix-overlay absolute inset-0 pointer-events-none z-[6]" aria-hidden="true" />}
 
-      <div className="pointer-events-none absolute top-12 left-2 right-2 z-10 flex max-w-[calc(100vw-16px)] flex-wrap items-center gap-1.5 md:top-3 md:left-[268px] md:right-3 md:max-w-[calc(100vw-24px)] md:gap-2 xl:right-[308px]">
-        <div className="pointer-events-auto flex items-center gap-2 rounded border border-border bg-bg-surface/86 px-2.5 py-1.5 backdrop-blur md:px-3 md:py-2">
-          <span className={`w-2.5 h-2.5 rounded-full ${paused ? "bg-warn" : "bg-green animate-pulse"}`} />
+      <div className="pointer-events-none absolute top-12 left-2 right-2 z-10 flex max-w-[calc(100vw-16px)] flex-wrap items-center gap-1.5 md:top-3 md:left-3 md:right-[360px] md:max-w-[calc(100vw-24px)] md:gap-2">
+        <div className="crt-float-panel pointer-events-auto flex items-center gap-2 rounded-sm border border-border px-2.5 py-1.5 md:px-3 md:py-2">
+          <span className={`crt-glow-dot w-2.5 h-2.5 rounded-full ${paused ? "bg-warn text-warn" : "bg-green text-green animate-pulse"}`} />
           <span className="font-mono text-xs font-semibold tracking-wider text-text-bright">{paused ? "PAUSED" : "LIVE"}</span>
           <span className="hidden font-mono text-[11px] text-text-dim sm:inline">{regionKey}</span>
           {realisticPropagation && <span className="hidden font-mono text-[10px] text-primary sm:inline">PACE</span>}
           {heatVisible && <span className="hidden font-mono text-[10px] text-warn sm:inline">HEAT</span>}
           {colorByHash && <span className="hidden font-mono text-[10px] text-secondary sm:inline">COLOR</span>}
-          {matrixMode && <span className="hidden font-mono text-[10px] text-green sm:inline">MATRIX</span>}
-          {matrixRain && <span className="hidden font-mono text-[10px] text-green sm:inline">RAIN</span>}
+          {matrixMode && <span className="hidden font-mono text-[10px] text-primary sm:inline">CRT</span>}
+          {matrixRain && <span className="hidden font-mono text-[10px] text-primary sm:inline">BYTES</span>}
           {audioEnabled && <span className="hidden font-mono text-[10px] text-primary sm:inline">AUDIO</span>}
         </div>
         <LiveStat className="hidden sm:block" label="Packets" value={formatCount(totalPackets)} tone="green" />
@@ -1839,65 +2378,65 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
         <LiveStat className="hidden sm:block" label="Active" value={activeAnimations} tone={activeAnimations > 0 ? "warn" : "primary"} />
       </div>
 
-      {newest && (
-        <div className="absolute top-3 right-3 z-10 hidden xl:block w-72 bg-bg-surface border border-border rounded shadow-xl">
-          <div className="px-3 py-2 border-b border-border-subtle font-mono text-[11px] uppercase tracking-wider text-text-muted">Latest Packet</div>
-          <button type="button" className="w-full p-3 text-left hover:bg-white/3 transition-colors" onClick={() => onAnalyze(newest.packetHash)}>
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-mono text-sm text-text-bright">{payloadLabel(newest.payloadTypeName)}</span>
-              <span className="font-mono text-xs text-primary">{formatHex(newest.packetHash)}</span>
-            </div>
-            <div className="mt-2 grid grid-cols-2 gap-2 font-mono text-[11px] text-text-muted">
-              <span>{newest.iata}</span>
-              <span className="text-right">{timeAgoMs(newest.receivedAt)}</span>
-              <span>{newest.rssi} dBm</span>
-              <span className="text-right">{newest.snr.toFixed(1)} dB</span>
-            </div>
-            <div className="mt-2 font-mono text-[10px] text-text-dim truncate" title={formatAbsolute(newest.heardAt, { ms: true })}>
-              {newest.observerName || newest.observerId}
-            </div>
-          </button>
-        </div>
-      )}
-
-      <MapSettingsPanel
-        styleId={styleId}
-        onStyleChange={handleStyleChange}
-        typeFilter={typeFilter}
-        onTypeChange={setTypeFilter}
-        clustered={clustered}
-        onClusteredChange={setClustered}
-      />
       <LoadingPill loading={isPaging} error={nodesError} count={loadedCount} noun="nodes" />
-      {feedVisible && <LiveFeed clockTick={feedClock} events={events} onAnalyze={onAnalyze} />}
-      <PayloadLegend payloads={payloads} />
-      <LiveControlDock
+      <LiveInspectorRail
         activeAnimations={activeAnimations}
         audioBpm={audioBpm}
         audioEnabled={audioEnabled}
         audioVolume={audioVolume}
+        backfillCount={backfillCount}
+        backfillStatus={backfillStatus}
+        clockTick={feedClock}
+        clustered={clustered}
+        compact={compactLiveLayout}
+        events={events}
+        feedVisible={feedVisible}
+        laggedCount={laggedCount}
+        matrixMode={matrixMode}
+        matrixRain={matrixRain}
+        onAnalyze={onAnalyze}
+        onAudioBpmChange={setAudioBpm}
+        onAudioVolumeChange={setAudioVolume}
+        onClusteredChange={setClustered}
+        onSelect={setSelectedEvent}
+        onStyleChange={handleStyleChange}
+        onToggleAudio={() => setAudioEnabled((value) => !value)}
+        onToggleMatrix={() => setMatrixMode((v) => !v)}
+        onToggleRain={() => setMatrixRain((v) => !v)}
+        onTypeChange={setTypeFilter}
+        quality={visualQuality}
+        ratePerMin={ratePerMin}
+        selectedEvent={selectedEvent ?? undefined}
+        settingsOpen={settingsOpen}
+        styleId={styleId}
+        style={inspectorRailStyle}
+        summary={liveSummary}
+        totalPackets={totalPackets}
+        typeFilter={typeFilter}
+        visualDroppedCount={visualDroppedCount}
+      />
+      <LiveControlDock
+        activeAnimations={activeAnimations}
         colorByHash={colorByHash}
+        compact={compactLiveLayout}
         feedVisible={feedVisible}
         heatVisible={heatVisible}
         laggedCount={laggedCount}
-        matrixRain={matrixRain}
-        matrixMode={matrixMode}
         onClear={clearFeed}
-        onAudioBpmChange={setAudioBpm}
-        onAudioVolumeChange={setAudioVolume}
-        onToggleAudio={toggleAudio}
         onToggleColorByHash={toggleColorByHash}
         onToggleFeed={toggleFeed}
         onToggleHeat={toggleHeat}
-        onToggleMatrix={toggleMatrix}
-        onToggleRain={toggleRain}
         onTogglePaused={togglePaused}
         onTogglePropagation={togglePropagation}
+        onToggleSettings={toggleSettings}
         onToggleTrails={toggleTrails}
         paused={paused}
+        quality={visualQuality}
         queuedCount={queuedEvents.length}
         ratePerMin={ratePerMin}
         realisticPropagation={realisticPropagation}
+        settingsOpen={settingsOpen}
+        style={commandDockStyle}
         totalPackets={totalPackets}
         trails={trails}
         visualDroppedCount={visualDroppedCount}

@@ -48,19 +48,15 @@ export function SplashScreen() {
         fading ? "opacity-0 pointer-events-none" : "opacity-100"
       }`}
     >
-      <span className="inline-flex flex-col items-center gap-7 text-primary">
+      <span className="crt-float-panel inline-flex flex-col items-center gap-7 rounded-sm border border-border px-10 py-9 text-primary">
         <BeaconLogo size={160} pulse />
         <span className="inline-flex flex-col items-center gap-2.5">
           <span
-            className="font-medium tracking-[0.3em] uppercase text-5xl leading-none pl-[0.3em]"
-            style={{ fontFamily: "'Chakra Petch', sans-serif" }}
+            className="crt-title crt-terminal-cursor font-medium tracking-[0.3em] uppercase text-5xl leading-none pl-[0.3em]"
           >
             BEACON
           </span>
-          <span
-            className="text-text-muted text-xs tracking-[0.12em]"
-            style={{ fontFamily: "'Chakra Petch', sans-serif" }}
-          >
+          <span className="font-mono text-text-muted text-xs tracking-[0.12em] uppercase">
             MeshCore Network Analyzer
           </span>
         </span>

@@ -1,4 +1,5 @@
 const EMOJI_SYMBOL_RE = /[\u2600-\u27BF\u{1F000}-\u{1FAFF}]/gu;
+const EMOJI_MODIFIER_RE = /\u200D|\uFE0E|\uFE0F/g;
 const WHITESPACE_RE = /\s+/g;
 
 function stripControlOrBadText(value: string): string {
@@ -23,6 +24,7 @@ function sanitizeCore(value: string): string {
   if (cleaned === undefined) {
     cleaned = stripControlOrBadText(value.normalize("NFKC"))
       .replace(EMOJI_SYMBOL_RE, "")
+      .replace(EMOJI_MODIFIER_RE, "")
       .replace(WHITESPACE_RE, " ")
       .trim();
     if (sanitizeCache.size > 5000) sanitizeCache.clear(); // bound; names repeat, so this rarely trips

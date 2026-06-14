@@ -14,7 +14,9 @@ import type {
   RegionAtlasSummary,
   AtlasReplayPacket,
   HealthStatus,
+  LiveSummary,
 } from "../types/api";
+import type { WsPacketObservation } from "../types/ws";
 import type { ChannelSummary, ChannelMessage } from "../features/channels/types";
 import type { ObserverSummary, Observer, AdvertObservation } from "../features/observers/types";
 import type { NodeSummary, Node, NodeObservation, NodeNeighbor } from "../features/nodes/types";
@@ -78,6 +80,26 @@ export function getPackets(
     iatas: iatasParam(iatas),
     cursor: params?.cursor,
     limit: params?.limit ?? DEFAULT_PAGE_SIZE,
+  });
+}
+
+export function getLiveBackfill(
+  iatas: string[] | undefined,
+  params: { afterObservationId: number; limit?: number; payloadType?: number; routeType?: number; scope?: string },
+): Promise<CursorPage<WsPacketObservation["data"]>> {
+  return request("/live/backfill", {
+    iatas: iatasParam(iatas),
+    afterObservationId: params.afterObservationId,
+    limit: params.limit ?? 100,
+    payloadType: params.payloadType,
+    routeType: params.routeType,
+    scope: params.scope,
+  });
+}
+
+export function getLiveSummary(iatas: string[] | undefined): Promise<LiveSummary> {
+  return request("/live/summary", {
+    iatas: iatasParam(iatas),
   });
 }
 

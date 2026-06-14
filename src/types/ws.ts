@@ -47,6 +47,7 @@ export interface WsPacketObservation {
       scope?: string; // matched transport scope name; omitted when none matched
     };
     observation: {
+      id?: number;
       observerId: string;
       observerName: string;
       iata: string;

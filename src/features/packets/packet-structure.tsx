@@ -3,6 +3,7 @@ import { Fragment, useState } from "react";
 import type { PacketDetail, Observation } from "../../types/api";
 import { RouteType, PayloadType } from "../../types/enums";
 import { formatSnr, snrLevel, formatPropagation, SIGNAL_LEVEL_CLASSES } from "../../lib/formatters";
+import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { Timestamp } from "../../components/Timestamp";
 import { IataChip } from "../../components/IataChip";
 
@@ -398,11 +399,12 @@ export function ColorAccentField({
 export function ObservationDetail({ observation }: { observation: Observation }) {
   const level = snrLevel(observation.snr);
   const sigClass = level ? SIGNAL_LEVEL_CLASSES[level] : "text-text-normal";
+  const observerLabel = sanitizeDisplayLabel(observation.observerName, observation.observerId.slice(0, 8));
 
   return (
     <div className="flex flex-col gap-1.5 font-mono text-[13px]">
       <div className="flex items-center gap-2">
-        <span className="text-text-normal font-semibold">{observation.observerName ?? observation.observerId.slice(0, 8)}</span>
+        <span className="text-text-normal font-semibold">{observerLabel}</span>
         <IataChip>{observation.iata}</IataChip>
         <Timestamp value={observation.heardAt} className="text-text-dim ml-auto text-[13px]" />
       </div>

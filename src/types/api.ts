@@ -147,6 +147,31 @@ export interface HealthStatus {
   brokers: BrokerStatus[];
 }
 
+export interface LiveRouteMixItem {
+  routeType: number;
+  routeTypeName: string;
+  count: number;
+}
+
+export interface LiveIataCount {
+  iata: string;
+  count: number;
+}
+
+export interface LiveSummary {
+  serverTime: number;
+  since: number;
+  until: number;
+  latestObservationId: number;
+  packetCount: number;
+  observationCount: number;
+  activeObservers: number;
+  payloadMix: PayloadBreakdownItemShape[];
+  routeMix: LiveRouteMixItem[];
+  topIatas: LiveIataCount[];
+  topObservers: TopObserverShape[];
+}
+
 // known routes — fully resolved multi-hop paths discovered at ingest, where every hop matched a node
 // at high confidence. One RouteHop per hash, in order.
 export interface RouteHop {
