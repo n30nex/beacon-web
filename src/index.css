@@ -186,16 +186,7 @@
 }
 
 .crt-shell::before {
-  content: "";
-  position: absolute;
-  inset: 7px;
-  z-index: 80;
-  border: 1px solid color-mix(in srgb, var(--color-primary) 24%, transparent);
-  border-radius: 18px;
-  pointer-events: none;
-  box-shadow:
-    inset 0 0 34px rgba(0, 0, 0, 0.74),
-    inset 0 0 64px color-mix(in srgb, var(--crt-phosphor, var(--color-primary)) 9%, transparent);
+  content: none;
 }
 
 .crt-shell::after {
