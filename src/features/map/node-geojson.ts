@@ -1,5 +1,6 @@
 import type { Feature, FeatureCollection, Point } from "geojson";
 import type { NodeSummary } from "../nodes/types";
+import { nullableDisplayLabel } from "../../lib/display-label";
 
 // Build the maplibre GeoJSON source from the nodes API response. Properties stay primitive because
 // clustering serializes them, and there's no maplibre import, so this stays unit-testable.
@@ -24,7 +25,7 @@ export function nodesToFeatureCollection(
       geometry: { type: "Point", coordinates: [n.lng, n.lat] },
       properties: {
         id: n.id,
-        name: n.name,
+        name: nullableDisplayLabel(n.name),
         nodeTypeName: n.nodeTypeName,
         isObserver: !!n.isObserver,
       },

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getNodesPage, getObserversPage, getScopes, getKnownRoutesPage, searchKnownRoutes, getChannels, getChannelMessagesPage, getTraces, getTraceDetail } from "../../src/api/client";
+import { getNodesPage, getObserversPage, getScopes, getKnownRoutesPage, searchKnownRoutes, getChannels, getChannelMessagesPage, getTraces, getTraceDetail, getHealth } from "../../src/api/client";
 import type { NodeSummary } from "../../src/features/nodes/types";
 import type { ObserverSummary } from "../../src/features/observers/types";
 import type { ChannelMessage, ChannelSummary } from "../../src/features/channels/types";
@@ -86,6 +86,24 @@ describe("getScopes", () => {
     expect(url).toContain("/scopes");
     expect(url).not.toContain("?"); // no query params on the authoritative list
     expect(scopes).toEqual(["#bc", "#west"]);
+  });
+});
+
+describe("getHealth", () => {
+  it("hits the root /healthz endpoint", async () => {
+    const getUrl = mockFetchOnce({
+      status: "ok",
+      version: "test",
+      serverTime: 1,
+      dependencies: { database: { status: "ok" } },
+      brokers: [],
+    });
+
+    const health = await getHealth();
+
+    const url = new URL(getUrl());
+    expect(url.pathname).toBe("/healthz");
+    expect(health.status).toBe("ok");
   });
 });
 
