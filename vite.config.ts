@@ -36,6 +36,27 @@ export default defineConfig(({ mode }) => {
           }
         : {}),
     },
+    build: {
+      // Chunks are split intentionally below; the maplibre vendor chunk is legitimately large.
+      chunkSizeWarningLimit: 1200,
+      rollupOptions: {
+        output: {
+          // Split heavy, rarely-changing vendor code into its own cacheable chunks so app-code
+          // edits don't invalidate them, and so the WebGL engine streams in parallel with (and
+          // only when reached by) the lazy map views rather than blocking first paint. Rolldown
+          // (Vite 8) only accepts the function form of manualChunks.
+          manualChunks: (id) => {
+            if (!id.includes("node_modules")) return undefined;
+            if (id.includes("maplibre-gl") || id.includes("map-gl-js-spiderfy")) return "maplibre";
+            if (id.includes("@tanstack")) return "query-vendor";
+            if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
+              return "react-vendor";
+            }
+            return undefined;
+          },
+        },
+      },
+    },
     test: {
       globals: true,
       environment: "jsdom",

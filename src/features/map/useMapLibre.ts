@@ -22,44 +22,63 @@ const fitKey = (points: [number, number][] | null) =>
 // Keeps the imperative MapLibre lifecycle out of MapView; exposes mapRef + isReady for overlays.
 
 const TERRAIN_SOURCE_ID = "terrain-dem";
-const HILLSHADE_SOURCE_ID = "hillshade-dem";
 const HILLSHADE_LAYER_ID = "hillshade";
 
-// Terrain and the hillshade layer pull the same terrarium tiles, but maplibre warns when they share
-// a single source (it costs render quality), so we describe the source once and add it twice.
+// Terrain only adds depth once the camera is tilted or zoomed in enough to read relief; a flat world
+// overview (the default landing view) gains nothing from the draped-terrain render path or the
+// hillshade layer but pays their pan/zoom cost. Engage at/above this pitch or zoom, disengage below.
+const TERRAIN_ENGAGE_PITCH = 10;
+const TERRAIN_ENGAGE_ZOOM = IATA_ZOOM;
+
+// Terrain and the hillshade layer pull the same terrarium tiles. maplibre emits a cosmetic console
+// warning when a raster-dem source is shared, but sharing one source is fully supported and halves
+// DEM tile fetches + terrarium PNG decodes versus describing it twice — so we add it once.
 const demSource = (): RasterDEMSourceSpecification => ({
   type: "raster-dem",
   tiles: DEM_TILES,
   encoding: "terrarium",
   tileSize: 256, // terrarium tiles are 256px, not the raster-dem default of 512
   maxzoom: 15,
-  attribution: DEM_ATTRIBUTION, // same string on both sources; the attribution control de-dupes it
+  attribution: DEM_ATTRIBUTION,
 });
 
-// Idempotent (guarded by getSource/getLayer) so it is safe to run on both 'load' and every
-// 'style.load' — setStyle() drops imperatively-added sources/layers, so terrain must be re-added.
-function addTerrain(map: MapLibreMap, isDark: boolean) {
+// Declare the DEM source (cheap — tiles only fetch when terrain/hillshade actually render). Idempotent
+// and safe to run on 'load' and every 'style.load' (setStyle drops imperatively-added sources).
+function ensureTerrainSource(map: MapLibreMap) {
   if (!map.getSource(TERRAIN_SOURCE_ID)) map.addSource(TERRAIN_SOURCE_ID, demSource());
-  if (!map.getSource(HILLSHADE_SOURCE_ID)) map.addSource(HILLSHADE_SOURCE_ID, demSource());
-  if (!map.getLayer(HILLSHADE_LAYER_ID)) {
-    // insert beneath labels/roads so they stay legible over the relief
-    const firstSymbolId = map.getStyle().layers?.find((l) => l.type === "symbol")?.id;
-    map.addLayer(
-      {
-        id: HILLSHADE_LAYER_ID,
-        type: "hillshade",
-        source: HILLSHADE_SOURCE_ID,
-        paint: {
-          "hillshade-exaggeration": 0.5,
-          "hillshade-shadow-color": isDark ? "#000000" : "#1a1a1a",
-          "hillshade-highlight-color": isDark ? "#333333" : "#ffffff",
-          "hillshade-illumination-direction": 315,
+}
+
+// Engage/disengage the 3D draped terrain + hillshade relief from the live camera. Idempotent and
+// cheap: it only mutates when crossing the engage threshold (guarded by getTerrain/getLayer), so it
+// is safe to call on every moveend and after each style reload. When engaged the result is identical
+// to before; when disengaged the flat view skips the terrain render path entirely.
+function applyTerrainState(map: MapLibreMap, isDark: boolean) {
+  ensureTerrainSource(map);
+  const engaged = map.getPitch() > TERRAIN_ENGAGE_PITCH || map.getZoom() >= TERRAIN_ENGAGE_ZOOM;
+  if (engaged) {
+    if (!map.getLayer(HILLSHADE_LAYER_ID)) {
+      // insert beneath labels/roads so they stay legible over the relief
+      const firstSymbolId = map.getStyle().layers?.find((l) => l.type === "symbol")?.id;
+      map.addLayer(
+        {
+          id: HILLSHADE_LAYER_ID,
+          type: "hillshade",
+          source: TERRAIN_SOURCE_ID,
+          paint: {
+            "hillshade-exaggeration": 0.5,
+            "hillshade-shadow-color": isDark ? "#000000" : "#1a1a1a",
+            "hillshade-highlight-color": isDark ? "#333333" : "#ffffff",
+            "hillshade-illumination-direction": 315,
+          },
         },
-      },
-      firstSymbolId,
-    );
+        firstSymbolId,
+      );
+    }
+    if (!map.getTerrain()) map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: TERRAIN_EXAGGERATION });
+  } else {
+    if (map.getTerrain()) map.setTerrain(null);
+    if (map.getLayer(HILLSHADE_LAYER_ID)) map.removeLayer(HILLSHADE_LAYER_ID);
   }
-  map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: TERRAIN_EXAGGERATION });
 }
 
 export function useMapLibre(
@@ -121,7 +140,7 @@ export function useMapLibre(
     attrib?.classList.remove("maplibregl-compact-show");
 
     const onStyleReady = () => {
-      addTerrain(map, resolveMapStyle(styleIdRef.current).dark);
+      applyTerrainState(map, resolveMapStyle(styleIdRef.current).dark);
       hasLoadedRef.current = true;
       swapPendingRef.current = false;
       lastGoodStyleIdRef.current = styleIdRef.current;
@@ -130,6 +149,11 @@ export function useMapLibre(
     };
     map.on("load", onStyleReady); // first paint (style.load does not reliably fire on initial load)
     map.on("style.load", onStyleReady); // re-add terrain after every setStyle
+
+    // Re-evaluate terrain engagement as the camera settles, so tilting/zooming in turns on relief and
+    // returning to a flat overview turns it off. Idempotent, so a plain pan at high zoom is a no-op.
+    const onCameraSettle = () => applyTerrainState(map, resolveMapStyle(styleIdRef.current).dark);
+    map.on("moveend", onCameraSettle);
 
     // The OpenFreeMap base styles ask for a handful of sprite icons their sprite doesn't ship (e.g.
     // "circle-11"), so maplibre warns on every load. Hand it a transparent 1x1 for anything that

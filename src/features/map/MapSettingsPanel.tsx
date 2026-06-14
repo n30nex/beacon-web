@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { MapStyleSwitcher } from "./MapStyleSwitcher";
 import { SegmentedControl } from "./SegmentedControl";
 import { NODE_TYPE_FILTER_OPTIONS } from "./types";
@@ -23,7 +23,9 @@ interface MapSettingsPanelProps {
   onClusteredChange: (c: boolean) => void;
 }
 
-export function MapSettingsPanel({
+// Memoized: its props are reference-stable (callbacks are useCallback/setState setters), so it skips
+// the frequent re-renders of its map-view parents (live now-tick, packet/node-update churn).
+export const MapSettingsPanel = memo(function MapSettingsPanel({
   styleId,
   onStyleChange,
   typeFilter,
@@ -95,4 +97,4 @@ export function MapSettingsPanel({
       )}
     </div>
   );
-}
+});

@@ -107,6 +107,9 @@ export function useMapNodes(
   const onSelectNodeRef = useRef(onSelectNode);
   const selectedNodeIdRef = useRef(selectedNodeId);
   const appliedClusteredRef = useRef(clustered);
+  // coalesce live-data setData calls to one per frame (auto-paging settles many pages in a burst)
+  const setDataRafRef = useRef(0);
+  const pendingGeojsonRef = useRef<NodeFC | null>(null);
 
   // handlers below capture map at attach time; read live state through these refs
   useEffect(() => {
@@ -152,7 +155,9 @@ export function useMapNodes(
     }
     appliedClusteredRef.current = clustered;
 
+    let sourceCreated = false;
     if (!map.getSource(NODES_SOURCE_ID)) {
+      sourceCreated = true;
       map.addSource(NODES_SOURCE_ID, {
         type: "geojson",
         data: geojsonRef.current,
@@ -264,8 +269,12 @@ export function useMapNodes(
     map.setPaintProperty(NODES_POINT_LAYER_ID, "text-color", textColor);
     map.setPaintProperty(NODES_POINT_LAYER_ID, "text-halo-color", halo);
 
-    // seed the (possibly just-recreated) source; live updates flow through the geojson effect below
-    (map.getSource(NODES_SOURCE_ID) as GeoJSONSource).setData(geojsonRef.current);
+    // Seed only a freshly created source (first build, or a clustering-toggle recreate). On a pure
+    // theme/basemap change the source already holds the current data, so re-seeding it would force a
+    // needless full relayout of every node; live data flows through the rAF-batched geojson effect.
+    if (sourceCreated) {
+      (map.getSource(NODES_SOURCE_ID) as GeoJSONSource).setData(geojsonRef.current);
+    }
   }, [mapRef, isReady, isDark, clustered, themeKey]);
 
   // Supply and re-color the marker images. SVG glyphs rasterize async, so they're provided both
@@ -311,13 +320,34 @@ export function useMapNodes(
     syncLeafSelectionRing(map, selectedNodeId);
   }, [mapRef, isReady, selectedNodeId]);
 
-  // Push new node data into the source as it arrives; the source re-clusters automatically.
+  // Push new node data into the source as it arrives; the source re-clusters automatically. Batched
+  // to one setData per frame so a burst of auto-chained pages (or coalesced WS updates landing in the
+  // same tick) triggers a single re-cluster + relayout instead of one per page — latest data wins.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !isReady) return;
-    const src = map.getSource(NODES_SOURCE_ID) as GeoJSONSource | undefined;
-    if (src) src.setData(geojson);
+    pendingGeojsonRef.current = geojson;
+    if (setDataRafRef.current === 0) {
+      setDataRafRef.current = requestAnimationFrame(() => {
+        setDataRafRef.current = 0;
+        const liveMap = mapRef.current;
+        const data = pendingGeojsonRef.current;
+        const src = liveMap?.getSource(NODES_SOURCE_ID) as GeoJSONSource | undefined;
+        if (src && data) src.setData(data);
+      });
+    }
   }, [mapRef, isReady, geojson]);
+
+  // cancel any pending batched setData on unmount
+  useEffect(
+    () => () => {
+      if (setDataRafRef.current) {
+        cancelAnimationFrame(setDataRafRef.current);
+        setDataRafRef.current = 0;
+      }
+    },
+    [],
+  );
 
   // Build spiderfy + node/cluster interactions, and tear them down on cleanup. Re-runs on every
   // style switch and clustering toggle, so body and cleanup must stay symmetric: setStyle does NOT

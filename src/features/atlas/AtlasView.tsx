@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import type { CursorPage } from "../../types/api";
-import type { NodeSummary } from "../nodes/types";
 import type { WsNodeUpdate } from "../../types/ws";
 import type { WsManager } from "../../api/ws-manager";
 import { getAtlasRegion, getHealth } from "../../api/client";
 import { useMapLibre } from "../map/useMapLibre";
 import { useMapNodes } from "../map/useMapNodes";
 import { useMapNodesData } from "../map/useMapNodesData";
+import { useCoalescedNodeUpdates } from "../map/useNodeUpdates";
 import { nodesToFeatureCollection } from "../map/node-geojson";
 import { DEFAULT_STYLE_ID, MAP_STYLE_STORAGE_KEY, resolveMapStyle } from "../map/types";
 import { useTheme } from "../../hooks/useTheme";
 import { useWsNodeUpdateHandler } from "../../hooks/useWsHandlers";
-import { upsertNodePages } from "../nodes/node-updates";
 import { LoadingPill } from "../../components/LoadingPill";
 import { EmptyState } from "../../components/EmptyState";
 import { formatCount } from "../../lib/formatters";
@@ -211,14 +209,13 @@ export function AtlasView({ wsManager, onViewNode }: AtlasViewProps) {
   const geojson = useMemo(() => nodesToFeatureCollection(nodes), [nodes]);
   useMapNodes(mapRef, isReady, geojson, isDark, themeKey, true, setSelectedNodeId, selectedNodeId, atlasRegionKey);
 
-  const handleNodeUpdate = useCallback(
+  const onNodeUpdate = useCallback(
     (data: WsNodeUpdate["data"]) => {
-      queryClient.setQueryData<InfiniteData<CursorPage<NodeSummary>>>(nodesKey, (old) => upsertNodePages(old, data));
       if (selectedNodeId === data.nodeId) queryClient.invalidateQueries({ queryKey: ["node", data.nodeId] });
     },
-    [nodesKey, queryClient, selectedNodeId],
+    [queryClient, selectedNodeId],
   );
-  useWsNodeUpdateHandler(wsManager, handleNodeUpdate);
+  useWsNodeUpdateHandler(wsManager, useCoalescedNodeUpdates(nodesKey, onNodeUpdate));
 
   const patch = useCallback(
     (updates: Record<string, string>) => {
@@ -303,7 +300,7 @@ export function AtlasView({ wsManager, onViewNode }: AtlasViewProps) {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_40%,rgba(0,0,0,0.46)_100%)]" />
 
       <div className="absolute left-3 top-3 z-10 flex w-[min(560px,calc(100vw-24px))] flex-col gap-2">
-        <div className="rounded border border-border bg-bg-surface/92 p-3 shadow-2xl backdrop-blur">
+        <div className="rounded border border-border bg-bg-surface/97 p-3 shadow-lg">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <div className="font-mono text-[10px] uppercase tracking-wider text-text-dim">Atlas</div>
@@ -333,7 +330,7 @@ export function AtlasView({ wsManager, onViewNode }: AtlasViewProps) {
           </div>
         </div>
 
-        <div className="hidden max-h-[42vh] overflow-y-auto rounded border border-border bg-bg-surface/88 p-3 shadow-2xl backdrop-blur lg:block">
+        <div className="hidden max-h-[42vh] overflow-y-auto rounded border border-border bg-bg-surface/97 p-3 shadow-lg lg:block">
           <div className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-text-muted">Story</div>
           <div className="space-y-2">
             {storyBeats.map((beat) => (
@@ -350,37 +347,37 @@ export function AtlasView({ wsManager, onViewNode }: AtlasViewProps) {
       </div>
 
       <div className="absolute right-3 top-3 z-10 hidden max-h-[calc(100vh-160px)] w-[min(520px,calc(100vw-24px))] flex-col gap-2 overflow-y-auto xl:flex">
-        <div className="grid grid-cols-4 gap-3 rounded border border-border bg-bg-surface/90 p-3 shadow-2xl backdrop-blur">
+        <div className="grid grid-cols-4 gap-3 rounded border border-border bg-bg-surface/97 p-3 shadow-lg">
           <Kpi label="Packets" value={formatCount(kpis?.totalPackets)} tone="text-primary" />
           <Kpi label="Observations" value={formatCount(kpis?.totalObservations)} tone="text-green" />
           <Kpi label="Observers" value={formatCount(kpis?.activeObservers)} tone="text-secondary" />
           <Kpi label="IATAs" value={formatCount(kpis?.activeIatas)} tone="text-warn" />
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div className="rounded border border-border bg-bg-surface/88 p-3 shadow-2xl backdrop-blur">
+          <div className="rounded border border-border bg-bg-surface/97 p-3 shadow-lg">
             <RankingList title="Top nodes" rows={topNodeRows} />
           </div>
-          <div className="rounded border border-border bg-bg-surface/88 p-3 shadow-2xl backdrop-blur">
+          <div className="rounded border border-border bg-bg-surface/97 p-3 shadow-lg">
             <RankingList title="Top observers" rows={topObserverRows} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div className="rounded border border-border bg-bg-surface/88 p-3 shadow-2xl backdrop-blur">
+          <div className="rounded border border-border bg-bg-surface/97 p-3 shadow-lg">
             <MixList title="Payload mix" rows={payloadRows} />
           </div>
-          <div className="rounded border border-border bg-bg-surface/88 p-3 shadow-2xl backdrop-blur">
+          <div className="rounded border border-border bg-bg-surface/97 p-3 shadow-lg">
             <MixList title="Node types" rows={nodeTypeRows} />
           </div>
-          <div className="rounded border border-border bg-bg-surface/88 p-3 shadow-2xl backdrop-blur">
+          <div className="rounded border border-border bg-bg-surface/97 p-3 shadow-lg">
             <MixList title="Radio presets" rows={radioRows} />
           </div>
-          <div className="rounded border border-border bg-bg-surface/88 p-3 shadow-2xl backdrop-blur">
+          <div className="rounded border border-border bg-bg-surface/97 p-3 shadow-lg">
             <MixList title="Scopes" rows={scopeRows} />
           </div>
         </div>
       </div>
 
-      <div className="absolute bottom-3 right-3 z-10 w-[min(360px,calc(100vw-24px))] rounded border border-border bg-bg-surface/94 p-3 shadow-2xl backdrop-blur">
+      <div className="absolute bottom-3 right-3 z-10 w-[min(360px,calc(100vw-24px))] rounded border border-border bg-bg-surface/97 p-3 shadow-lg">
         <div className="min-w-0">
           <div className="truncate font-mono text-xs font-semibold text-text-bright">Regional map overlay</div>
           <div className="mt-1 font-mono text-[10px] text-text-dim">

@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
-import { useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useMapLibre } from "./useMapLibre";
 import { useMapNodes } from "./useMapNodes";
 import { useMapNodesData } from "./useMapNodesData";
+import { useCoalescedNodeUpdates } from "./useNodeUpdates";
 import { nodesToFeatureCollection, filterByNodeType } from "./node-geojson";
 import { MapSettingsPanel } from "./MapSettingsPanel";
 import { MAP_STYLE_STORAGE_KEY, DEFAULT_STYLE_ID, resolveMapStyle } from "./types";
@@ -13,10 +14,7 @@ import { useRegion } from "../../hooks/useRegion";
 import { useTheme } from "../../hooks/useTheme";
 import { useWsNodeUpdateHandler } from "../../hooks/useWsHandlers";
 import { getIatas } from "../../api/client";
-import { upsertNodePages } from "../nodes/node-updates";
 import type { WsManager } from "../../api/ws-manager";
-import type { NodeSummary } from "../nodes/types";
-import type { CursorPage } from "../../types/api";
 import type { WsNodeUpdate } from "../../types/ws";
 
 interface MapViewProps {
@@ -63,20 +61,18 @@ export function MapView({ wsManager, selectedNodeId, onSelectNode }: MapViewProp
 
   // patch-or-insert the live update into the paged node cache (the shared helper preserves refs
   // when nothing changed, so a same-values re-advert doesn't trigger a full map repaint); brand-new
-  // nodes are appended from the event itself since the cache never refetches on its own.
-  const handleNodeUpdate = useCallback(
+  // nodes are appended from the event itself since the cache never refetches on its own. Cache writes
+  // are coalesced per frame so an advert flood produces one map rebuild instead of one per message.
+  const onNodeUpdate = useCallback(
     (data: WsNodeUpdate["data"]) => {
-      queryClient.setQueryData<InfiniteData<CursorPage<NodeSummary>>>(nodesKey, (old) =>
-        upsertNodePages(old, data),
-      );
       // mirror NodeTable: refresh the shared detail panel when the open node changes live
       if (selectedNodeId === data.nodeId) {
         queryClient.invalidateQueries({ queryKey: ["node", data.nodeId] });
       }
     },
-    [queryClient, nodesKey, selectedNodeId],
+    [queryClient, selectedNodeId],
   );
-  useWsNodeUpdateHandler(wsManager, handleNodeUpdate);
+  useWsNodeUpdateHandler(wsManager, useCoalescedNodeUpdates(nodesKey, onNodeUpdate));
 
   // split memos: rebuild the FeatureCollection only when nodes change; a type-filter change just
   // re-filters the already-built collection instead of re-running the full transform over all nodes
