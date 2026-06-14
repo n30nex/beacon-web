@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- poking into loose ECharts option shapes */
 import { describe, it, expect } from "vitest";
-import { typeBarOption, leaderboardOption } from "../../../src/features/stats/chartOptions";
+import { bucketTimelineOption, leaderboardOption, rfMetricOption, typeBarOption } from "../../../src/features/stats/chartOptions";
 import type { ChartColors } from "../../../src/features/stats/chartTheme";
 
 const colors: ChartColors = {
@@ -59,5 +59,38 @@ describe("leaderboardOption", () => {
     expect(opt.yAxis.axisLabel.overflow).toBe("truncate");
     expect(opt.yAxis.axisLabel.width).toBeLessThanOrEqual(120 - 10);
     expect(opt.yAxis.axisLabel.margin).toBe(110);
+  });
+});
+
+describe("bucketTimelineOption", () => {
+  it("keeps the highest-volume series and builds line data by timestamp", () => {
+    const opt = bucketTimelineOption(
+      [
+        { t: 1000, name: "text", value: 5 },
+        { t: 2000, name: "text", value: 7 },
+        { t: 1000, name: "advert", value: 2 },
+      ],
+      colors,
+      { maxSeries: 1, stacked: true },
+    ) as Record<string, any>;
+    expect(opt.legend.data).toEqual(["text"]);
+    expect(opt.series[0].stack).toBe("total");
+    expect(opt.series[0].data).toEqual([[1000, 5], [2000, 7]]);
+  });
+});
+
+describe("rfMetricOption", () => {
+  it("creates one line per IATA with metric values over time", () => {
+    const opt = rfMetricOption(
+      [
+        { t: 1000, iata: "YVR", value: -101 },
+        { t: 2000, iata: "YVR", value: -99 },
+        { t: 1000, iata: "YYZ", value: -95 },
+      ],
+      colors,
+      "Noise",
+    ) as Record<string, any>;
+    expect(opt.legend.data).toContain("YVR");
+    expect(opt.series.find((s: { name: string }) => s.name === "YVR").data).toEqual([[1000, -101], [2000, -99]]);
   });
 });

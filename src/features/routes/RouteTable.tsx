@@ -7,6 +7,7 @@ import { Badge } from "../../components/Badge";
 import { Timestamp } from "../../components/Timestamp";
 import { DataTable, type Column } from "../../components/DataTable";
 import { LoadingPill } from "../../components/LoadingPill";
+import { TerminalLoadingState } from "../../components/TerminalLoader";
 import { MultiSelectDropdown } from "../../components/MultiSelectDropdown";
 import { RouteDetailPanel } from "./RouteDetailPanel";
 import { ResolvedHopBlock } from "../packets/PathData";
@@ -307,7 +308,7 @@ export function RouteTable() {
         {isCross ? (
           <div className="flex-1 min-w-0 overflow-y-auto p-3 flex flex-col gap-2">
             {crossLoading ? (
-              <div className="font-mono text-[13px] text-text-dim">Searching…</div>
+              <TerminalLoadingState label="SEARCHING ROUTES" detail="PLEASE WAIT" />
             ) : crossRoutes && crossRoutes.length > 0 ? (
               crossRoutes.map((r, i) => <CrossRouteCard key={i} route={r} />)
             ) : (

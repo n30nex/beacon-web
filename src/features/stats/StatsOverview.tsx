@@ -2,15 +2,19 @@ import { useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { WsManager } from "../../api/ws-manager";
 import { StatsSubHeader } from "./StatsSubHeader";
-import { MeshTab } from "./MeshTab";
+import { OverviewTab } from "./OverviewTab";
+import { RegionsTab } from "./RegionsTab";
+import { PayloadsTab } from "./PayloadsTab";
+import { RFHealthTab } from "./RFHealthTab";
 import { ObserverTab } from "./ObserverTab";
+import { ScopesTab } from "./ScopesTab";
 import type { StatsRange, StatsTab } from "./types";
 
-const TABS: StatsTab[] = ["mesh", "observer"];
+const TABS: StatsTab[] = ["overview", "regions", "payloads", "rf", "observers", "scopes"];
 const RANGES: StatsRange[] = ["24h", "7d", "30d"];
 
-const asTab = (v: string | null): StatsTab => (TABS.includes(v as StatsTab) ? (v as StatsTab) : "mesh");
-const asRange = (v: string | null): StatsRange => (RANGES.includes(v as StatsRange) ? (v as StatsRange) : "7d");
+const asTab = (v: string | null): StatsTab => (TABS.includes(v as StatsTab) ? (v as StatsTab) : "overview");
+const asRange = (v: string | null): StatsRange => (RANGES.includes(v as StatsRange) ? (v as StatsRange) : "24h");
 
 interface StatsOverviewProps {
   wsManager: WsManager;
@@ -44,17 +48,26 @@ export function StatsOverview({ wsManager }: StatsOverviewProps) {
 
   const handleTab = useCallback((t: StatsTab) => patch({ statsTab: t }), [patch]);
   const handleRange = useCallback((r: StatsRange) => patch({ range: r }), [patch]);
-  const handleSelectObserver = useCallback((id: string) => patch({ statsTab: "observer", observerId: id }), [patch]);
+  const handleSelectObserver = useCallback((id: string) => patch({ statsTab: "observers", observerId: id }), [patch]);
+  const handleDrill = useCallback(
+    (targetTab: string, iata?: string) => {
+      patch({ tab: targetTab, iata: iata ?? null });
+    },
+    [patch],
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <StatsSubHeader tab={tab} onTabChange={handleTab} range={range} onRangeChange={handleRange} wsManager={wsManager} />
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {tab === "mesh" ? (
-          <MeshTab range={range} onSelectObserver={handleSelectObserver} wsManager={wsManager} />
-        ) : (
+        {tab === "overview" && <OverviewTab range={range} onSelectObserver={handleSelectObserver} wsManager={wsManager} />}
+        {tab === "regions" && <RegionsTab range={range} onDrill={handleDrill} />}
+        {tab === "payloads" && <PayloadsTab range={range} />}
+        {tab === "rf" && <RFHealthTab range={range} onSelectObserver={handleSelectObserver} />}
+        {tab === "observers" && (
           <ObserverTab range={range} selectedObserverId={observerId} onSelectObserver={handleSelectObserver} wsManager={wsManager} />
         )}
+        {tab === "scopes" && <ScopesTab range={range} />}
       </div>
     </div>
   );

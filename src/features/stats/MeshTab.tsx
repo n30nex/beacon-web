@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { formatCount } from "../../lib/formatters";
 import { sanitizeDisplayLabel } from "../../lib/display-label";
+import { TerminalLoadingState } from "../../components/TerminalLoader";
 import { useChartColors, type ChartColors } from "./chartTheme";
 import { useStatsOverview, useStatsObservations, usePayloadBreakdown, useTopNodes, useTopObservers, useRadioPresets, useScopes } from "./useStats";
 import { observationsAreaOption, leaderboardOption, typeBarOption } from "./chartOptions";
@@ -151,7 +152,7 @@ export function MeshTab({ range, onSelectObserver, wsManager }: MeshTabProps) {
           {scopes.isError ? (
             <div className="py-4 text-center font-mono text-[11px] text-text-dim">Failed to load</div>
           ) : scopes.isLoading ? (
-            <div className="py-4 text-center font-mono text-[11px] text-text-dim">Loading…</div>
+            <TerminalLoadingState label="QUERYING SCOPES" detail="PLEASE WAIT" />
           ) : scopeRows.length === 0 ? (
             <div className="py-4 text-center font-mono text-[11px] text-text-dim">No data</div>
           ) : (

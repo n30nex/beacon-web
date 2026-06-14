@@ -2,12 +2,18 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useRegion } from "../../hooks/useRegion";
 import {
   getStatsOverview,
+  getStatsSummary,
+  getStatsRegions,
+  getStatsPayloads,
+  getStatsRFHealth,
+  getStatsObserverHealth,
   getStatsObservations,
   getPayloadBreakdown,
   getTopNodes,
   getTopObservers,
   getRadioPresets,
   getStatsScopes,
+  getStatsNodeTypes,
 } from "../../api/client";
 import { RANGE_MS, type StatsRange } from "./types";
 
@@ -37,6 +43,52 @@ export function useStatsOverview() {
   });
 }
 
+export function useStatsSummary(range: StatsRange) {
+  const { iatas, regionKey } = useStatsIatas();
+  return useQuery({
+    queryKey: ["stats-summary", regionKey, range],
+    queryFn: () => getStatsSummary(iatas, { range }),
+    ...common,
+    refetchInterval: 60_000,
+  });
+}
+
+export function useStatsRegions(range: StatsRange) {
+  const { iatas, regionKey } = useStatsIatas();
+  return useQuery({
+    queryKey: ["stats-regions", regionKey, range],
+    queryFn: () => getStatsRegions(iatas, { range }),
+    ...common,
+  });
+}
+
+export function useStatsPayloads(range: StatsRange) {
+  const { iatas, regionKey } = useStatsIatas();
+  return useQuery({
+    queryKey: ["stats-payloads", regionKey, range],
+    queryFn: () => getStatsPayloads(iatas, { range }),
+    ...common,
+  });
+}
+
+export function useStatsRFHealth(range: StatsRange) {
+  const { iatas, regionKey } = useStatsIatas();
+  return useQuery({
+    queryKey: ["stats-rf-health", regionKey, range],
+    queryFn: () => getStatsRFHealth(iatas, { range }),
+    ...common,
+  });
+}
+
+export function useStatsObserverHealth(range: StatsRange, limit = 50) {
+  const { iatas, regionKey } = useStatsIatas();
+  return useQuery({
+    queryKey: ["stats-observer-health", regionKey, range, limit],
+    queryFn: () => getStatsObserverHealth(iatas, { range, limit }),
+    ...common,
+  });
+}
+
 export function useStatsObservations(range: StatsRange) {
   const { iatas, regionKey } = useStatsIatas();
   return useQuery({
@@ -51,6 +103,15 @@ export function usePayloadBreakdown(range: StatsRange) {
   return useQuery({
     queryKey: ["stats-payload", regionKey, range],
     queryFn: () => getPayloadBreakdown(iatas, sinceFor(range)),
+    ...common,
+  });
+}
+
+export function useNodeTypes() {
+  const { iatas, regionKey } = useStatsIatas();
+  return useQuery({
+    queryKey: ["stats-node-types", regionKey],
+    queryFn: () => getStatsNodeTypes(iatas),
     ...common,
   });
 }

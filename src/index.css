@@ -293,6 +293,218 @@
     inset 0 0 6px color-mix(in srgb, white 16%, transparent);
 }
 
+@keyframes terminal-spinner-step {
+  0%, 24.99% { opacity: 1; }
+  25%, 100% { opacity: 0; }
+}
+
+@keyframes terminal-progress-run {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(260%); }
+}
+
+@keyframes terminal-row-pulse {
+  0%, 100% { opacity: 0.38; }
+  50% { opacity: 0.95; }
+}
+
+@keyframes terminal-boot-line {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes terminal-boot-progress {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+.terminal-spinner {
+  position: relative;
+  display: inline-grid;
+  width: 1.15em;
+  height: 1em;
+  place-items: center;
+  font-weight: 700;
+  line-height: 1;
+  color: currentColor;
+  text-shadow: 0 0 8px currentColor;
+}
+
+.terminal-spinner > span {
+  grid-area: 1 / 1;
+  opacity: 0;
+  animation: terminal-spinner-step 720ms steps(1, end) infinite;
+}
+
+.terminal-spinner > span:nth-child(2) { animation-delay: 180ms; }
+.terminal-spinner > span:nth-child(3) { animation-delay: 360ms; }
+.terminal-spinner > span:nth-child(4) { animation-delay: 540ms; }
+
+.terminal-cursor {
+  display: inline-block;
+  width: 0.58em;
+  height: 1em;
+  margin-left: 0.18em;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  vertical-align: -0.12em;
+  animation: crt-cursor-blink 1.05s steps(2, end) infinite;
+}
+
+.terminal-progress {
+  position: relative;
+  display: block;
+  height: 0.45rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 34%, var(--color-border-subtle));
+  background:
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-primary) 10%, transparent) 0 6px,
+      transparent 6px 10px
+    ),
+    color-mix(in srgb, var(--color-bg-base) 92%, black);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.42);
+}
+
+.terminal-progress-fill {
+  display: block;
+  height: 100%;
+  width: 42%;
+  background:
+    linear-gradient(90deg, transparent, var(--color-primary), var(--color-text-bright), transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-primary) 72%, transparent);
+  animation: terminal-progress-run 1.35s linear infinite;
+}
+
+.terminal-loading-state {
+  display: flex;
+  min-height: 6rem;
+  width: 100%;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 1rem;
+  font-family: var(--font-mono);
+  text-align: center;
+}
+
+.terminal-loading-state-compact {
+  min-height: 0;
+  width: auto;
+  display: inline-flex;
+  padding: 0;
+  gap: 0;
+  text-align: left;
+}
+
+.terminal-loading-line {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.terminal-loading-state-compact .terminal-loading-line {
+  justify-content: flex-start;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+}
+
+.terminal-loading-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.terminal-loading-detail {
+  color: var(--color-text-dim);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.terminal-skeleton-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 1rem;
+  font-family: var(--font-mono);
+}
+
+.terminal-skeleton-row {
+  display: flex;
+  height: 1.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 16%, var(--color-border-subtle));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-bg-surface) 92%, var(--color-primary) 8%), var(--color-bg-base));
+  padding: 0 0.55rem;
+  color: var(--color-text-dim);
+  animation: terminal-row-pulse 1.6s ease-in-out infinite;
+}
+
+.terminal-skeleton-prompt {
+  color: var(--color-primary-dim);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+}
+
+.terminal-skeleton-bar {
+  height: 1px;
+  flex: 0 1 auto;
+  background: color-mix(in srgb, var(--color-primary) 54%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 34%, transparent);
+}
+
+.terminal-boot-screen {
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-primary) 6%, transparent) 0,
+      color-mix(in srgb, var(--color-primary) 6%, transparent) 1px,
+      transparent 1px,
+      transparent 5px
+    ),
+    linear-gradient(180deg, var(--color-bg-base), color-mix(in srgb, var(--color-bg-surface) 78%, black));
+}
+
+.terminal-boot-frame {
+  width: min(92vw, 720px);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 48%, var(--color-border));
+  background:
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-primary) 5%, transparent) 0 1px,
+      transparent 1px 8px
+    ),
+    var(--color-bg-surface);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 12%, transparent),
+    inset 0 0 22px rgba(0, 0, 0, 0.42),
+    0 0 22px color-mix(in srgb, var(--color-primary) 16%, transparent);
+}
+
+.terminal-boot-line {
+  opacity: 0;
+  animation: terminal-boot-line 280ms ease-out forwards;
+}
+
+.terminal-boot-progress-fill {
+  animation: terminal-boot-progress 4.2s steps(28, end) forwards;
+}
+
 .crt-title {
   font-family: "VT323", "Share Tech Mono", monospace;
   letter-spacing: 0.12em;
@@ -368,8 +580,19 @@ textarea {
   .crt-shell,
   .beacon-core-pulse,
   .beacon-ring,
-  .crt-terminal-cursor::after {
+  .crt-terminal-cursor::after,
+  .terminal-spinner > span,
+  .terminal-cursor,
+  .terminal-progress-fill,
+  .terminal-skeleton-row,
+  .terminal-boot-line,
+  .terminal-boot-progress-fill {
     animation: none;
+  }
+
+  .terminal-boot-line {
+    opacity: 1;
+    transform: none;
   }
 }
 

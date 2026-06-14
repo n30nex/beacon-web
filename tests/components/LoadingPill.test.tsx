@@ -5,7 +5,7 @@ import { LoadingPill } from "../../src/components/LoadingPill";
 describe("LoadingPill", () => {
   it("shows a loading label with a live region", () => {
     render(<LoadingPill loading count={42} noun="nodes" />);
-    expect(screen.getByRole("status")).toHaveTextContent("Loading nodes… (42)");
+    expect(screen.getByRole("status")).toHaveTextContent("QUERYING NODES... (42)");
   });
 
   it("shows a total-failure label when nothing loaded", () => {

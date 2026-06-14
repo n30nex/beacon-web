@@ -25,7 +25,7 @@ import { ObserverTable } from "./features/observers/ObserverTable";
 import { RouteTable } from "./features/routes/RouteTable";
 import { TraceList } from "./features/traces/TraceList";
 import { ChannelList } from "./features/channels/ChannelList";
-import { EmptyState } from "./components/EmptyState";
+import { TerminalLoadingState } from "./components/TerminalLoader";
 import { getPacketDetail } from "./api/client";
 import { WsManager } from "./api/ws-manager";
 import { WS_URL, TABS } from "./lib/constants";
@@ -263,7 +263,7 @@ function AppInner() {
       <AppShell activeTab={activeTab} onTabChange={handleTabChange} wsManager={wsManager}>
         <div className="relative flex flex-1 min-h-0">
           <div key={activeTab} className="flex flex-1 min-h-0 fade-in">
-            <Suspense fallback={<EmptyState title={activeTab} subtitle="Loading…" />}>
+            <Suspense fallback={<TerminalLoadingState label={`LOADING ${activeTab}`} detail="MODULE TRANSFER IN PROGRESS" />}>
               {tabContent[activeTab]}
             </Suspense>
           </div>

@@ -22,6 +22,17 @@ export interface PayloadBreakdownItem {
   count: number;
 }
 
+export interface RouteMixItem {
+  routeType: number;
+  routeTypeName: string;
+  count: number;
+}
+
+export interface IataCount {
+  iata: string;
+  count: number;
+}
+
 export interface TopNode {
   nodeId: string;
   nodeName: string | null;
@@ -54,6 +65,178 @@ export interface ScopeStats {
   nodeCount: number;
 }
 
+export interface NodeTypeCount {
+  nodeType: number;
+  nodeTypeName: string;
+  count: number;
+}
+
+export interface StatsWindow {
+  since: number;
+  until: number;
+  bucket: "1h" | "6h" | "24h" | string;
+}
+
+export interface StatsHealthSummary {
+  totalObservers: number;
+  staleObservers: number;
+  lowBattery: number;
+  highNoise: number;
+  highAirtime: number;
+  queueBacklog: number;
+  receiveErrors: number;
+  noTelemetry: number;
+}
+
+export interface StatsSummary {
+  serverTime: number;
+  window: StatsWindow;
+  overview: StatsOverview;
+  live: {
+    serverTime: number;
+    since: number;
+    until: number;
+    latestObservationId: number;
+    packetCount: number;
+    observationCount: number;
+    activeObservers: number;
+    payloadMix: PayloadBreakdownItem[];
+    routeMix: RouteMixItem[];
+    topIatas: IataCount[];
+    topObservers: TopObserver[];
+  };
+  nodeTypes: NodeTypeCount[];
+  payloadMix: PayloadBreakdownItem[];
+  routeMix: RouteMixItem[];
+  topIatas: IataCount[];
+  topObservers: TopObserver[];
+  topNodes: TopNode[];
+  radioPresets: RadioPreset[];
+  scopes: ScopeStats[];
+  health: StatsHealthSummary;
+}
+
+export interface StatsTrendPoint {
+  t: number;
+  packetCount: number;
+  observationCount: number;
+  activeObservers: number;
+}
+
+export interface StatsRegionRow {
+  iata: string;
+  packetCount: number;
+  observationCount: number;
+  activeObservers: number;
+  activeNodes: number;
+  topPayloadType: number;
+  topPayloadTypeName: string;
+  topPayloadCount: number;
+  topRouteType: number;
+  topRouteTypeName: string;
+  topRouteCount: number;
+  lastHeard: number;
+  trend: StatsTrendPoint[];
+}
+
+export interface StatsRegions {
+  serverTime: number;
+  window: StatsWindow;
+  items: StatsRegionRow[];
+}
+
+export interface StatsPayloadBucket {
+  t: number;
+  payloadType: number;
+  payloadTypeName: string;
+  count: number;
+}
+
+export interface StatsRouteBucket {
+  t: number;
+  routeType: number;
+  routeTypeName: string;
+  count: number;
+}
+
+export interface StatsPayloads {
+  serverTime: number;
+  window: StatsWindow;
+  totals: PayloadBreakdownItem[];
+  routeTotals: RouteMixItem[];
+  payloadTimeline: StatsPayloadBucket[];
+  routeTimeline: StatsRouteBucket[];
+}
+
+export interface StatsObserverHealthFlags {
+  stale: boolean;
+  lowBattery: boolean;
+  highNoise: boolean;
+  highAirtime: boolean;
+  queueBacklog: boolean;
+  receiveErrors: boolean;
+  noTelemetry: boolean;
+}
+
+export interface StatsObserverHealth {
+  observerId: string;
+  displayName: string | null;
+  observerType: string | null;
+  iata: string;
+  status: string;
+  lastHeard: number;
+  observationCount: number;
+  telemetryAt?: number;
+  hasTelemetry: boolean;
+  batteryMv?: number;
+  noiseFloorDb?: number;
+  airtimeTxPct?: number;
+  airtimeRxPct?: number;
+  queueLength?: number;
+  receiveErrors?: number;
+  healthScore: number;
+  flags: StatsObserverHealthFlags;
+}
+
+export interface StatsObserverHealthResponse {
+  serverTime: number;
+  window: StatsWindow;
+  summary: StatsHealthSummary;
+  items: StatsObserverHealth[];
+}
+
+export interface StatsRFHealthIata {
+  iata: string;
+  activeObservers: number;
+  staleObservers: number;
+  avgNoiseFloorDb?: number;
+  maxAirtimePct?: number;
+  maxQueueLength?: number;
+  receiveErrors: number;
+  lowBattery: number;
+  healthScore: number;
+}
+
+export interface StatsRFHealthPoint {
+  t: number;
+  iata: string;
+  noiseFloorDb?: number;
+  airtimeTxPct?: number;
+  airtimeRxPct?: number;
+  queueLength?: number;
+  receiveErrors: number;
+  batteryMv?: number;
+}
+
+export interface StatsRFHealth {
+  serverTime: number;
+  window: StatsWindow;
+  summary: StatsHealthSummary;
+  byIata: StatsRFHealthIata[];
+  topOffenders: StatsObserverHealth[];
+  series: StatsRFHealthPoint[];
+}
+
 export interface TelemetryPoint {
   t: number; // epoch ms (normalized in useObserverTelemetry — backend raw path emits seconds)
   batteryMv: number | null;
@@ -72,7 +255,7 @@ export interface ObserverTelemetry {
 }
 
 // Sub-tab + time-range identifiers shared across the Stats page.
-export type StatsTab = "mesh" | "observer";
+export type StatsTab = "overview" | "regions" | "payloads" | "rf" | "observers" | "scopes";
 export type StatsRange = "24h" | "7d" | "30d";
 
 export const RANGE_MS: Record<StatsRange, number> = {

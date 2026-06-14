@@ -29,6 +29,12 @@ import type {
   RadioPreset,
   ScopeStats,
   ObserverTelemetry,
+  NodeTypeCount,
+  StatsSummary,
+  StatsRegions,
+  StatsPayloads,
+  StatsRFHealth,
+  StatsObserverHealthResponse,
 } from "../features/stats/types";
 
 // typed fetch wrapper with query params
@@ -318,12 +324,56 @@ export function getStatsOverview(iatas?: string[]): Promise<StatsOverview> {
   return request("/stats/overview", { iatas: iatasParam(iatas) });
 }
 
+export function getStatsSummary(iatas?: string[], params?: { range?: string; since?: number; until?: number }): Promise<StatsSummary> {
+  return request("/stats/summary", { iatas: iatasParam(iatas), range: params?.range, since: params?.since, until: params?.until });
+}
+
+export function getStatsRegions(iatas?: string[], params?: { range?: string; since?: number; until?: number; bucket?: string }): Promise<StatsRegions> {
+  return request("/stats/regions", { iatas: iatasParam(iatas), range: params?.range, since: params?.since, until: params?.until, bucket: params?.bucket });
+}
+
+export function getStatsPayloads(iatas?: string[], params?: { range?: string; since?: number; until?: number; bucket?: string }): Promise<StatsPayloads> {
+  return request("/stats/payloads", { iatas: iatasParam(iatas), range: params?.range, since: params?.since, until: params?.until, bucket: params?.bucket });
+}
+
+export function getStatsRFHealth(
+  iatas?: string[],
+  params?: { range?: string; since?: number; until?: number; bucket?: string; staleAfterMinutes?: number },
+): Promise<StatsRFHealth> {
+  return request("/stats/rf-health", {
+    iatas: iatasParam(iatas),
+    range: params?.range,
+    since: params?.since,
+    until: params?.until,
+    bucket: params?.bucket,
+    staleAfterMinutes: params?.staleAfterMinutes,
+  });
+}
+
+export function getStatsObserverHealth(
+  iatas?: string[],
+  params?: { range?: string; since?: number; until?: number; limit?: number; staleAfterMinutes?: number },
+): Promise<StatsObserverHealthResponse> {
+  return request("/stats/observer-health", {
+    iatas: iatasParam(iatas),
+    range: params?.range,
+    since: params?.since,
+    until: params?.until,
+    limit: params?.limit,
+    staleAfterMinutes: params?.staleAfterMinutes,
+  });
+}
+
 export function getStatsObservations(iatas?: string[], since?: number): Promise<ObservationPoint[]> {
   return request("/stats/observations", { iatas: iatasParam(iatas), since });
 }
 
 export function getPayloadBreakdown(iatas?: string[], since?: number): Promise<PayloadBreakdownItem[]> {
   return request("/stats/payload-breakdown", { iatas: iatasParam(iatas), since });
+}
+
+export function getStatsNodeTypes(iatas?: string[]): Promise<NodeTypeCount[]> {
+  return request("/stats/node-types", { iatas: iatasParam(iatas) });
 }
 
 export function getTopNodes(iatas?: string[], limit = 10): Promise<TopNode[]> {

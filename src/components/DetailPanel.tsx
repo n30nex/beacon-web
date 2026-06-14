@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { CloseButton } from "./CloseButton";
+import { TerminalLoadingState } from "./TerminalLoader";
 
 // shared scaffolding for the right-hand entity detail panels (observers, nodes, …)
 
@@ -38,9 +39,7 @@ export function DetailPanel({ title, onClose, isLoading, notFound, notFoundIcon,
 
       <div className="flex-1 overflow-y-auto min-h-0">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-full gap-2.5 text-text-dim">
-            <span className="text-[13px] font-mono">Loading...</span>
-          </div>
+          <TerminalLoadingState label="QUERYING DETAIL" detail="PLEASE WAIT" className="h-full" />
         ) : notFound ? (
           <div className="flex flex-col items-center justify-center h-full gap-2.5 text-text-dim">
             {notFoundIcon}

@@ -171,6 +171,93 @@ export function typeBarOption(
   };
 }
 
+export function bucketTimelineOption(
+  rows: { t: number; name: string; value: number }[],
+  c: ChartColors,
+  opts: { stacked?: boolean; maxSeries?: number } = {},
+): EChartsOption {
+  const totals = new Map<string, number>();
+  for (const row of rows) totals.set(row.name, (totals.get(row.name) ?? 0) + row.value);
+  const names = [...totals.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, opts.maxSeries ?? 6)
+    .map(([name]) => name);
+  const series = names.map((name, i) => ({
+    name,
+    type: "line" as const,
+    smooth: true,
+    symbol: "none",
+    stack: opts.stacked ? "total" : undefined,
+    connectNulls: false,
+    data: rows.filter((r) => r.name === name).map((r) => [r.t, r.value]),
+    lineStyle: { color: c.series[i % c.series.length], width: 1.6 },
+    itemStyle: { color: c.series[i % c.series.length] },
+    areaStyle: opts.stacked ? { color: withAlpha(c.series[i % c.series.length]!, 0.18) } : undefined,
+  }));
+  return {
+    animation: false,
+    backgroundColor: "transparent",
+    grid: { left: 48, right: 14, top: 28, bottom: 24 },
+    legend: {
+      data: names,
+      right: 4,
+      top: 0,
+      itemWidth: 10,
+      itemHeight: 10,
+      textStyle: { color: c.textNormal, fontFamily: MONO, fontSize: 10 },
+      inactiveColor: c.textDim,
+    },
+    tooltip: { trigger: "axis", ...tooltipStyle(c) },
+    xAxis: timeAxis(c),
+    yAxis: valueAxis(c),
+    series,
+  };
+}
+
+export function rfMetricOption(
+  points: { t: number; iata: string; value: number | null }[],
+  c: ChartColors,
+  name: string,
+): EChartsOption {
+  const totals = new Map<string, number>();
+  for (const p of points) {
+    if (p.value == null) continue;
+    totals.set(p.iata, (totals.get(p.iata) ?? 0) + Math.abs(p.value));
+  }
+  const iatas = [...totals.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([iata]) => iata);
+  return {
+    animation: false,
+    backgroundColor: "transparent",
+    grid: { left: 50, right: 14, top: 28, bottom: 24 },
+    legend: {
+      data: iatas,
+      right: 4,
+      top: 0,
+      itemWidth: 10,
+      itemHeight: 10,
+      textStyle: { color: c.textNormal, fontFamily: MONO, fontSize: 10 },
+      inactiveColor: c.textDim,
+    },
+    tooltip: { trigger: "axis", ...tooltipStyle(c) },
+    xAxis: timeAxis(c),
+    yAxis: valueAxis(c, { scale: true }),
+    series: iatas.map((iata, i) => ({
+      name: iata,
+      type: "line",
+      smooth: true,
+      symbol: "none",
+      connectNulls: true,
+      data: points.filter((p) => p.iata === iata).map((p) => [p.t, p.value]),
+      lineStyle: { color: c.series[i % c.series.length], width: 1.7 },
+      itemStyle: { color: c.series[i % c.series.length] },
+    })),
+    aria: { enabled: true, decal: { show: false }, label: { description: name } },
+  };
+}
+
 // ---- Observer telemetry ----
 // `t` arrives in epoch ms (normalized in useObserverTelemetry).
 

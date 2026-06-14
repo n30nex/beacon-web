@@ -1,3 +1,5 @@
+import { TerminalCursor, TerminalSpinner } from "./TerminalLoader";
+
 interface LoadingPillProps {
   loading: boolean;
   error?: boolean;
@@ -6,23 +8,25 @@ interface LoadingPillProps {
   position?: string; // corner placement (the parent must be `relative`)
 }
 
-// Small floating status pill shared by the map and the entity tables: a muted "Loading … (N)" while
-// pages stream in, a danger-toned message if a fetch fails. Renders nothing when idle.
+// Small floating terminal status pill shared by maps and entity tables while pages stream in.
+// Renders nothing when idle.
 export function LoadingPill({ loading, error, count, noun, position = "bottom-3 left-3" }: LoadingPillProps) {
   if (!loading && !error) return null;
   const tone = loading ? "text-text-muted" : "text-danger";
-  const dot = loading ? "bg-primary animate-pulse" : "bg-danger";
+  const label = loading
+    ? `QUERYING ${noun.toUpperCase()}... (${count})`
+    : count > 0
+      ? `Some ${noun} failed to load (${count} shown)`
+      : `Failed to load ${noun}`;
   return (
     <div
       role="status"
-      className={`absolute ${position} z-10 flex items-center gap-2 px-2.5 py-1 bg-bg-surface border border-border-subtle rounded-md font-mono text-[11px] ${tone} shadow-lg`}
+      aria-live="polite"
+      className={`absolute ${position} z-10 flex max-w-[calc(100vw-1rem)] items-center gap-2 rounded-md border border-border-subtle bg-bg-surface px-2.5 py-1 font-mono text-[11px] shadow-lg ${tone}`}
     >
-      <span className={`size-1.5 rounded-full ${dot}`} aria-hidden />
-      {loading
-        ? `Loading ${noun}… (${count})`
-        : count > 0
-          ? `Some ${noun} failed to load (${count} shown)`
-          : `Failed to load ${noun}`}
+      {loading ? <TerminalSpinner /> : <span className="size-1.5 rounded-full bg-danger" aria-hidden />}
+      <span className="truncate uppercase tracking-[0.08em]">{label}</span>
+      {loading && <TerminalCursor />}
     </div>
   );
 }

@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { Badge } from "../../components/Badge";
 import { EmptyState } from "../../components/EmptyState";
-import { formatBattery, formatCount, formatUptime } from "../../lib/formatters";
+import { TerminalLoadingState } from "../../components/TerminalLoader";
+import { formatBattery, formatCount, formatUptime, timeAgoMs } from "../../lib/formatters";
 import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { getObserversPage } from "../../api/client";
 import { useRegion } from "../../hooks/useRegion";
 import { useChartColors } from "./chartTheme";
-import { useTopObservers } from "./useStats";
+import { useStatsObserverHealth } from "./useStats";
 import { useObserver, useObserverTelemetry } from "./useTelemetry";
 import { useTick } from "../../hooks/useTick";
 import { deriveObserverStatus } from "../observers/observer-status";
@@ -17,7 +18,20 @@ import { hasTelemetry } from "./transforms";
 import { useLiveObserver } from "./useLiveStats";
 import type { WsManager } from "../../api/ws-manager";
 import type { Observer } from "../observers/types";
-import type { StatsRange } from "./types";
+import type { StatsObserverHealth, StatsRange } from "./types";
+
+function compactFlags(row?: StatsObserverHealth): string[] {
+  if (!row) return [];
+  const out: string[] = [];
+  if (row.flags.stale) out.push("stale");
+  if (row.flags.lowBattery) out.push("batt");
+  if (row.flags.highNoise) out.push("noise");
+  if (row.flags.highAirtime) out.push("air");
+  if (row.flags.queueBacklog) out.push("queue");
+  if (row.flags.receiveErrors) out.push("err");
+  if (row.flags.noTelemetry) out.push("no tel");
+  return out;
+}
 
 function ObserverList({
   range,
@@ -38,10 +52,10 @@ function ObserverList({
   }, [query]);
   const searching = q.length > 0;
 
-  // default: top observers by activity (with count + activity bar). Searching swaps to a server-side
+  // default: observer-health rows by activity (with flags + activity bar). Searching swaps to a server-side
   // name lookup across ALL observers in the region, not just the loaded top rows.
-  const top = useTopObservers(range, 15);
-  const max = useMemo(() => Math.max(1, ...(top.data ?? []).map((o) => o.observationCount)), [top.data]);
+  const health = useStatsObserverHealth(range, 80);
+  const max = useMemo(() => Math.max(1, ...(health.data?.items ?? []).map((o) => o.observationCount)), [health.data?.items]);
 
   const search = useQuery({
     queryKey: ["observer-search", regionKey, q],
@@ -51,12 +65,21 @@ function ObserverList({
     placeholderData: keepPreviousData,
   });
 
-  type Row = { id: string; name: string; count?: number; iata?: string; online?: boolean };
+  type Row = { id: string; name: string; count?: number; iata?: string; online?: boolean; score?: number; flags?: string[]; telemetryAt?: number };
   const rows: Row[] = searching
     ? (search.data?.items ?? []).map((o) => ({ id: o.id, name: sanitizeDisplayLabel(o.displayName, o.id.slice(0, 8)), iata: o.iata, online: o.status === "online" }))
-    : (top.data ?? []).map((o) => ({ id: o.observerId, name: sanitizeDisplayLabel(o.displayName, o.observerId.slice(0, 8)), count: o.observationCount }));
+    : (health.data?.items ?? []).map((o) => ({
+        id: o.observerId,
+        name: sanitizeDisplayLabel(o.displayName, o.observerId.slice(0, 8)),
+        count: o.observationCount,
+        iata: o.iata,
+        online: o.status === "online",
+        score: o.healthScore,
+        flags: compactFlags(o),
+        telemetryAt: o.telemetryAt,
+      }));
 
-  const loading = searching ? search.isLoading : top.isLoading;
+  const loading = searching ? search.isLoading : health.isLoading;
 
   return (
     <Card title="Observers" className="w-full">
@@ -68,7 +91,7 @@ function ObserverList({
         className="mb-2 w-full rounded border border-border bg-bg-base px-2 py-1 font-mono text-[12px] text-text-normal placeholder:text-text-dim"
       />
       <div className="flex flex-col gap-0.5">
-        {loading && <div className="py-6 text-center font-mono text-[11px] text-text-dim">{searching ? "Searching…" : "Loading…"}</div>}
+        {loading && <TerminalLoadingState label={searching ? "SEARCHING OBSERVERS" : "QUERYING OBSERVERS"} detail="PLEASE WAIT" />}
         {searching && search.isError && (
           <div className="py-6 text-center font-mono text-[11px] text-danger">Search failed</div>
         )}
@@ -93,10 +116,23 @@ function ObserverList({
                   aria-hidden
                 />
               )}
-              <div className="relative flex items-center justify-between gap-2">
-                <span className={`truncate font-mono text-[12px] ${active ? "text-text-bright" : "text-text-normal"}`}>{r.name}</span>
+              <div className="relative flex items-start justify-between gap-2">
+                <span className="min-w-0">
+                  <span className={`block truncate font-mono text-[12px] ${active ? "text-text-bright" : "text-text-normal"}`}>{r.name}</span>
+                  {!searching && (
+                    <span className="mt-0.5 flex flex-wrap gap-1 font-mono text-[9px] uppercase tracking-wider text-text-dim">
+                      {(r.flags ?? []).slice(0, 4).map((f) => (
+                        <span key={f} className="rounded border border-border-subtle px-1 py-px">{f}</span>
+                      ))}
+                      {r.telemetryAt && <span>{timeAgoMs(r.telemetryAt)}</span>}
+                    </span>
+                  )}
+                </span>
                 {r.count != null ? (
-                  <span className="shrink-0 font-mono text-[11px] tabular-nums text-text-muted">{formatCount(r.count)}</span>
+                  <span className="flex shrink-0 flex-col items-end font-mono text-[11px] tabular-nums text-text-muted">
+                    <span>{formatCount(r.count)}</span>
+                    {r.score != null && <span className={r.score < 60 ? "text-danger" : r.score < 80 ? "text-warn" : "text-green"}>{r.score}</span>}
+                  </span>
                 ) : (
                   <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] text-text-muted">
                     {r.iata}
@@ -165,16 +201,16 @@ interface ObserverTabProps {
 export function ObserverTab({ range, selectedObserverId, onSelectObserver, wsManager }: ObserverTabProps) {
   const colors = useChartColors();
   useLiveObserver(wsManager, selectedObserverId, range);
-  const topObservers = useTopObservers(range, 15);
+  const health = useStatsObserverHealth(range, 80);
   const observer = useObserver(selectedObserverId);
   const telemetry = useObserverTelemetry(selectedObserverId, range);
 
   // default to the busiest observer once the list loads and nothing is selected
   useEffect(() => {
     if (selectedObserverId) return;
-    const first = topObservers.data?.[0];
+    const first = health.data?.items?.[0];
     if (first) onSelectObserver(first.observerId);
-  }, [selectedObserverId, topObservers.data, onSelectObserver]);
+  }, [selectedObserverId, health.data?.items, onSelectObserver]);
 
   const points = useMemo(() => telemetry.data?.points ?? [], [telemetry.data]);
   const airtime = useMemo(() => airtimeOption(points, colors), [points, colors]);

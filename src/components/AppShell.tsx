@@ -8,6 +8,7 @@ import { useTheme } from "../hooks/useTheme";
 import { Dropdown } from "./Dropdown";
 import { BottomNav } from "./BottomNav";
 import { BeaconWordmark } from "./BeaconWordmark";
+import { TerminalLoadingState } from "./TerminalLoader";
 import { getIatas } from "../api/client";
 import { TABS } from "../lib/constants";
 import { sanitizeDisplayLabel } from "../lib/display-label";
@@ -186,7 +187,9 @@ function RegionSelector() {
           ) : iatasError ? (
             <div className="px-3 py-1.5 text-[11px] font-mono text-text-dim">Failed to load</div>
           ) : (
-            <div className="px-3 py-1.5 text-[11px] font-mono text-text-dim">Loading…</div>
+            <div className="px-3 py-1.5">
+              <TerminalLoadingState label="QUERYING IATA" compact />
+            </div>
           )}
         </>
       )}

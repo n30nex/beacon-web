@@ -4,6 +4,7 @@ import { getChannelMessagesPage } from "../../api/client";
 import { Badge } from "../../components/Badge";
 import { Timestamp } from "../../components/Timestamp";
 import { LoadingPill } from "../../components/LoadingPill";
+import { TerminalLoadingState } from "../../components/TerminalLoader";
 import { channelDisplayName } from "./types";
 import type { ChannelSummary, ChannelMessage } from "./types";
 
@@ -182,9 +183,7 @@ export function MessagePanel({ channel, heardCounts, iatas, regionKey, onAnalyze
         onScroll={handleScroll}
       >
         {isLoading ? (
-          <div className="flex items-center justify-center h-32 text-text-muted text-xs font-mono">
-            Loading...
-          </div>
+          <TerminalLoadingState label="QUERYING MESSAGES" detail="PLEASE WAIT" />
         ) : messages && messages.length > 0 ? (
           <div className="py-2 flex flex-col divide-y divide-border/40">
             {sorted.map((msg) => (

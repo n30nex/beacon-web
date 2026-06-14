@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { TerminalLoadingState } from "../../components/TerminalLoader";
 import { EChart } from "./EChart";
 import type { EChartsOption } from "./echarts-setup";
 
@@ -102,7 +103,7 @@ export function ChartCard({
         {isError ? (
           <Centered>Failed to load</Centered>
         ) : isLoading ? (
-          <Centered>Loading…</Centered>
+          <TerminalLoadingState label="QUERYING CHART" detail="PLEASE WAIT" className="h-full" />
         ) : isEmpty ? (
           <Centered>No data</Centered>
         ) : (

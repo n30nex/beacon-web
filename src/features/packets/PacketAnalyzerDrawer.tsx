@@ -7,6 +7,7 @@ import { Badge } from "../../components/Badge";
 import { Tooltip } from "../../components/Tooltip";
 import { VARIANT_CLASSES, payloadTypeVariant } from "../../components/badge-utils";
 import { ScopeTag } from "../../components/ScopeTag";
+import { TerminalLoadingState } from "../../components/TerminalLoader";
 import { formatHex, formatPropagation } from "../../lib/formatters";
 import { Timestamp } from "../../components/Timestamp";
 import { buildObservationFrame, computeFieldRanges, ColoredHexDump, HeaderBitBreakdown, PathLengthBitBreakdown, ColorAccentField, DrawerSection, ObservationDetail } from "./packet-structure";
@@ -99,12 +100,18 @@ export function PacketAnalyzerDrawer({ detail, selectedObservationId, onClose, o
       <div className="flex-1 overflow-y-auto min-h-0">
         {!detail ? (
           <div className="flex flex-col items-center justify-center h-full gap-2.5 text-text-dim">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-border">
-              <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.2" />
-              <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="1.2" />
-              <line x1="8" y1="9" x2="8" y2="19" stroke="currentColor" strokeWidth="1.2" />
-            </svg>
-            <span className="text-[13px] font-mono">{loading ? "Loading…" : "Select a packet to analyze"}</span>
+            {loading ? (
+              <TerminalLoadingState label="QUERYING PACKET" detail="PLEASE WAIT" className="h-full" />
+            ) : (
+              <>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-border">
+                  <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.2" />
+                  <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="1.2" />
+                  <line x1="8" y1="9" x2="8" y2="19" stroke="currentColor" strokeWidth="1.2" />
+                </svg>
+                <span className="text-[13px] font-mono">Select a packet to analyze</span>
+              </>
+            )}
           </div>
         ) : (
           <>
