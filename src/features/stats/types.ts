@@ -192,6 +192,17 @@ export interface StatsHashCollisionPrefix {
   lastHeard: number;
 }
 
+export interface StatsHashCollisionCell {
+  hashSize: number;
+  iata: string;
+  prefixCount: number;
+  packetCount: number;
+  observationCount: number;
+  observerCount: number;
+  firstHeard: number;
+  lastHeard: number;
+}
+
 export interface StatsHashInconsistentPacket {
   packetHash: string;
   minHashSize: number;
@@ -246,6 +257,7 @@ export interface StatsHashAnalytics {
   sizeMix: StatsHashSizeCount[];
   timeline: StatsHashTimelinePoint[];
   riskyPrefixes: StatsHashCollisionPrefix[];
+  collisionMatrix: StatsHashCollisionCell[];
   inconsistentPacketSamples: StatsHashInconsistentPacket[];
 }
 

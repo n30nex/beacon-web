@@ -93,6 +93,99 @@ function RiskTable({ data, onLookup }: { data?: StatsHashAnalytics; onLookup: (p
   );
 }
 
+function CollisionMatrix({ data, onLookup }: { data?: StatsHashAnalytics; onLookup: (prefix: string, hashSize: number) => void }) {
+  if (!data) return <TerminalLoadingState label="QUERYING COLLISION MATRIX" detail="PLEASE WAIT" />;
+  const cells = data.collisionMatrix ?? [];
+  if (cells.length === 0) return <div className="py-7 text-center font-mono text-[11px] text-text-dim">No collision-risk cells in this window</div>;
+
+  const iataTotals = new Map<string, number>();
+  const sizeTotals = new Map<number, number>();
+  const cellByKey = new Map<string, (typeof cells)[number]>();
+  for (const cell of cells) {
+    iataTotals.set(cell.iata, (iataTotals.get(cell.iata) ?? 0) + cell.prefixCount);
+    sizeTotals.set(cell.hashSize, (sizeTotals.get(cell.hashSize) ?? 0) + cell.prefixCount);
+    cellByKey.set(`${cell.hashSize}:${cell.iata}`, cell);
+  }
+  const iatas = [...iataTotals.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([iata]) => iata);
+  const sizes = [...sizeTotals.keys()].sort((a, b) => a - b);
+  const maxPrefixes = Math.max(1, ...cells.map((cell) => cell.prefixCount));
+  const topPrefixByKey = new Map<string, StatsHashAnalytics["riskyPrefixes"][number]>();
+  for (const row of data.riskyPrefixes ?? []) {
+    const key = `${row.hashSize}:${row.iata}`;
+    const current = topPrefixByKey.get(key);
+    if (!current || row.packetCount > current.packetCount || (row.packetCount === current.packetCount && row.observationCount > current.observationCount)) {
+      topPrefixByKey.set(key, row);
+    }
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <div
+        className="grid min-w-[640px] gap-1 font-mono text-[10px]"
+        style={{ gridTemplateColumns: `84px repeat(${iatas.length}, minmax(70px, 1fr))` }}
+      >
+        <div className="rounded border border-border-subtle bg-bg-base/70 px-2 py-1.5 font-semibold uppercase tracking-wider text-text-dim">Size</div>
+        {iatas.map((iata) => (
+          <div key={iata} className="rounded border border-border-subtle bg-bg-base/70 px-2 py-1.5 text-center font-semibold text-text-normal">
+            {iata}
+          </div>
+        ))}
+        {sizes.map((size) => (
+          <div key={size} className="contents">
+            <div className="rounded border border-border-subtle bg-bg-base/70 px-2 py-2 font-semibold text-text-bright">
+              {size} byte
+            </div>
+            {iatas.map((iata) => {
+              const key = `${size}:${iata}`;
+              const cell = cellByKey.get(key);
+              const topPrefix = topPrefixByKey.get(key);
+              const strength = cell ? Math.max(0.16, Math.min(0.82, cell.prefixCount / maxPrefixes)) : 0;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  disabled={!topPrefix}
+                  className="min-h-[62px] rounded border px-2 py-1.5 text-left transition-colors disabled:cursor-default disabled:border-border-subtle disabled:bg-bg-base/35"
+                  style={
+                    cell
+                      ? {
+                          backgroundColor: `rgba(255, 176, 0, ${0.06 + strength * 0.24})`,
+                          borderColor: `rgba(255, 176, 0, ${0.24 + strength * 0.48})`,
+                          boxShadow: `inset 0 0 ${Math.round(10 + strength * 18)}px rgba(255, 176, 0, ${0.08 + strength * 0.16})`,
+                        }
+                      : undefined
+                  }
+                  title={
+                    cell
+                      ? `${iata} / ${size} byte: ${cell.prefixCount} risky prefixes, ${cell.packetCount} packets, ${cell.observationCount} observations`
+                      : `${iata} / ${size} byte: no risky prefixes`
+                  }
+                  onClick={() => {
+                    if (topPrefix) onLookup(topPrefix.prefix, topPrefix.hashSize);
+                  }}
+                >
+                  {cell ? (
+                    <div className="flex h-full flex-col justify-between gap-1">
+                      <div className="text-[15px] font-bold leading-none tabular-nums text-warn">{formatCount(cell.prefixCount)}</div>
+                      <div className="text-[9px] uppercase tracking-wider text-text-dim">prefixes</div>
+                      <div className="flex items-center justify-between gap-2 text-[9px] text-text-muted">
+                        <span>{formatCount(cell.packetCount)} pkts</span>
+                        <span>{formatCount(cell.observerCount)} obsr</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-text-dim">.</div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PrefixLookupPanel({
   data,
   isError,
@@ -261,6 +354,13 @@ export function HashTab({ range }: { range: StatsRange }) {
         <ChartCard title={<>Hash size mix / {range}</>} height={230} option={sizeOption} isLoading={hashes.isLoading} isError={hashes.isError} isEmpty={sizeRows.length === 0} />
         <ChartCard title={<>Hash size timeline / {data?.window.bucket ?? ""}</>} height={230} option={timelineOption} isLoading={hashes.isLoading} isError={hashes.isError} isEmpty={timelineRows.length === 0} />
       </div>
+
+      <Card
+        title="Collision matrix"
+        right={<span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">IATA x hash size</span>}
+      >
+        {hashes.isError ? <div className="py-7 text-center font-mono text-[11px] text-danger">Failed to load</div> : <CollisionMatrix data={hashes.isLoading ? undefined : data} onLookup={handleRiskLookup} />}
+      </Card>
 
       <div className="grid grid-cols-1 gap-3.5 xl:grid-cols-2">
         <Card title="Risky prefixes" right={<span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">top 25</span>}>
