@@ -36,6 +36,7 @@ import type {
   StatsRegions,
   StatsPayloads,
   StatsHashAnalytics,
+  StatsTopology,
   StatsRFHealth,
   StatsObserverHealthResponse,
   StatsObserverCompare,
@@ -380,6 +381,20 @@ export function getStatsHashAnalytics(
   params?: { range?: string; since?: number; until?: number; bucket?: string; limit?: number },
 ): Promise<StatsHashAnalytics> {
   return request("/stats/hash", {
+    iatas: iatasParam(iatas),
+    range: params?.range,
+    since: params?.since,
+    until: params?.until,
+    bucket: params?.bucket,
+    limit: params?.limit,
+  });
+}
+
+export function getStatsTopology(
+  iatas?: string[],
+  params?: { range?: string; since?: number; until?: number; bucket?: string; limit?: number },
+): Promise<StatsTopology> {
+  return request("/stats/topology", {
     iatas: iatasParam(iatas),
     range: params?.range,
     since: params?.since,

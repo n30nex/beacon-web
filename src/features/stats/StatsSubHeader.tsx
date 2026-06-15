@@ -51,6 +51,7 @@ const TAB_OPTIONS = [
   { value: "regions", label: "Regions", icon: <RegionIcon /> },
   { value: "payloads", label: "Payloads", icon: <PulseIcon /> },
   { value: "hash", label: "Hash", icon: <HashIcon /> },
+  { value: "topology", label: "Topology", icon: <RegionIcon /> },
   { value: "rf", label: "RF", icon: <PulseIcon /> },
   { value: "observers", label: "Observers", icon: <ObserverIcon /> },
   { value: "scopes", label: "Scopes", icon: <OverviewIcon /> },

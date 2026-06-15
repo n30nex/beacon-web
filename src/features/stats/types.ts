@@ -217,6 +217,58 @@ export interface StatsHashAnalytics {
   inconsistentPacketSamples: StatsHashInconsistentPacket[];
 }
 
+export interface StatsTopologyRepeater {
+  nodeId: string;
+  nodeName?: string | null;
+  nodeType: number;
+  nodeTypeName: string;
+  iatas: string[];
+  routeCount: number;
+  observationCount: number;
+  lastSeen: number;
+}
+
+export interface StatsTopologyPair {
+  fromNodeId: string;
+  fromNodeName?: string | null;
+  toNodeId: string;
+  toNodeName?: string | null;
+  iata: string;
+  routeCount: number;
+  observationCount: number;
+  lastSeen: number;
+}
+
+export interface StatsTopologyHopBucket {
+  hopCount: number;
+  routeCount: number;
+  observationCount: number;
+}
+
+export interface StatsTopologyPath {
+  routeId: number;
+  iata: string;
+  hopCount: number;
+  nodeIds: string[];
+  nodeNames: string[];
+  observationCount: number;
+  firstSeen: number;
+  lastSeen: number;
+}
+
+export interface StatsTopology {
+  serverTime: number;
+  window: StatsWindow;
+  routeCount: number;
+  observationCount: number;
+  activeIatas: number;
+  averageHopCount: number;
+  hopBuckets: StatsTopologyHopBucket[];
+  topRepeaters: StatsTopologyRepeater[];
+  topPairs: StatsTopologyPair[];
+  bestPaths: StatsTopologyPath[];
+}
+
 export interface StatsObserverHealthFlags {
   stale: boolean;
   lowBattery: boolean;
@@ -337,7 +389,7 @@ export interface ObserverTelemetry {
 }
 
 // Sub-tab + time-range identifiers shared across the Stats page.
-export type StatsTab = "overview" | "regions" | "payloads" | "hash" | "rf" | "observers" | "scopes";
+export type StatsTab = "overview" | "regions" | "payloads" | "hash" | "topology" | "rf" | "observers" | "scopes";
 export type StatsRange = "24h" | "7d" | "30d";
 
 export const RANGE_MS: Record<StatsRange, number> = {
