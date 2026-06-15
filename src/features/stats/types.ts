@@ -269,6 +269,77 @@ export interface StatsTopology {
   bestPaths: StatsTopologyPath[];
 }
 
+export interface StatsChannelKeyBucket {
+  keyState: string;
+  channelCount: number;
+  messageCount: number;
+  packetCount: number;
+  observationCount: number;
+}
+
+export interface StatsChannelTimelinePoint {
+  t: number;
+  keyState: string;
+  messageCount: number;
+  packetCount: number;
+  observationCount: number;
+}
+
+export interface StatsChannelRow {
+  channelId?: number;
+  channelHash: string;
+  name?: string | null;
+  keyState: string;
+  isHashtag: boolean;
+  keyKnown: boolean;
+  messageCount: number;
+  packetCount: number;
+  observationCount: number;
+  activeIatas: number;
+  activeObservers: number;
+  latestIata: string;
+  lastSeen: number;
+}
+
+export interface StatsChannelSender {
+  senderName: string;
+  senderPubkey?: string;
+  channelId: number;
+  channelHash: string;
+  channelName?: string | null;
+  messageCount: number;
+  observationCount: number;
+  firstSeen: number;
+  lastSeen: number;
+}
+
+export interface StatsChannelIata {
+  iata: string;
+  channelCount: number;
+  messageCount: number;
+  packetCount: number;
+  observationCount: number;
+}
+
+export interface StatsChannels {
+  serverTime: number;
+  window: StatsWindow;
+  totalChannels: number;
+  knownChannels: number;
+  unknownChannels: number;
+  hashtagChannels: number;
+  publicChannels: number;
+  messageCount: number;
+  packetCount: number;
+  observationCount: number;
+  activeIatas: number;
+  keyMix: StatsChannelKeyBucket[];
+  timeline: StatsChannelTimelinePoint[];
+  topChannels: StatsChannelRow[];
+  topSenders: StatsChannelSender[];
+  topIatas: StatsChannelIata[];
+}
+
 export interface StatsObserverHealthFlags {
   stale: boolean;
   lowBattery: boolean;
@@ -389,7 +460,7 @@ export interface ObserverTelemetry {
 }
 
 // Sub-tab + time-range identifiers shared across the Stats page.
-export type StatsTab = "overview" | "regions" | "payloads" | "hash" | "topology" | "rf" | "observers" | "scopes";
+export type StatsTab = "overview" | "regions" | "payloads" | "hash" | "topology" | "channels" | "rf" | "observers" | "scopes";
 export type StatsRange = "24h" | "7d" | "30d";
 
 export const RANGE_MS: Record<StatsRange, number> = {

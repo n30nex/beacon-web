@@ -37,6 +37,15 @@ function HashIcon() {
   );
 }
 
+function ChannelIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden>
+      <path d="M2 4.5h7.5a2.5 2.5 0 0 1 0 5H7L4.2 12v-2.5H2z" />
+      <path d="M4 6.5h5M4 8h3" strokeOpacity="0.75" />
+    </svg>
+  );
+}
+
 function ObserverIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden>
@@ -52,6 +61,7 @@ const TAB_OPTIONS = [
   { value: "payloads", label: "Payloads", icon: <PulseIcon /> },
   { value: "hash", label: "Hash", icon: <HashIcon /> },
   { value: "topology", label: "Topology", icon: <RegionIcon /> },
+  { value: "channels", label: "Channels", icon: <ChannelIcon /> },
   { value: "rf", label: "RF", icon: <PulseIcon /> },
   { value: "observers", label: "Observers", icon: <ObserverIcon /> },
   { value: "scopes", label: "Scopes", icon: <OverviewIcon /> },

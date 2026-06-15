@@ -7,6 +7,7 @@ import {
   getStatsPayloads,
   getStatsHashAnalytics,
   getStatsTopology,
+  getStatsChannels,
   getStatsRFHealth,
   getStatsObserverHealth,
   getStatsObserverCompare,
@@ -88,6 +89,15 @@ export function useStatsTopology(range: StatsRange, limit = 25) {
   return useQuery({
     queryKey: ["stats-topology", regionKey, range, limit],
     queryFn: () => getStatsTopology(iatas, { range, limit }),
+    ...common,
+  });
+}
+
+export function useStatsChannels(range: StatsRange, limit = 25) {
+  const { iatas, regionKey } = useStatsIatas();
+  return useQuery({
+    queryKey: ["stats-channels", regionKey, range, limit],
+    queryFn: () => getStatsChannels(iatas, { range, limit }),
     ...common,
   });
 }

@@ -95,6 +95,8 @@ interface LivePulse {
   lifetimeMs: number;
   color: string;
   strength: number;
+  role?: "origin" | "relay" | "destination" | "activity";
+  label?: string;
 }
 
 interface LiveRainDrop {
@@ -459,6 +461,9 @@ function useLiveAnimationCanvas(
     const frameSamples: number[] = [];
     const profileScope = canvas.closest("[data-map-profile]");
     const matrixColor = readCssVar("--map-primary", readCssVar("--crt-phosphor", "#ffb000"), profileScope);
+    const originPulseColor = readCssVar("--map-route-primary", "#ffb000", profileScope);
+    const destinationPulseColor = readCssVar("--map-route-green", "#42ff7c", profileScope);
+    const relayPulseColor = readCssVar("--map-route-secondary", "#7cffec", profileScope);
     const heatCoreColor = cssColorToRgb(readCssVar("--map-live-heat-core", "#ffb000", profileScope), [255, 176, 0]);
     const heatMidColor = cssColorToRgb(readCssVar("--map-live-heat-mid", "#ff7a18", profileScope), [255, 122, 24]);
     const heatEdgeColor = cssColorToRgb(readCssVar("--map-live-heat-edge", "#42ff7c", profileScope), [66, 255, 124]);
@@ -756,34 +761,71 @@ function useLiveAnimationCanvas(
 
         const progress = Math.max(0, Math.min(1, age / pulse.lifetimeMs));
         const point = projectCoord(pulse.coord);
-        const color = matrixMode ? matrixColor : pulse.color;
+        const role = pulse.role ?? "activity";
+        const color = matrixMode
+          ? matrixColor
+          : role === "origin"
+            ? originPulseColor
+            : role === "destination"
+              ? destinationPulseColor
+              : role === "relay"
+                ? relayPulseColor
+                : pulse.color;
         const energy = Math.min(2.5, Math.max(1, pulse.strength));
+        const endpoint = role === "origin" || role === "destination";
+        const rippleRadius = endpoint ? 36 : 24;
+        const coreRadius = endpoint ? 4.8 + energy : 3 + energy * 0.8;
 
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
         ctx.strokeStyle = color;
         ctx.fillStyle = color;
         ctx.shadowColor = color;
-        ctx.shadowBlur = frameCaps.shadows ? (matrixMode ? 8 : 5) : 0;
+        ctx.shadowBlur = frameCaps.shadows ? (endpoint ? 12 : matrixMode ? 8 : 5) : 0;
 
-        ctx.globalAlpha = (matrixMode ? 0.24 : 0.18) * (1 - progress) * glowFactor;
-        ctx.lineWidth = 1.3 + energy * 0.28;
+        ctx.globalAlpha = (endpoint ? 0.34 : matrixMode ? 0.24 : 0.18) * (1 - progress) * glowFactor;
+        ctx.lineWidth = (endpoint ? 1.8 : 1.3) + energy * 0.28;
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 6 + 24 * progress, 0, Math.PI * 2);
+        ctx.arc(point.x, point.y, (endpoint ? 8 : 6) + rippleRadius * progress, 0, Math.PI * 2);
         ctx.stroke();
 
-        if (frameCaps.pulseRings > 1) {
-          ctx.globalAlpha = 0.04 * (1 - progress);
+        if (frameCaps.pulseRings > 1 || endpoint) {
+          ctx.globalAlpha = (endpoint ? 0.13 : 0.04) * (1 - progress);
           ctx.lineWidth = 1;
           ctx.beginPath();
-          ctx.arc(point.x, point.y, 12 + 36 * progress, 0, Math.PI * 2);
+          ctx.arc(point.x, point.y, (endpoint ? 14 : 12) + (endpoint ? 52 : 36) * progress, 0, Math.PI * 2);
           ctx.stroke();
         }
 
-        ctx.globalAlpha = Math.max(0.07, 0.22 * (1 - progress));
-        ctx.shadowBlur = frameCaps.shadows ? (matrixMode ? 6 : 4) : 0;
+        if (endpoint) {
+          const tick = 8 + Math.sin(progress * Math.PI * 6) * 2;
+          ctx.globalAlpha = Math.max(0.12, 0.42 * (1 - progress));
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          ctx.moveTo(point.x - tick - 5, point.y);
+          ctx.lineTo(point.x - tick, point.y);
+          ctx.moveTo(point.x + tick, point.y);
+          ctx.lineTo(point.x + tick + 5, point.y);
+          ctx.moveTo(point.x, point.y - tick - 5);
+          ctx.lineTo(point.x, point.y - tick);
+          ctx.moveTo(point.x, point.y + tick);
+          ctx.lineTo(point.x, point.y + tick + 5);
+          ctx.stroke();
+
+          if (frameCaps.labels) {
+            ctx.globalAlpha = Math.max(0.18, 0.62 * (1 - progress));
+            ctx.shadowBlur = frameCaps.shadows ? 5 : 0;
+            ctx.font = "700 10px Share Tech Mono, JetBrains Mono, monospace";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(pulse.label ?? (role === "origin" ? "TX" : "RX"), point.x, point.y - 22 - 6 * progress);
+          }
+        }
+
+        ctx.globalAlpha = Math.max(endpoint ? 0.11 : 0.07, (endpoint ? 0.36 : 0.22) * (1 - progress));
+        ctx.shadowBlur = frameCaps.shadows ? (endpoint ? 10 : matrixMode ? 6 : 4) : 0;
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 3 + energy * 0.8, 0, Math.PI * 2);
+        ctx.arc(point.x, point.y, coreRadius, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }
@@ -2129,33 +2171,55 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
       const targetCoord = observerTarget?.coord ?? routeTo;
       if (!targetCoord && !hasRoute) return false;
 
-      if (targetCoord) {
-        pulsesRef.current = [
-          ...pulsesRef.current.slice(-(caps.pulses - 1)),
-          {
-            id: `${event.id}:observer`,
-            coord: targetCoord,
-            createdAt: startedAt,
-            lifetimeMs: matrixMode ? 2_600 : 3_400,
-            color,
-            strength: event.observationCount,
-          },
-        ];
+      const pulsePath = path && path.length > 0 ? path : targetCoord ? [{ coord: targetCoord, label: observerTarget?.label ?? event.iata, nodeId: `${event.id}:target` }] : [];
+      const activityPulses: LivePulse[] = [];
+      const originPoint = pulsePath[0];
+      const destinationPoint = pulsePath.at(-1);
+      if (originPoint) {
+        activityPulses.push({
+          id: `${event.id}:origin:${originPoint.nodeId}`,
+          coord: originPoint.coord,
+          createdAt: startedAt,
+          lifetimeMs: matrixMode ? 2_700 : 3_800,
+          color,
+          strength: Math.max(1.5, event.observationCount),
+          role: pulsePath.length >= 2 ? "origin" : "activity",
+          label: pulsePath.length >= 2 ? "TX" : "LIVE",
+        });
       }
-
-      const knownHopPulses = path?.slice(0, -1).slice(-4) ?? [];
-      if (knownHopPulses.length > 0) {
+      const relayPulses = pulsePath.length > 2 ? pulsePath.slice(1, -1).slice(-4) : [];
+      relayPulses.forEach((point, index) => {
+        activityPulses.push({
+          id: `${event.id}:relay:${point.nodeId}:${index}`,
+          coord: point.coord,
+          createdAt: startedAt + 120 * (index + 1),
+          lifetimeMs: matrixMode ? 2_200 : 3_000,
+          color,
+          strength: 1,
+          role: "relay",
+          label: "HOP",
+        });
+      });
+      if (
+        destinationPoint &&
+        (!originPoint || pulsePath.length < 2 || !sameRouteCoord(originPoint.coord, destinationPoint.coord))
+      ) {
+        activityPulses.push({
+          id: `${event.id}:destination:${destinationPoint.nodeId}`,
+          coord: destinationPoint.coord,
+          createdAt: startedAt + Math.min(560, 140 * Math.max(1, pulsePath.length - 1)),
+          lifetimeMs: matrixMode ? 3_000 : 4_200,
+          color,
+          strength: Math.max(1.5, event.observationCount),
+          role: "destination",
+          label: "RX",
+        });
+      }
+      if (activityPulses.length > 0) {
         pulsesRef.current = [
-          ...pulsesRef.current.slice(-Math.max(0, caps.pulses - knownHopPulses.length)),
-          ...knownHopPulses.map((point, index) => ({
-            id: `${event.id}:hop:${point.nodeId}:${index}`,
-            coord: point.coord,
-            createdAt: startedAt + 100 * index,
-            lifetimeMs: matrixMode ? 2_200 : 2_900,
-            color,
-            strength: 1,
-          })),
-        ];
+          ...pulsesRef.current.slice(-Math.max(0, caps.pulses - activityPulses.length)),
+          ...activityPulses,
+        ].slice(-caps.pulses);
       }
 
       const heatSource = path && path.length > 0 ? path : targetCoord ? [{ coord: targetCoord }] : [];
