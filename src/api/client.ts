@@ -37,6 +37,7 @@ import type {
   StatsPayloads,
   StatsHashAnalytics,
   StatsTopology,
+  StatsSubpaths,
   StatsChannels,
   StatsRFHealth,
   StatsObserverHealthResponse,
@@ -396,6 +397,20 @@ export function getStatsTopology(
   params?: { range?: string; since?: number; until?: number; bucket?: string; limit?: number },
 ): Promise<StatsTopology> {
   return request("/stats/topology", {
+    iatas: iatasParam(iatas),
+    range: params?.range,
+    since: params?.since,
+    until: params?.until,
+    bucket: params?.bucket,
+    limit: params?.limit,
+  });
+}
+
+export function getStatsSubpaths(
+  iatas?: string[],
+  params?: { range?: string; since?: number; until?: number; bucket?: string; limit?: number },
+): Promise<StatsSubpaths> {
+  return request("/stats/subpaths", {
     iatas: iatasParam(iatas),
     range: params?.range,
     since: params?.since,

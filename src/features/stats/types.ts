@@ -269,6 +269,59 @@ export interface StatsTopology {
   bestPaths: StatsTopologyPath[];
 }
 
+export interface StatsSubpathLengthBucket {
+  nodeCount: number;
+  routeCount: number;
+  subpathCount: number;
+  observationCount: number;
+}
+
+export interface StatsSubpathRow {
+  nodeCount: number;
+  nodeIds: string[];
+  nodeNames: string[];
+  iatas: string[];
+  routeCount: number;
+  observationCount: number;
+  firstSeen: number;
+  lastSeen: number;
+}
+
+export interface StatsSubpathEndpointPair {
+  fromNodeId: string;
+  fromNodeName?: string | null;
+  toNodeId: string;
+  toNodeName?: string | null;
+  iatas: string[];
+  minNodeCount: number;
+  maxNodeCount: number;
+  routeCount: number;
+  observationCount: number;
+  lastSeen: number;
+}
+
+export interface StatsSubpathTimelinePoint {
+  t: number;
+  nodeCount: number;
+  routeCount: number;
+  subpathCount: number;
+  observationCount: number;
+}
+
+export interface StatsSubpaths {
+  serverTime: number;
+  window: StatsWindow;
+  routeCount: number;
+  subpathCount: number;
+  uniqueSubpathCount: number;
+  observationCount: number;
+  averageNodeCount: number;
+  lengthBuckets: StatsSubpathLengthBucket[];
+  topSubpaths: StatsSubpathRow[];
+  topEndpointPairs: StatsSubpathEndpointPair[];
+  timeline: StatsSubpathTimelinePoint[];
+}
+
 export interface StatsChannelKeyBucket {
   keyState: string;
   channelCount: number;
@@ -460,7 +513,7 @@ export interface ObserverTelemetry {
 }
 
 // Sub-tab + time-range identifiers shared across the Stats page.
-export type StatsTab = "overview" | "regions" | "payloads" | "hash" | "topology" | "channels" | "rf" | "observers" | "scopes";
+export type StatsTab = "overview" | "regions" | "payloads" | "hash" | "topology" | "paths" | "channels" | "rf" | "observers" | "scopes";
 export type StatsRange = "24h" | "7d" | "30d";
 
 export const RANGE_MS: Record<StatsRange, number> = {

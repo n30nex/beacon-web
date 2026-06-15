@@ -21,6 +21,17 @@ function RegionIcon() {
   );
 }
 
+function PathIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden>
+      <circle cx="2.4" cy="10.5" r="1.1" />
+      <circle cx="6.8" cy="3.2" r="1.1" />
+      <circle cx="11.4" cy="8.8" r="1.1" />
+      <path d="M3.2 9.6 6 4.2M7.7 4.1l2.9 3.7" strokeOpacity="0.85" />
+    </svg>
+  );
+}
+
 function PulseIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden>
@@ -61,6 +72,7 @@ const TAB_OPTIONS = [
   { value: "payloads", label: "Payloads", icon: <PulseIcon /> },
   { value: "hash", label: "Hash", icon: <HashIcon /> },
   { value: "topology", label: "Topology", icon: <RegionIcon /> },
+  { value: "paths", label: "Paths", icon: <PathIcon /> },
   { value: "channels", label: "Channels", icon: <ChannelIcon /> },
   { value: "rf", label: "RF", icon: <PulseIcon /> },
   { value: "observers", label: "Observers", icon: <ObserverIcon /> },
