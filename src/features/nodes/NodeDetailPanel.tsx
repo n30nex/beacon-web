@@ -8,7 +8,7 @@ import { formatHex, formatSnr, snrLevel, formatRadio, SIGNAL_LEVEL_CLASSES } fro
 import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { Timestamp } from "../../components/Timestamp";
 import { useRegion } from "../../hooks/useRegion";
-import type { NodeAnalyticsCount, NodeAnalyticsPeer, NodeObservation, NodeNeighbor, NodeReachNode } from "./types";
+import type { NodeActivityPoint, NodeAnalyticsCount, NodeAnalyticsPeer, NodeObservation, NodeNeighbor, NodeReachNode } from "./types";
 
 function NodeNeighborRow({ neighbor, onClick }: { neighbor: NodeNeighbor; onClick?: () => void }) {
   const label = sanitizeDisplayLabel(neighbor.name, formatHex(neighbor.id));
@@ -106,6 +106,53 @@ function AnalyticsBars({ title, items, emptyLabel }: { title: string; items: Nod
   );
 }
 
+function hourLabel(timestamp: number): string {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "--";
+  return `${String(date.getHours()).padStart(2, "0")}00`;
+}
+
+function ActivityHeatmap({ points }: { points: NodeActivityPoint[] }) {
+  const cells = points.slice(-24);
+  const max = Math.max(1, ...cells.map((point) => point.observations));
+  if (cells.length === 0) {
+    return <div className="font-mono text-[11px] text-text-dim">No hourly activity</div>;
+  }
+  return (
+    <div className="min-w-0">
+      <div className="mb-1 flex items-center justify-between gap-2 font-mono text-[10px] uppercase tracking-wider text-text-dim">
+        <span>Hourly activity</span>
+        <span>{cells.length}h</span>
+      </div>
+      <div className="grid gap-1" style={{ gridTemplateColumns: "repeat(12, minmax(0, 1fr))" }}>
+        {cells.map((point) => {
+          const intensity = Math.max(0, Math.min(1, point.observations / max));
+          const alpha = 0.18 + intensity * 0.72;
+          return (
+            <div
+              key={point.timestamp}
+              className="h-7 border border-border bg-bg-base"
+              title={`${hourLabel(point.timestamp)} / ${point.observations.toLocaleString()} obs / ${point.packets.toLocaleString()} pkts`}
+              style={{
+                background: `linear-gradient(180deg, rgba(var(--rgb-primary),${alpha}) 0%, rgba(var(--rgb-green),${0.08 + intensity * 0.32}) 100%)`,
+                boxShadow: intensity > 0.25 ? `0 0 ${Math.round(5 + intensity * 10)}px rgba(var(--rgb-primary),${0.18 + intensity * 0.22})` : undefined,
+              }}
+            >
+              <span className="sr-only">
+                {hourLabel(point.timestamp)} {point.observations} observations
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-1 flex justify-between font-mono text-[10px] text-text-dim">
+        <span>{hourLabel(cells[0]?.timestamp ?? 0)}</span>
+        <span>{hourLabel(cells.at(-1)?.timestamp ?? 0)}</span>
+      </div>
+    </div>
+  );
+}
+
 function PeerAnalyticsRow({ peer, onClick }: { peer: NodeAnalyticsPeer; onClick?: () => void }) {
   const label = sanitizeDisplayLabel(peer.name, formatHex(peer.id));
   return (
@@ -123,6 +170,97 @@ function PeerAnalyticsRow({ peer, onClick }: { peer: NodeAnalyticsPeer; onClick?
         {peer.observationCount.toLocaleString()} obs
       </span>
     </button>
+  );
+}
+
+function PeerReachGraph({
+  peers,
+  reachNodes,
+  onViewNode,
+}: {
+  peers: NodeAnalyticsPeer[];
+  reachNodes: NodeReachNode[];
+  onViewNode?: (nodeId: string) => void;
+}) {
+  const items = [
+    ...peers.slice(0, 4).map((peer) => ({
+      id: peer.id,
+      label: sanitizeDisplayLabel(peer.name, formatHex(peer.id)),
+      metric: peer.observationCount,
+      tone: "primary" as const,
+      sublabel: `${peer.iata} peer`,
+    })),
+    ...reachNodes.slice(0, 4).map((node) => ({
+      id: node.id,
+      label: sanitizeDisplayLabel(node.name, formatHex(node.id)),
+      metric: node.routeCount,
+      tone: "green" as const,
+      sublabel: `${node.hopDistance} hop reach`,
+    })),
+  ]
+    .filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index)
+    .slice(0, 6);
+  if (items.length === 0) {
+    return <div className="font-mono text-[11px] text-text-dim">No peer graph inputs</div>;
+  }
+  const max = Math.max(1, ...items.map((item) => item.metric));
+  const center = 68;
+  const radius = 42;
+  return (
+    <div className="min-w-0">
+      <div className="mb-1 flex items-center justify-between gap-2 font-mono text-[10px] uppercase tracking-wider text-text-dim">
+        <span>Peer / reach graph</span>
+        <span>{items.length} links</span>
+      </div>
+      <div className="grid grid-cols-[136px_1fr] gap-2 border border-border bg-bg-base p-2">
+        <svg width="136" height="136" viewBox="0 0 136 136" role="img" aria-label="Node peer and reach graph">
+          <defs>
+            <filter id="node-peer-glow" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="2.8" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          <circle cx={center} cy={center} r="9" fill="rgba(var(--rgb-primary),0.18)" stroke="var(--color-primary)" strokeWidth="1.6" filter="url(#node-peer-glow)" />
+          {items.map((item, index) => {
+            const angle = -Math.PI / 2 + (Math.PI * 2 * index) / items.length;
+            const x = center + Math.cos(angle) * radius;
+            const y = center + Math.sin(angle) * radius;
+            const opacity = 0.28 + (item.metric / max) * 0.58;
+            const color = item.tone === "green" ? "var(--color-green)" : "var(--color-primary)";
+            return (
+              <g key={`${item.id}-${item.sublabel}`}>
+                <line x1={center} y1={center} x2={x} y2={y} stroke={color} strokeWidth={1 + (item.metric / max) * 2} opacity={opacity} />
+                <circle cx={x} cy={y} r={4.5 + (item.metric / max) * 3.5} fill="rgba(0,0,0,0.35)" stroke={color} strokeWidth="1.4" filter="url(#node-peer-glow)" />
+              </g>
+            );
+          })}
+        </svg>
+        <div className="min-w-0 space-y-1 self-center">
+          {items.map((item) => (
+            <button
+              key={`${item.id}-${item.sublabel}`}
+              type="button"
+              className={`grid w-full grid-cols-[1fr_auto] gap-2 border border-border px-2 py-1 text-left font-mono text-[10px] hover:bg-primary/8 ${
+                item.tone === "green" ? "hover:border-green/60" : "hover:border-primary/60"
+              }`}
+              onClick={onViewNode ? () => onViewNode(item.id) : undefined}
+              disabled={!onViewNode}
+            >
+              <span className="min-w-0">
+                <span className={`block truncate font-semibold ${item.tone === "green" ? "text-green" : "text-primary"}`}>
+                  {item.label}
+                </span>
+                <span className="block truncate text-text-dim">{item.sublabel}</span>
+              </span>
+              <span className="text-right text-text-muted">{item.metric.toLocaleString()}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -292,10 +430,14 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, o
                     <AnalyticsMetric label="Avg RSSI" value={analytics.kpis.avgRssi == null ? "-" : `${analytics.kpis.avgRssi.toFixed(0)} dBm`} />
                   </div>
                   <div className="grid grid-cols-1 gap-3">
+                    <ActivityHeatmap points={analytics.hourly} />
                     <AnalyticsBars title="Payload mix" items={analytics.payloadMix} emptyLabel="No payload mix" />
                     <AnalyticsBars title="Route mix" items={analytics.routeMix} emptyLabel="No route mix" />
                     <AnalyticsBars title="SNR buckets" items={analytics.snrBuckets.map((bucket) => ({ key: bucket.bucket, label: bucket.bucket, count: bucket.count }))} emptyLabel="No signal data" />
                   </div>
+                  {(analytics.topPeers.length > 0 || (reach?.topNodes.length ?? 0) > 0) && (
+                    <PeerReachGraph peers={analytics.topPeers} reachNodes={reach?.topNodes ?? []} onViewNode={onViewNode} />
+                  )}
                   {analytics.topPeers.length > 0 && (
                     <div>
                       <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-text-dim">Top peers</div>
