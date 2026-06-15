@@ -19,6 +19,7 @@ import {
   type MapAppearanceSettings,
 } from "../map/appearance";
 import { LoadingPill } from "../../components/LoadingPill";
+import { TerminalCursor, TerminalProgress, TerminalSpinner } from "../../components/TerminalLoader";
 import { EmptyState } from "../../components/EmptyState";
 import { useRegion } from "../../hooks/useRegion";
 import { useTheme } from "../../hooks/useTheme";
@@ -162,6 +163,7 @@ const LIVE_DRAW_PRESSURE_WARMUP_FRAMES = 30;
 const LIVE_DRAW_PRESSURE_SLOW_FRAMES = 8;
 const LIVE_DRAW_PRESSURE_RECOVERY_FRAMES = 120;
 const LIVE_STATE_FLUSH_MS = 250;
+const LIVE_PACKET_WAIT_PROGRESS_MS = 30_000;
 const AUDIO_MIN_INTERVAL_MS = 85;
 const AUDIO_SCALE = [220, 247, 277, 330, 370, 415, 494, 554, 659, 740, 831, 988];
 const LIVE_DESKTOP_LAYOUT_WIDTH = 1024;
@@ -1278,18 +1280,76 @@ const LiveControlDock = memo(function LiveControlDock({
   );
 });
 
+function formatLiveWait(ms: number) {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remaining = seconds % 60;
+  return `${minutes}m ${remaining.toString().padStart(2, "0")}s`;
+}
+
+function livePacketWaitProgress(ms: number) {
+  return Math.min(96, 8 + (Math.max(0, ms) / LIVE_PACKET_WAIT_PROGRESS_MS) * 88);
+}
+
+function LivePacketWaitState({
+  backfillStatus,
+  compact = false,
+  now,
+  summary,
+  waitStartedAt,
+}: {
+  backfillStatus: string;
+  compact?: boolean;
+  now: number;
+  summary?: LiveSummary;
+  waitStartedAt: number;
+}) {
+  const elapsedMs = waitStartedAt > 0 ? Math.max(0, now - waitStartedAt) : 0;
+  const hasServerActivity = (summary?.latestObservationId ?? 0) > 0 || (summary?.observationCount ?? 0) > 0;
+  const label = backfillStatus === "sync" ? "SYNCING LIVE CURSOR" : hasServerActivity ? "ACQUIRING PACKET STREAM" : "WAITING FOR PACKETS";
+  const detail = hasServerActivity
+    ? `elapsed ${formatLiveWait(elapsedMs)} / ${formatCount(summary?.observationCount ?? 0)} obs / ${summary?.activeObservers ?? "--"} observers`
+    : `elapsed ${formatLiveWait(elapsedMs)} / broker listener armed`;
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={`terminal-loading-state text-text-muted ${compact ? "terminal-loading-state-compact px-2 py-2" : "px-3 py-6"}`}
+    >
+      <div className="terminal-loading-line justify-center">
+        <TerminalSpinner />
+        <span className="terminal-loading-label">{label}</span>
+        <TerminalCursor />
+      </div>
+      {!compact && <div className="terminal-loading-detail">{detail}</div>}
+      {compact && <div className="mt-1 font-mono text-[10px] uppercase tracking-wider text-text-dim">{detail}</div>}
+      <TerminalProgress value={livePacketWaitProgress(elapsedMs)} className="mt-3" />
+    </div>
+  );
+}
+
 const LiveFeedPanel = memo(function LiveFeedPanel({
+  backfillStatus,
   clockTick,
   events,
+  now,
   onSelect,
   onAnalyze,
   selectedId,
+  summary,
+  waitStartedAt,
 }: {
+  backfillStatus: string;
   clockTick: number;
   events: LivePacketEvent[];
+  now: number;
   onSelect: (event: LivePacketEvent) => void;
   onAnalyze: (hash: string) => void;
   selectedId?: string;
+  summary?: LiveSummary;
+  waitStartedAt: number;
 }) {
   return (
     <div
@@ -1302,7 +1362,7 @@ const LiveFeedPanel = memo(function LiveFeedPanel({
       </div>
       <div className="min-h-0 overflow-y-auto">
         {events.length === 0 ? (
-          <div className="px-3 py-8 text-center text-xs font-mono text-text-dim">Waiting for packets</div>
+          <LivePacketWaitState backfillStatus={backfillStatus} now={now} summary={summary} waitStartedAt={waitStartedAt} />
         ) : (
           events.slice(0, 18).map((event) => (
             <button
@@ -1491,6 +1551,7 @@ function LiveInspectorRail({
   laggedCount,
   matrixMode,
   matrixRain,
+  now,
   onAnalyze,
   onAudioBpmChange,
   onAppearanceChange,
@@ -1512,6 +1573,7 @@ function LiveInspectorRail({
   totalPackets,
   typeFilter,
   visualDroppedCount,
+  waitStartedAt,
 }: {
   activeAnimations: number;
   audioBpm: number;
@@ -1528,6 +1590,7 @@ function LiveInspectorRail({
   laggedCount: number;
   matrixMode: boolean;
   matrixRain: boolean;
+  now: number;
   onAnalyze: (hash: string) => void;
   onAudioBpmChange: (value: number) => void;
   onAppearanceChange: (patch: Partial<MapAppearanceSettings>) => void;
@@ -1549,6 +1612,7 @@ function LiveInspectorRail({
   totalPackets: number;
   typeFilter: string;
   visualDroppedCount: number;
+  waitStartedAt: number;
 }) {
   const event = selectedEvent ?? events[0];
   const payloadItems =
@@ -1605,7 +1669,17 @@ function LiveInspectorRail({
             <LiveKV label="Act" value={activeAnimations} tone={activeAnimations > 0 ? "warn" : "normal"} />
             <LiveKV label="Lag" value={laggedCount > 0 ? laggedCount : backfillStatus} tone={laggedCount > 0 ? "warn" : "normal"} />
           </div>
-          <LiveFeedPanel clockTick={clockTick} events={events} onAnalyze={onAnalyze} onSelect={onSelect} selectedId={selectedEvent?.id} />
+          <LiveFeedPanel
+            backfillStatus={backfillStatus}
+            clockTick={clockTick}
+            events={events}
+            now={now}
+            onAnalyze={onAnalyze}
+            onSelect={onSelect}
+            selectedId={selectedEvent?.id}
+            summary={summary}
+            waitStartedAt={waitStartedAt}
+          />
         </div>
       );
     }
@@ -1631,7 +1705,9 @@ function LiveInspectorRail({
             </div>
           </button>
         ) : (
-          <div className="mx-2 mb-2 rounded border border-border-subtle bg-bg-base/35 px-2 py-2 text-center font-mono text-[11px] text-text-dim">Waiting for packets</div>
+          <div className="mx-2 mb-2 rounded border border-border-subtle bg-bg-base/35">
+            <LivePacketWaitState compact backfillStatus={backfillStatus} now={now} summary={summary} waitStartedAt={waitStartedAt} />
+          </div>
         )}
       </div>
     );
@@ -1693,7 +1769,7 @@ function LiveInspectorRail({
             </div>
           </button>
         ) : (
-          <div className="py-5 text-center font-mono text-xs text-text-dim">Waiting for packets</div>
+          <LivePacketWaitState backfillStatus={backfillStatus} now={now} summary={summary} waitStartedAt={waitStartedAt} />
         )}
       </div>
       <div className="grid grid-cols-2 gap-3 border-b border-border-subtle p-3">
@@ -1705,7 +1781,19 @@ function LiveInspectorRail({
         <LiveKV label="Observers" value={summary?.activeObservers ?? "--"} />
         <LiveKV label="Skipped" value={visualDroppedCount} tone={visualDroppedCount > 0 ? "warn" : "normal"} />
       </div>
-      {feedVisible && <LiveFeedPanel clockTick={clockTick} events={events} onAnalyze={onAnalyze} onSelect={onSelect} selectedId={selectedEvent?.id} />}
+      {feedVisible && (
+        <LiveFeedPanel
+          backfillStatus={backfillStatus}
+          clockTick={clockTick}
+          events={events}
+          now={now}
+          onAnalyze={onAnalyze}
+          onSelect={onSelect}
+          selectedId={selectedEvent?.id}
+          summary={summary}
+          waitStartedAt={waitStartedAt}
+        />
+      )}
     </div>
   );
 }
@@ -1779,7 +1867,8 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
   const [backfillStatus, setBackfillStatus] = useState("ok");
   const [backfillCount, setBackfillCount] = useState(0);
   const [visualQuality, setVisualQuality] = useState<LiveVisualQuality>("high");
-  const [now, setNow] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  const [packetWaitStartedAt, setPacketWaitStartedAt] = useState(() => Date.now());
   const [viewportWidth, setViewportWidth] = useState(() => (typeof window === "undefined" ? LIVE_DESKTOP_LAYOUT_WIDTH : window.innerWidth));
 
   useEffect(() => {
@@ -1919,6 +2008,7 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
       setLaggedCount(0);
       setBackfillCount(0);
       setBackfillStatus("ok");
+      setPacketWaitStartedAt(Date.now());
     }, 0);
     return () => window.clearTimeout(id);
   }, [regionKey]);
@@ -2427,6 +2517,7 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
           laggedCount={laggedCount}
           matrixMode={matrixMode}
           matrixRain={matrixRain}
+          now={now}
           onAnalyze={onAnalyze}
           onAudioBpmChange={setAudioBpm}
           onAppearanceChange={handleAppearanceChange}
@@ -2448,6 +2539,7 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
           totalPackets={totalPackets}
           typeFilter={typeFilter}
           visualDroppedCount={visualDroppedCount}
+          waitStartedAt={packetWaitStartedAt}
         />
       )}
       <LiveControlDock
