@@ -109,3 +109,44 @@ export interface NodeAnalytics {
   topObservers: NodeAnalyticsCount[];
   topPeers: NodeAnalyticsPeer[];
 }
+
+export interface NodeReachHopBucket {
+  hopDistance: number;
+  nodeCount: number;
+  edgeCount: number;
+  routeCount: number;
+  observationCount: number;
+}
+
+export interface NodeReachNode {
+  id: string;
+  name?: string;
+  publicKey: string;
+  hopDistance: number;
+  iatas: string[];
+  routeCount: number;
+  observationCount: number;
+  lastSeen: number;
+}
+
+export interface NodeReachIata {
+  iata: string;
+  nodeCount: number;
+  edgeCount: number;
+  routeCount: number;
+  observationCount: number;
+  lastSeen: number;
+}
+
+export interface NodeReach {
+  nodeId: string;
+  maxHops: number;
+  generatedAt: number;
+  reachableNodes: number;
+  verifiedEdges: number;
+  routeCount: number;
+  observationCount: number;
+  hopBuckets: NodeReachHopBucket[];
+  topNodes: NodeReachNode[];
+  topIatas: NodeReachIata[];
+}

@@ -1,13 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { getNode, getNodeAnalytics, getNodeObservations, getNodeNeighbors } from "../../api/client";
+import { getNode, getNodeAnalytics, getNodeObservations, getNodeNeighbors, getNodeReach } from "../../api/client";
 import { Badge } from "../../components/Badge";
 import { DetailPanel, Section, Field } from "../../components/DetailPanel";
 import { IataChip } from "../../components/IataChip";
+import { TerminalLoadingState } from "../../components/TerminalLoader";
 import { formatHex, formatSnr, snrLevel, formatRadio, SIGNAL_LEVEL_CLASSES } from "../../lib/formatters";
 import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { Timestamp } from "../../components/Timestamp";
 import { useRegion } from "../../hooks/useRegion";
-import type { NodeAnalyticsCount, NodeAnalyticsPeer, NodeObservation, NodeNeighbor } from "./types";
+import type { NodeAnalyticsCount, NodeAnalyticsPeer, NodeObservation, NodeNeighbor, NodeReachNode } from "./types";
 
 function NodeNeighborRow({ neighbor, onClick }: { neighbor: NodeNeighbor; onClick?: () => void }) {
   const label = sanitizeDisplayLabel(neighbor.name, formatHex(neighbor.id));
@@ -125,6 +126,48 @@ function PeerAnalyticsRow({ peer, onClick }: { peer: NodeAnalyticsPeer; onClick?
   );
 }
 
+function ReachHopBars({ items }: { items: Array<{ hopDistance: number; nodeCount: number; routeCount: number; observationCount: number }> }) {
+  const max = Math.max(1, ...items.map((item) => item.nodeCount));
+  return (
+    <div className="space-y-1">
+      {items.map((item) => (
+        <div key={item.hopDistance} className="grid grid-cols-[42px_1fr_54px] items-center gap-2 font-mono text-[11px]">
+          <span className="text-text-dim">{item.hopDistance} hop</span>
+          <span className="h-1.5 overflow-hidden bg-border/55">
+            <span
+              className="block h-full bg-green shadow-[0_0_8px_rgba(var(--rgb-green),0.45)]"
+              style={{ width: `${Math.max(8, (item.nodeCount / max) * 100)}%` }}
+            />
+          </span>
+          <span className="text-right text-text-normal">{item.nodeCount.toLocaleString()} nodes</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ReachNodeRow({ node, onClick }: { node: NodeReachNode; onClick?: () => void }) {
+  const label = sanitizeDisplayLabel(node.name, formatHex(node.id));
+  return (
+    <button
+      type="button"
+      className="grid w-full grid-cols-[1fr_auto] gap-2 border border-border bg-bg-base px-2.5 py-1.5 text-left font-mono text-[11px] hover:border-green/60 hover:bg-green/8"
+      onClick={onClick}
+      disabled={!onClick}
+    >
+      <span className="min-w-0">
+        <span className="block truncate font-semibold text-green">{label}</span>
+        <span className="block truncate text-text-dim">
+          {node.hopDistance} hop / {node.iatas.length ? node.iatas.join(", ") : "all"}
+        </span>
+      </span>
+      <span className="text-right text-text-muted">
+        {node.routeCount.toLocaleString()} routes
+      </span>
+    </button>
+  );
+}
+
 interface NodeDetailPanelProps {
   nodeId: string;
   onClose: () => void;
@@ -158,6 +201,13 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, o
   const { data: analytics, isLoading: analyticsLoading } = useQuery({
     queryKey: ["node-analytics", nodeId, regionKey],
     queryFn: () => getNodeAnalytics(nodeId, iatas),
+    enabled: !!node,
+    staleTime: 30_000,
+  });
+
+  const { data: reach, isLoading: reachLoading } = useQuery({
+    queryKey: ["node-reach", nodeId, regionKey],
+    queryFn: () => getNodeReach(nodeId, { iatas, maxHops: 5 }),
     enabled: !!node,
     staleTime: 30_000,
   });
@@ -259,6 +309,56 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, o
                 </div>
               ) : (
                 <div className="font-mono text-[13px] text-text-dim">No node analytics</div>
+              )}
+            </Section>
+
+            <Section title="Verified Reach">
+              {reachLoading ? (
+                <TerminalLoadingState compact label="QUERYING REACH" detail="VERIFIED ROUTES" />
+              ) : reach ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <AnalyticsMetric label="Reach" value={compactNumber(reach.reachableNodes)} detail={`${reach.maxHops} hops`} />
+                    <AnalyticsMetric label="Edges" value={compactNumber(reach.verifiedEdges)} detail="verified" />
+                    <AnalyticsMetric label="Routes" value={compactNumber(reach.routeCount)} />
+                    <AnalyticsMetric label="Route obs" value={compactNumber(reach.observationCount)} />
+                  </div>
+                  {reach.hopBuckets.length > 0 ? (
+                    <div>
+                      <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-text-dim">Hop reach</div>
+                      <ReachHopBars items={reach.hopBuckets} />
+                    </div>
+                  ) : (
+                    <div className="font-mono text-[12px] text-text-dim">No verified route reach</div>
+                  )}
+                  {reach.topNodes.length > 0 && (
+                    <div>
+                      <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-text-dim">Top reachable nodes</div>
+                      <div className="space-y-1">
+                        {reach.topNodes.slice(0, 5).map((item) => (
+                          <ReachNodeRow key={item.id} node={item} onClick={onViewNode ? () => onViewNode(item.id) : undefined} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {reach.topIatas.length > 0 && (
+                    <div>
+                      <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-text-dim">IATA pressure</div>
+                      <div className="grid grid-cols-2 gap-1">
+                        {reach.topIatas.slice(0, 4).map((item) => (
+                          <div key={item.iata} className="border border-border bg-bg-base px-2 py-1.5 font-mono">
+                            <div className="text-[11px] font-semibold text-primary">{item.iata}</div>
+                            <div className="text-[10px] text-text-dim">
+                              {item.nodeCount.toLocaleString()} nodes / {item.routeCount.toLocaleString()} routes
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="font-mono text-[13px] text-text-dim">No verified route reach</div>
               )}
             </Section>
 

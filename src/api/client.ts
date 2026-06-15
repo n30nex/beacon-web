@@ -21,7 +21,7 @@ import type {
 import type { WsPacketObservation } from "../types/ws";
 import type { ChannelSummary, ChannelMessage } from "../features/channels/types";
 import type { ObserverSummary, Observer, AdvertObservation } from "../features/observers/types";
-import type { NodeSummary, Node, NodeObservation, NodeNeighbor, NodeAnalytics } from "../features/nodes/types";
+import type { NodeSummary, Node, NodeObservation, NodeNeighbor, NodeAnalytics, NodeReach } from "../features/nodes/types";
 import type {
   StatsOverview,
   ObservationPoint,
@@ -237,6 +237,17 @@ export function getNodeRouteNeighborhood(
   params?: { iatas?: string[]; region?: string; maxHops?: number },
 ): Promise<NodeRouteNeighborhood> {
   return request(`/nodes/${nodeId}/route-neighborhood`, {
+    iatas: iatasParam(params?.iatas),
+    region: params?.region,
+    maxHops: params?.maxHops,
+  });
+}
+
+export function getNodeReach(
+  nodeId: string,
+  params?: { iatas?: string[]; region?: string; maxHops?: number },
+): Promise<NodeReach> {
+  return request(`/nodes/${nodeId}/reach`, {
     iatas: iatasParam(params?.iatas),
     region: params?.region,
     maxHops: params?.maxHops,

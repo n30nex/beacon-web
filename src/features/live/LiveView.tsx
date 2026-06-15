@@ -141,13 +141,13 @@ const MAX_HOPS_PER_PACKET = 6;
 const MAX_ACTIVE_ANIMATIONS = 10;
 const MAX_HEAT_POINTS = 72;
 const MAX_TRAILS = 28;
-const MAX_PULSES = 20;
+const MAX_PULSES = 28;
 const MAX_RAIN_DROPS = 6;
 const COMPACT_LIVE_WIDTH = 640;
 const COMPACT_ACTIVE_ANIMATIONS = 7;
 const COMPACT_HEAT_POINTS = 42;
 const COMPACT_TRAILS = 16;
-const COMPACT_PULSES = 12;
+const COMPACT_PULSES = 18;
 const COMPACT_RAIN_DROPS = 3;
 const MAX_RAIN_BYTES = 14;
 const MAX_MATRIX_FLIGHT_BYTES = 8;
@@ -771,36 +771,52 @@ function useLiveAnimationCanvas(
               : role === "relay"
                 ? relayPulseColor
                 : pulse.color;
-        const energy = Math.min(2.5, Math.max(1, pulse.strength));
+        const energy = Math.min(3.2, Math.max(1, pulse.strength));
         const endpoint = role === "origin" || role === "destination";
-        const rippleRadius = endpoint ? 36 : 24;
-        const coreRadius = endpoint ? 4.8 + energy : 3 + energy * 0.8;
+        const rippleRadius = endpoint ? 52 : 28;
+        const coreRadius = endpoint ? 6.2 + energy : 3.4 + energy * 0.8;
 
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
         ctx.strokeStyle = color;
         ctx.fillStyle = color;
         ctx.shadowColor = color;
-        ctx.shadowBlur = frameCaps.shadows ? (endpoint ? 12 : matrixMode ? 8 : 5) : 0;
+        ctx.shadowBlur = frameCaps.shadows ? (endpoint ? 18 : matrixMode ? 8 : 5) : 0;
 
-        ctx.globalAlpha = (endpoint ? 0.34 : matrixMode ? 0.24 : 0.18) * (1 - progress) * glowFactor;
-        ctx.lineWidth = (endpoint ? 1.8 : 1.3) + energy * 0.28;
+        ctx.globalAlpha = (endpoint ? 0.52 : matrixMode ? 0.24 : 0.2) * (1 - progress) * glowFactor;
+        ctx.lineWidth = (endpoint ? 2.2 : 1.3) + energy * 0.3;
         ctx.beginPath();
         ctx.arc(point.x, point.y, (endpoint ? 8 : 6) + rippleRadius * progress, 0, Math.PI * 2);
         ctx.stroke();
 
         if (frameCaps.pulseRings > 1 || endpoint) {
-          ctx.globalAlpha = (endpoint ? 0.13 : 0.04) * (1 - progress);
+          ctx.globalAlpha = (endpoint ? 0.2 : 0.04) * (1 - progress);
           ctx.lineWidth = 1;
           ctx.beginPath();
-          ctx.arc(point.x, point.y, (endpoint ? 14 : 12) + (endpoint ? 52 : 36) * progress, 0, Math.PI * 2);
+          ctx.arc(point.x, point.y, (endpoint ? 16 : 12) + (endpoint ? 72 : 36) * progress, 0, Math.PI * 2);
           ctx.stroke();
         }
 
         if (endpoint) {
           const tick = 8 + Math.sin(progress * Math.PI * 6) * 2;
-          ctx.globalAlpha = Math.max(0.12, 0.42 * (1 - progress));
-          ctx.lineWidth = 1.4;
+          const flash = 0.5 + 0.5 * Math.sin(progress * Math.PI * 9);
+          const hexRadius = 15 + flash * 4;
+
+          ctx.globalAlpha = Math.max(0.16, 0.48 * (1 - progress));
+          ctx.lineWidth = 1.4 + flash * 0.45;
+          ctx.beginPath();
+          for (let side = 0; side < 6; side += 1) {
+            const angle = -Math.PI / 6 + (Math.PI * 2 * side) / 6;
+            const hx = point.x + Math.cos(angle) * hexRadius;
+            const hy = point.y + Math.sin(angle) * hexRadius;
+            if (side === 0) ctx.moveTo(hx, hy);
+            else ctx.lineTo(hx, hy);
+          }
+          ctx.closePath();
+          ctx.stroke();
+
+          ctx.globalAlpha = Math.max(0.14, 0.46 * (1 - progress));
+          ctx.lineWidth = 1.55;
           ctx.beginPath();
           ctx.moveTo(point.x - tick - 5, point.y);
           ctx.lineTo(point.x - tick, point.y);
@@ -813,17 +829,17 @@ function useLiveAnimationCanvas(
           ctx.stroke();
 
           if (frameCaps.labels) {
-            ctx.globalAlpha = Math.max(0.18, 0.62 * (1 - progress));
+            ctx.globalAlpha = Math.max(0.22, 0.78 * (1 - progress));
             ctx.shadowBlur = frameCaps.shadows ? 5 : 0;
             ctx.font = "700 10px Share Tech Mono, JetBrains Mono, monospace";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillText(pulse.label ?? (role === "origin" ? "TX" : "RX"), point.x, point.y - 22 - 6 * progress);
+            ctx.fillText(pulse.label ?? (role === "origin" ? "TX ORIGIN" : "RX DEST"), point.x, point.y - 24 - 9 * progress);
           }
         }
 
-        ctx.globalAlpha = Math.max(endpoint ? 0.11 : 0.07, (endpoint ? 0.36 : 0.22) * (1 - progress));
-        ctx.shadowBlur = frameCaps.shadows ? (endpoint ? 10 : matrixMode ? 6 : 4) : 0;
+        ctx.globalAlpha = Math.max(endpoint ? 0.18 : 0.07, (endpoint ? 0.5 : 0.24) * (1 - progress));
+        ctx.shadowBlur = frameCaps.shadows ? (endpoint ? 16 : matrixMode ? 6 : 4) : 0;
         ctx.beginPath();
         ctx.arc(point.x, point.y, coreRadius, 0, Math.PI * 2);
         ctx.fill();
@@ -900,7 +916,7 @@ function useLiveAnimationCanvas(
               to: anim.to,
               path: anim.path,
               createdAt: now,
-              lifetimeMs: matrixMode ? 14_000 : 18_000,
+              lifetimeMs: matrixMode ? 22_000 : 28_000,
               color: anim.color,
             });
           }
@@ -954,6 +970,27 @@ function useLiveAnimationCanvas(
         ctx.beginPath();
         ctx.arc(x, y, 3.8 + 1.2 * (1 - progress), 0, Math.PI * 2);
         ctx.fill();
+
+        if (pathDistance > 18) {
+          const dx = current.to.x - current.from.x;
+          const dy = current.to.y - current.from.y;
+          const angle = Math.atan2(dy, dx);
+          const arrowSize = matrixMode ? 8 : 10;
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(angle);
+          ctx.globalAlpha = Math.max(0.22, alpha * (matrixMode ? 0.52 : 0.72));
+          ctx.shadowBlur = frameCaps.shadows ? (matrixMode ? 7 : 10) : 0;
+          ctx.shadowColor = color;
+          ctx.beginPath();
+          ctx.moveTo(arrowSize, 0);
+          ctx.lineTo(-arrowSize * 0.42, -arrowSize * 0.45);
+          ctx.lineTo(-arrowSize * 0.18, 0);
+          ctx.lineTo(-arrowSize * 0.42, arrowSize * 0.45);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
 
         if (!matrixMode && frameCaps.shadows) {
           const seed = hashSeed(anim.id);
@@ -2180,11 +2217,11 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
           id: `${event.id}:origin:${originPoint.nodeId}`,
           coord: originPoint.coord,
           createdAt: startedAt,
-          lifetimeMs: matrixMode ? 2_700 : 3_800,
+          lifetimeMs: matrixMode ? 3_600 : 5_200,
           color,
-          strength: Math.max(1.5, event.observationCount),
+          strength: Math.max(2.2, event.observationCount + 0.75),
           role: pulsePath.length >= 2 ? "origin" : "activity",
-          label: pulsePath.length >= 2 ? "TX" : "LIVE",
+          label: pulsePath.length >= 2 ? "TX ORIGIN" : "LIVE NODE",
         });
       }
       const relayPulses = pulsePath.length > 2 ? pulsePath.slice(1, -1).slice(-4) : [];
@@ -2208,11 +2245,11 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
           id: `${event.id}:destination:${destinationPoint.nodeId}`,
           coord: destinationPoint.coord,
           createdAt: startedAt + Math.min(560, 140 * Math.max(1, pulsePath.length - 1)),
-          lifetimeMs: matrixMode ? 3_000 : 4_200,
+          lifetimeMs: matrixMode ? 3_900 : 5_600,
           color,
-          strength: Math.max(1.5, event.observationCount),
+          strength: Math.max(2.3, event.observationCount + 0.85),
           role: "destination",
-          label: "RX",
+          label: "RX DEST",
         });
       }
       if (activityPulses.length > 0) {
