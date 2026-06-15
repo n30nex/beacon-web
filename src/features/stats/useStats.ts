@@ -6,6 +6,7 @@ import {
   getStatsRegions,
   getStatsPayloads,
   getStatsHashAnalytics,
+  getStatsHashPrefixLookup,
   getStatsTopology,
   getStatsSubpaths,
   getStatsChannels,
@@ -81,6 +82,18 @@ export function useStatsHashAnalytics(range: StatsRange, limit = 25) {
   return useQuery({
     queryKey: ["stats-hash", regionKey, range, limit],
     queryFn: () => getStatsHashAnalytics(iatas, { range, limit }),
+    ...common,
+  });
+}
+
+export function useStatsHashPrefixLookup(range: StatsRange, prefix: string, hashSize?: number, limit = 25) {
+  const { iatas, regionKey } = useStatsIatas();
+  const normalized = prefix.trim().toLowerCase().replace(/^0x/, "");
+  const enabled = /^[0-9a-f]{1,8}$/.test(normalized) && (!hashSize || normalized.length <= hashSize * 2);
+  return useQuery({
+    queryKey: ["stats-hash-prefix", regionKey, range, normalized, hashSize ?? 0, limit],
+    queryFn: () => getStatsHashPrefixLookup(iatas, { prefix: normalized, hashSize, range, limit }),
+    enabled,
     ...common,
   });
 }

@@ -203,6 +203,38 @@ export interface StatsHashInconsistentPacket {
   lastHeard: number;
 }
 
+export interface StatsHashPrefixPacket {
+  packetHash: string;
+  pathHash: string;
+  hashSize: number;
+  hopIndex: number;
+  payloadType: number;
+  payloadTypeName: string;
+  routeType: number;
+  routeTypeName: string;
+  scope?: string | null;
+  iatas: string[];
+  observationCount: number;
+  observerCount: number;
+  latestObserverId?: string;
+  latestObserver?: string | null;
+  firstHeard: number;
+  lastHeard: number;
+}
+
+export interface StatsHashPrefixLookup {
+  serverTime: number;
+  window: StatsWindow;
+  prefix: string;
+  hashSize?: number;
+  matchCount: number;
+  packetCount: number;
+  observationCount: number;
+  observerCount: number;
+  iatas: string[];
+  items: StatsHashPrefixPacket[];
+}
+
 export interface StatsHashAnalytics {
   serverTime: number;
   window: StatsWindow;

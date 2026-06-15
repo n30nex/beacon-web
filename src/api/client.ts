@@ -36,6 +36,7 @@ import type {
   StatsRegions,
   StatsPayloads,
   StatsHashAnalytics,
+  StatsHashPrefixLookup,
   StatsTopology,
   StatsSubpaths,
   StatsChannels,
@@ -384,6 +385,22 @@ export function getStatsHashAnalytics(
 ): Promise<StatsHashAnalytics> {
   return request("/stats/hash", {
     iatas: iatasParam(iatas),
+    range: params?.range,
+    since: params?.since,
+    until: params?.until,
+    bucket: params?.bucket,
+    limit: params?.limit,
+  });
+}
+
+export function getStatsHashPrefixLookup(
+  iatas?: string[],
+  params?: { prefix: string; hashSize?: number; range?: string; since?: number; until?: number; bucket?: string; limit?: number },
+): Promise<StatsHashPrefixLookup> {
+  return request("/stats/hash-prefix", {
+    iatas: iatasParam(iatas),
+    prefix: params?.prefix,
+    hashSize: params?.hashSize,
     range: params?.range,
     since: params?.since,
     until: params?.until,
