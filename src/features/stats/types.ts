@@ -186,6 +186,7 @@ export interface StatsHashCollisionPrefix {
   hashSize: number;
   iata: string;
   packetCount: number;
+  nodeCount?: number;
   observationCount: number;
   observerCount: number;
   firstHeard: number;
@@ -197,6 +198,7 @@ export interface StatsHashCollisionCell {
   iata: string;
   prefixCount: number;
   packetCount: number;
+  nodeCount?: number;
   observationCount: number;
   observerCount: number;
   firstHeard: number;

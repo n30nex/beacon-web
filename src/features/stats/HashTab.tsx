@@ -61,9 +61,9 @@ function RiskTable({ data, onLookup }: { data?: StatsHashAnalytics; onLookup: (p
             <th className="pb-2 text-left font-semibold uppercase tracking-wider">Prefix</th>
             <th className="pb-2 text-right font-semibold uppercase tracking-wider">Size</th>
             <th className="pb-2 text-left font-semibold uppercase tracking-wider">IATA</th>
-            <th className="pb-2 text-right font-semibold uppercase tracking-wider">Packets</th>
+            <th className="pb-2 text-right font-semibold uppercase tracking-wider">Nodes</th>
             <th className="pb-2 text-right font-semibold uppercase tracking-wider">Obs</th>
-            <th className="pb-2 text-right font-semibold uppercase tracking-wider">Observers</th>
+            <th className="pb-2 text-right font-semibold uppercase tracking-wider">Prefix hits</th>
             <th className="pb-2 text-left font-semibold uppercase tracking-wider">Last heard</th>
           </tr>
         </thead>
@@ -81,9 +81,9 @@ function RiskTable({ data, onLookup }: { data?: StatsHashAnalytics; onLookup: (p
               </td>
               <td className="py-2 text-right tabular-nums text-text-normal">{row.hashSize}b</td>
               <td className="py-2 pl-3 text-text-bright">{row.iata}</td>
-              <td className="py-2 text-right tabular-nums text-warn">{formatCount(row.packetCount)}</td>
+              <td className="py-2 text-right tabular-nums text-warn">{formatCount(row.nodeCount ?? row.packetCount)}</td>
               <td className="py-2 text-right tabular-nums text-text-normal">{formatCount(row.observationCount)}</td>
-              <td className="py-2 text-right tabular-nums text-text-normal">{formatCount(row.observerCount)}</td>
+              <td className="py-2 text-right tabular-nums text-text-normal">{formatCount(row.packetCount)}</td>
               <td className="py-2 text-text-muted">{formatAbsolute(row.lastHeard)}</td>
             </tr>
           ))}
@@ -157,7 +157,7 @@ function CollisionMatrix({ data, onLookup }: { data?: StatsHashAnalytics; onLook
                   }
                   title={
                     cell
-                      ? `${iata} / ${size} byte: ${cell.prefixCount} risky prefixes, ${cell.packetCount} packets, ${cell.observationCount} observations`
+                      ? `${iata} / ${size} byte: ${cell.prefixCount} risky prefixes, ${cell.nodeCount ?? cell.packetCount} nodes, ${cell.observationCount} observations`
                       : `${iata} / ${size} byte: no risky prefixes`
                   }
                   onClick={() => {
@@ -169,8 +169,8 @@ function CollisionMatrix({ data, onLookup }: { data?: StatsHashAnalytics; onLook
                       <div className="text-[15px] font-bold leading-none tabular-nums text-warn">{formatCount(cell.prefixCount)}</div>
                       <div className="text-[9px] uppercase tracking-wider text-text-dim">prefixes</div>
                       <div className="flex items-center justify-between gap-2 text-[9px] text-text-muted">
-                        <span>{formatCount(cell.packetCount)} pkts</span>
-                        <span>{formatCount(cell.observerCount)} obsr</span>
+                        <span>{formatCount(cell.nodeCount ?? cell.packetCount)} nodes</span>
+                        <span>{formatCount(cell.observationCount)} obs</span>
                       </div>
                     </div>
                   ) : (
@@ -346,7 +346,7 @@ export function HashTab({ range }: { range: StatsRange }) {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Hash obs" sublabel={range} accent="var(--color-primary)" value={hashes.isLoading ? "--" : formatCount(data?.totalObservations)} />
         <StatCard label="Multibyte" sublabel={hashes.isLoading ? "observations" : pct(data?.multibyteObservations ?? 0, data?.totalObservations ?? 0)} accent="var(--color-green)" value={hashes.isLoading ? "--" : formatCount(data?.multibyteObservations)} />
-        <StatCard label="Risk prefixes" sublabel="multi-packet" accent="var(--color-warn)" value={hashes.isLoading ? "--" : formatCount(data?.collisionPrefixCount)} />
+        <StatCard label="Risk prefixes" sublabel="short-id" accent="var(--color-warn)" value={hashes.isLoading ? "--" : formatCount(data?.collisionPrefixCount)} />
         <StatCard label="Inconsistent" sublabel="packet sizes" accent="var(--color-danger)" value={hashes.isLoading ? "--" : formatCount(data?.inconsistentPacketCount)} />
       </div>
 
@@ -356,14 +356,14 @@ export function HashTab({ range }: { range: StatsRange }) {
       </div>
 
       <Card
-        title="Collision matrix"
+        title="Short-ID collision matrix"
         right={<span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">IATA x hash size</span>}
       >
         {hashes.isError ? <div className="py-7 text-center font-mono text-[11px] text-danger">Failed to load</div> : <CollisionMatrix data={hashes.isLoading ? undefined : data} onLookup={handleRiskLookup} />}
       </Card>
 
       <div className="grid grid-cols-1 gap-3.5 xl:grid-cols-2">
-        <Card title="Risky prefixes" right={<span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">top 25</span>}>
+        <Card title="Risky prefixes" right={<span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">active short IDs</span>}>
           {hashes.isError ? <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div> : <RiskTable data={hashes.isLoading ? undefined : data} onLookup={handleRiskLookup} />}
         </Card>
         <Card title="Inconsistent packet hash sizes" right={<span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">top 25</span>}>
