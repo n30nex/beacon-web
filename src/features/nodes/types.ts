@@ -57,6 +57,17 @@ export interface NodeObservation {
   hopCount?: number;
 }
 
+export interface NodeAdvertObservation extends NodeObservation {
+  advertisedName?: string;
+  advertisedNodeType?: number;
+  advertisedNodeTypeName?: string;
+  advertisedLat?: number;
+  advertisedLng?: number;
+  flagsRaw?: string;
+  hasLocation?: boolean;
+  hasName?: boolean;
+}
+
 export interface NodeAnalyticsCount {
   key: string;
   label: string;

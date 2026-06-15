@@ -21,7 +21,7 @@ import type {
 import type { WsPacketObservation } from "../types/ws";
 import type { ChannelSummary, ChannelMessage } from "../features/channels/types";
 import type { ObserverSummary, Observer, AdvertObservation } from "../features/observers/types";
-import type { NodeSummary, Node, NodeObservation, NodeNeighbor, NodeAnalytics, NodeReach } from "../features/nodes/types";
+import type { NodeSummary, Node, NodeObservation, NodeNeighbor, NodeAnalytics, NodeReach, NodeAdvertObservation } from "../features/nodes/types";
 import type {
   StatsOverview,
   ObservationPoint,
@@ -354,6 +354,16 @@ export function getNodeObservations(
   params?: { cursor?: number; limit?: number },
 ): Promise<CursorPage<NodeObservation>> {
   return request(`/nodes/${nodeId}/observations`, {
+    cursor: params?.cursor,
+    limit: params?.limit ?? DEFAULT_PAGE_SIZE,
+  });
+}
+
+export function getNodeAdverts(
+  nodeId: string,
+  params?: { cursor?: number; limit?: number },
+): Promise<CursorPage<NodeAdvertObservation>> {
+  return request(`/nodes/${nodeId}/adverts`, {
     cursor: params?.cursor,
     limit: params?.limit ?? DEFAULT_PAGE_SIZE,
   });

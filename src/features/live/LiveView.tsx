@@ -91,6 +91,7 @@ type LivePathPoint = LiveRoutePathPoint;
 interface LivePulse {
   id: string;
   coord: Coord;
+  headingTo?: Coord;
   createdAt: number;
   lifetimeMs: number;
   color: string;
@@ -415,6 +416,42 @@ function samplePropagationEvents(events: LivePacketEvent[], cap = MAX_PROPAGATIO
 
 function tailWindow<T>(items: T[], count: number): T[] {
   return items.length > count ? items.slice(-count) : items;
+}
+
+function drawHexPath(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number): void {
+  ctx.beginPath();
+  for (let side = 0; side < 6; side += 1) {
+    const angle = -Math.PI / 6 + (Math.PI * 2 * side) / 6;
+    const hx = x + Math.cos(angle) * radius;
+    const hy = y + Math.sin(angle) * radius;
+    if (side === 0) ctx.moveTo(hx, hy);
+    else ctx.lineTo(hx, hy);
+  }
+  ctx.closePath();
+}
+
+function drawDirectionalChevron(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle: number,
+  distance: number,
+  size: number,
+  inverted = false,
+): void {
+  const centerX = x + Math.cos(angle) * distance;
+  const centerY = y + Math.sin(angle) * distance;
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  ctx.rotate(angle + (inverted ? Math.PI : 0));
+  ctx.beginPath();
+  ctx.moveTo(size, 0);
+  ctx.lineTo(-size * 0.55, -size * 0.52);
+  ctx.lineTo(-size * 0.28, 0);
+  ctx.lineTo(-size * 0.55, size * 0.52);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 }
 
 function useLiveAnimationCanvas(
@@ -761,6 +798,7 @@ function useLiveAnimationCanvas(
 
         const progress = Math.max(0, Math.min(1, age / pulse.lifetimeMs));
         const point = projectCoord(pulse.coord);
+        const headingPoint = pulse.headingTo ? projectCoord(pulse.headingTo) : null;
         const role = pulse.role ?? "activity";
         const color = matrixMode
           ? matrixColor
@@ -775,6 +813,11 @@ function useLiveAnimationCanvas(
         const endpoint = role === "origin" || role === "destination";
         const rippleRadius = endpoint ? 52 : 28;
         const coreRadius = endpoint ? 6.2 + energy : 3.4 + energy * 0.8;
+        const headingAngle = headingPoint
+          ? role === "destination"
+            ? Math.atan2(point.y - headingPoint.y, point.x - headingPoint.x)
+            : Math.atan2(headingPoint.y - point.y, headingPoint.x - point.x)
+          : -Math.PI / 2;
 
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
@@ -801,18 +844,24 @@ function useLiveAnimationCanvas(
           const tick = 8 + Math.sin(progress * Math.PI * 6) * 2;
           const flash = 0.5 + 0.5 * Math.sin(progress * Math.PI * 9);
           const hexRadius = 15 + flash * 4;
+          const nodeFlash = Math.max(0, 1 - progress * 1.35);
+          const sweep = Math.sin(progress * Math.PI * 4);
 
-          ctx.globalAlpha = Math.max(0.16, 0.48 * (1 - progress));
+          ctx.globalAlpha = Math.max(0.12, 0.34 * nodeFlash);
+          ctx.shadowBlur = frameCaps.shadows ? 24 : 0;
+          drawHexPath(ctx, point.x, point.y, 18 + flash * 6);
+          ctx.fill();
+
+          ctx.globalAlpha = Math.max(0.16, 0.54 * (1 - progress));
           ctx.lineWidth = 1.4 + flash * 0.45;
+          ctx.shadowBlur = frameCaps.shadows ? 20 : 0;
+          drawHexPath(ctx, point.x, point.y, hexRadius);
+          ctx.stroke();
+
+          ctx.globalAlpha = Math.max(0.12, 0.4 * (1 - progress));
+          ctx.lineWidth = 1.15;
           ctx.beginPath();
-          for (let side = 0; side < 6; side += 1) {
-            const angle = -Math.PI / 6 + (Math.PI * 2 * side) / 6;
-            const hx = point.x + Math.cos(angle) * hexRadius;
-            const hy = point.y + Math.sin(angle) * hexRadius;
-            if (side === 0) ctx.moveTo(hx, hy);
-            else ctx.lineTo(hx, hy);
-          }
-          ctx.closePath();
+          ctx.arc(point.x, point.y, 22 + 18 * progress, headingAngle - 0.82, headingAngle + 0.82);
           ctx.stroke();
 
           ctx.globalAlpha = Math.max(0.14, 0.46 * (1 - progress));
@@ -827,6 +876,24 @@ function useLiveAnimationCanvas(
           ctx.moveTo(point.x, point.y + tick);
           ctx.lineTo(point.x, point.y + tick + 5);
           ctx.stroke();
+
+          if (headingPoint) {
+            const chevronBase = role === "origin" ? 23 + 12 * progress : -(34 - 12 * progress);
+            const chevronSize = role === "origin" ? 8.5 : 7.5;
+            ctx.globalAlpha = Math.max(0.2, 0.74 * (1 - progress));
+            ctx.shadowBlur = frameCaps.shadows ? 14 : 0;
+            drawDirectionalChevron(ctx, point.x, point.y, headingAngle, chevronBase, chevronSize);
+
+            ctx.globalAlpha = Math.max(0.1, 0.38 * (1 - progress));
+            drawDirectionalChevron(
+              ctx,
+              point.x,
+              point.y,
+              headingAngle,
+              chevronBase + (role === "origin" ? 15 + sweep * 3 : -15 - sweep * 3),
+              chevronSize * 0.78,
+            );
+          }
 
           if (frameCaps.labels) {
             ctx.globalAlpha = Math.max(0.22, 0.78 * (1 - progress));
@@ -2212,10 +2279,13 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
       const activityPulses: LivePulse[] = [];
       const originPoint = pulsePath[0];
       const destinationPoint = pulsePath.at(-1);
+      const originHeading = pulsePath[1]?.coord;
+      const destinationHeading = pulsePath.length > 1 ? pulsePath.at(-2)?.coord : undefined;
       if (originPoint) {
         activityPulses.push({
           id: `${event.id}:origin:${originPoint.nodeId}`,
           coord: originPoint.coord,
+          headingTo: originHeading,
           createdAt: startedAt,
           lifetimeMs: matrixMode ? 3_600 : 5_200,
           color,
@@ -2229,6 +2299,7 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
         activityPulses.push({
           id: `${event.id}:relay:${point.nodeId}:${index}`,
           coord: point.coord,
+          headingTo: pulsePath[pulsePath.indexOf(point) + 1]?.coord,
           createdAt: startedAt + 120 * (index + 1),
           lifetimeMs: matrixMode ? 2_200 : 3_000,
           color,
@@ -2244,6 +2315,7 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
         activityPulses.push({
           id: `${event.id}:destination:${destinationPoint.nodeId}`,
           coord: destinationPoint.coord,
+          headingTo: destinationHeading,
           createdAt: startedAt + Math.min(560, 140 * Math.max(1, pulsePath.length - 1)),
           lifetimeMs: matrixMode ? 3_900 : 5_600,
           color,

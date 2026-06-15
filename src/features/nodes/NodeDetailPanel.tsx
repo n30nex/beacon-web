@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getNode, getNodeAnalytics, getNodeObservations, getNodeNeighbors, getNodeReach } from "../../api/client";
+import { getNode, getNodeAdverts, getNodeAnalytics, getNodeObservations, getNodeNeighbors, getNodeReach } from "../../api/client";
 import { Badge } from "../../components/Badge";
 import { DetailPanel, Section, Field } from "../../components/DetailPanel";
 import { IataChip } from "../../components/IataChip";
@@ -8,7 +8,7 @@ import { formatHex, formatSnr, snrLevel, formatRadio, SIGNAL_LEVEL_CLASSES } fro
 import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { Timestamp } from "../../components/Timestamp";
 import { useRegion } from "../../hooks/useRegion";
-import type { NodeActivityPoint, NodeAnalyticsCount, NodeAnalyticsPeer, NodeObservation, NodeNeighbor, NodeReachNode } from "./types";
+import type { NodeActivityPoint, NodeAdvertObservation, NodeAnalyticsCount, NodeAnalyticsPeer, NodeObservation, NodeNeighbor, NodeReachNode } from "./types";
 
 function NodeNeighborRow({ neighbor, onClick }: { neighbor: NodeNeighbor; onClick?: () => void }) {
   const label = sanitizeDisplayLabel(neighbor.name, formatHex(neighbor.id));
@@ -61,6 +61,55 @@ function NodeObservationRow({ obs, onClick }: { obs: NodeObservation; onClick?: 
         <div className="flex flex-col">
           <span className="text-text-dim text-[10px] font-medium uppercase tracking-wider">Hops</span>
           <span className="font-medium text-text-normal">{obs.hopCount ?? "—"}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NodeAdvertRow({ advert, onClick }: { advert: NodeAdvertObservation; onClick?: () => void }) {
+  const level = snrLevel(advert.snr);
+  const label = sanitizeDisplayLabel(advert.advertisedName, "unnamed advert");
+  const hasName = Boolean(advert.advertisedName && label !== "unnamed advert");
+  const coord =
+    advert.advertisedLat != null && advert.advertisedLng != null
+      ? `${advert.advertisedLat.toFixed(4)}, ${advert.advertisedLng.toFixed(4)}`
+      : advert.hasLocation === false
+        ? "no location"
+        : "location unknown";
+  return (
+    <div
+      className={`border border-border bg-bg-base px-3 py-2 border-l-2 border-l-green ${onClick ? "cursor-pointer hover:bg-green/8" : ""}`}
+      onClick={onClick}
+    >
+      <div className="mb-1.5 flex items-center gap-2 text-[11px]">
+        <span className={`truncate font-mono font-semibold tracking-wider ${hasName ? "text-green" : "text-text-dim italic"}`}>
+          {label}
+        </span>
+        {advert.advertisedNodeTypeName && <Badge variant="default">{advert.advertisedNodeTypeName}</Badge>}
+        <IataChip>{advert.iata}</IataChip>
+        <Timestamp value={advert.heardAt} className="ml-auto font-mono text-[11px] text-text-dim" />
+      </div>
+      <div className="mb-1.5 grid grid-cols-[1fr_auto] gap-2 font-mono text-[11px]">
+        <span className="truncate text-text-muted" title={coord}>{coord}</span>
+        {advert.flagsRaw && <span className="text-text-dim">flags {advert.flagsRaw}</span>}
+      </div>
+      <div className="flex gap-5 font-mono text-xs">
+        <div className="flex flex-col">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-text-dim">SNR</span>
+          <span className={`font-medium ${level ? SIGNAL_LEVEL_CLASSES[level] : "text-text-normal"}`}>
+            {formatSnr(advert.snr)}
+          </span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-text-dim">RSSI</span>
+          <span className={`font-medium ${level ? SIGNAL_LEVEL_CLASSES[level] : "text-text-normal"}`}>
+            {advert.rssi ?? "-"}
+          </span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-text-dim">Hops</span>
+          <span className="font-medium text-text-normal">{advert.hopCount ?? "-"}</span>
         </div>
       </div>
     </div>
@@ -330,6 +379,12 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, o
     staleTime: 30_000,
   });
 
+  const { data: adverts } = useQuery({
+    queryKey: ["node-adverts", nodeId],
+    queryFn: () => getNodeAdverts(nodeId, { limit: 24 }),
+    staleTime: 30_000,
+  });
+
   const { data: neighbors } = useQuery({
     queryKey: ["node-neighbors", nodeId],
     queryFn: () => getNodeNeighbors(nodeId),
@@ -518,6 +573,22 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, o
                 </div>
               ) : (
                 <div className="font-mono text-[13px] text-text-dim">No known neighbors</div>
+              )}
+            </Section>
+
+            <Section title="Advert Timeline">
+              {adverts && adverts.items.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  {adverts.items.map((advert) => (
+                    <NodeAdvertRow
+                      key={advert.id}
+                      advert={advert}
+                      onClick={onAnalyzePacket ? () => onAnalyzePacket(advert.packetHash) : undefined}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="font-mono text-[13px] text-text-dim">No advert history</div>
               )}
             </Section>
 
