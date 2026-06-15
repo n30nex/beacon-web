@@ -26,9 +26,11 @@ import { RouteTable } from "./features/routes/RouteTable";
 import { TraceList } from "./features/traces/TraceList";
 import { ChannelList } from "./features/channels/ChannelList";
 import { TerminalLoadingState } from "./components/TerminalLoader";
+import { GlobalSearchPalette } from "./components/GlobalSearchPalette";
 import { getPacketDetail } from "./api/client";
 import { WsManager } from "./api/ws-manager";
 import { WS_URL, TABS } from "./lib/constants";
+import type { GlobalSearchResult } from "./types/api";
 
 // All map-bearing tabs are lazy so maplibre-gl (~800KB) leaves the entry graph entirely and streams
 // in its own cacheable chunk instead of blocking first paint. Atlas/Live are the default landing
@@ -146,6 +148,7 @@ function AppInner() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   // lifted (like selectedNodeId) so a node's "View observer" link can select it before the tab mounts
   const [selectedObserverId, setSelectedObserverId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   // node detail shown as a modal over the packet analyzer (e.g. clicking a resolved path hop)
   const [overlayNodeId, setOverlayNodeId] = useState<string | null>(null);
   // packet analyzer shown as a modal over the node panel (clicking a node's observation row)
@@ -196,6 +199,60 @@ function AppInner() {
     });
   };
 
+  const navigateToSearchResult = useCallback(
+    (result: GlobalSearchResult) => {
+      setOverlayNodeId(null);
+      setOverlayPacketHash(null);
+      setAnalyzerHash(null);
+      setSelectedObservationId(null);
+      setSelectedNodeId(null);
+      setSelectedObserverId(null);
+      const url = new URL(result.url, window.location.origin);
+      const next = new URLSearchParams(searchParams);
+      for (const key of Array.from(next.keys())) {
+        if (["hash", "nodeId", "observerId", "channelId", "traceTag", "routeId", "routeReplay", "statsTab"].includes(key)) {
+          next.delete(key);
+        }
+      }
+      url.searchParams.forEach((value, key) => next.set(key, value));
+
+      switch (result.type) {
+      case "packet":
+        setAnalyzerHash(String(result.metadata?.packetHash ?? result.id));
+        next.set("tab", "Packets");
+        next.set("hash", String(result.metadata?.packetHash ?? result.id));
+        break;
+      case "node":
+        setSelectedNodeId(result.id);
+        next.set("tab", "Nodes");
+        next.set("nodeId", result.id);
+        break;
+      case "observer":
+        setSelectedObserverId(result.id);
+        next.set("tab", "Observers");
+        next.set("observerId", result.id);
+        break;
+      case "route":
+        next.set("tab", "Map");
+        next.set("routeId", result.id);
+        next.set("routeReplay", "1");
+        break;
+      case "channel":
+        next.set("tab", "Channels");
+        next.set("channelId", result.id);
+        break;
+      case "trace":
+        next.set("tab", "Traces");
+        next.set("traceTag", result.id);
+        break;
+      default:
+        break;
+      }
+      setSearchParams(next);
+    },
+    [searchParams, setSearchParams],
+  );
+
   const clearSelection = useCallback(() => {
     setSelectedNodeId(null);
     setOverlayNodeId(null);
@@ -225,6 +282,17 @@ function AppInner() {
     wsManager.connect({ iatas: resolveIatas(initialSelection, new Map()), events: WS_EVENTS });
     return () => wsManager.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   // Prefetch the maplibre-backed view chunks during idle so the default Atlas tab (and a hop to
@@ -260,7 +328,7 @@ function AppInner() {
       <RegionWatcher wsManager={wsManager} />
       <RegionUrlSync />
       <SelectionResetOnRegion onRegionChange={clearSelection} />
-      <AppShell activeTab={activeTab} onTabChange={handleTabChange} wsManager={wsManager}>
+      <AppShell activeTab={activeTab} onTabChange={handleTabChange} wsManager={wsManager} onOpenSearch={() => setSearchOpen(true)}>
         <div className="relative flex flex-1 min-h-0">
           <div key={activeTab} className="flex flex-1 min-h-0 fade-in">
             <Suspense fallback={<TerminalLoadingState label={`LOADING ${activeTab}`} detail="MODULE TRANSFER IN PROGRESS" />}>
@@ -311,6 +379,7 @@ function AppInner() {
               }}
             />
           )}
+          <GlobalSearchPalette open={searchOpen} onClose={() => setSearchOpen(false)} onSelect={navigateToSearchResult} />
         </div>
       </AppShell>
     </RegionProvider>

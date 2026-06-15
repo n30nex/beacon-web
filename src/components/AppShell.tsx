@@ -323,15 +323,27 @@ interface AppShellProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   wsManager: WsManager;
+  onOpenSearch?: () => void;
   children: ReactNode;
 }
 
-export function AppShell({ activeTab, onTabChange, wsManager, children }: AppShellProps) {
+export function AppShell({ activeTab, onTabChange, wsManager, onOpenSearch, children }: AppShellProps) {
   return (
     <div className="crt-shell flex flex-col h-dvh">
       <header className="crt-panel flex items-center justify-between gap-2 px-3 md:px-4 h-[46px] bg-bg-surface border-b border-border shrink-0">
         <BeaconWordmark iconSize={22} textClassName="text-sm" />
         <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
+          {onOpenSearch && (
+            <button
+              type="button"
+              className="crt-panel hidden items-center gap-1.5 rounded border border-border bg-bg-raised px-2 py-1 font-mono text-[11px] text-text-muted transition-colors hover:border-primary hover:text-text-normal sm:flex"
+              onClick={onOpenSearch}
+              title="Global search"
+            >
+              SEARCH
+              <span className="text-[9px] text-text-dim">CTRL K</span>
+            </button>
+          )}
           <RegionSelector />
           <ThemePicker />
           <LiveBadge wsManager={wsManager} />

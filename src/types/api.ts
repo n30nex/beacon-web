@@ -147,6 +147,24 @@ export interface HealthStatus {
   brokers: BrokerStatus[];
 }
 
+export type GlobalSearchResultType = "page" | "packet" | "node" | "observer" | "channel" | "route" | "trace";
+
+export interface GlobalSearchResult {
+  type: GlobalSearchResultType;
+  id: string;
+  label: string;
+  subtitle?: string;
+  url: string;
+  score: number;
+  matched?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface GlobalSearchResponse {
+  query: string;
+  items: GlobalSearchResult[];
+}
+
 export interface LiveRouteMixItem {
   routeType: number;
   routeTypeName: string;

@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getTraces } from "../../api/client";
 import { useRegion } from "../../hooks/useRegion";
@@ -51,22 +52,57 @@ function TraceTagCard({ tag, selected, onSelect }: {
 
 export function TraceList({ onAnalyze, onViewNode }: TraceListProps) {
   const { iatas, regionKey } = useRegion();
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [manualSelectedTag, setManualSelectedTag] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTag = searchParams.get("traceTag");
 
   // drop the selection when the region changes — the selected tag may not be in the new region
   const prevRegion = useRef(regionKey);
   useEffect(() => {
     if (prevRegion.current !== regionKey) {
       prevRegion.current = regionKey;
-      setSelectedTag(null);
+      setManualSelectedTag(null);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("traceTag");
+        return next;
+      }, { replace: true });
     }
-  }, [regionKey]);
+  }, [regionKey, setSearchParams]);
 
   const { data: tags, isLoading } = useQuery({
     queryKey: ["traces", regionKey],
     queryFn: () => getTraces(iatas, { limit: TRACE_LIST_LIMIT }),
     staleTime: 30_000,
   });
+
+  const selectedTag = useMemo(() => {
+    if (requestedTag) {
+      const match = tags?.find((tag) => tag.traceTag.toLowerCase() === requestedTag.toLowerCase());
+      if (match) return match.traceTag;
+    }
+    if (manualSelectedTag && tags?.some((tag) => tag.traceTag === manualSelectedTag)) return manualSelectedTag;
+    return null;
+  }, [manualSelectedTag, requestedTag, tags]);
+
+  function handleSelectTag(tag: string) {
+    setManualSelectedTag(tag);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("tab", "Traces");
+      next.set("traceTag", tag);
+      return next;
+    }, { replace: true });
+  }
+
+  function handleCloseTag() {
+    setManualSelectedTag(null);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("traceTag");
+      return next;
+    }, { replace: true });
+  }
 
   return (
     <div className="flex flex-1 min-h-0">
@@ -77,12 +113,12 @@ export function TraceList({ onAnalyze, onViewNode }: TraceListProps) {
           <EmptyState title="No traces" />
         ) : (
           tags!.map((t) => (
-            <TraceTagCard key={t.traceTag} tag={t} selected={t.traceTag === selectedTag} onSelect={setSelectedTag} />
+            <TraceTagCard key={t.traceTag} tag={t} selected={t.traceTag === selectedTag} onSelect={handleSelectTag} />
           ))
         )}
       </div>
       {selectedTag && (
-        <TraceDetailPanel tag={selectedTag} onClose={() => setSelectedTag(null)} onAnalyze={onAnalyze} onViewNode={onViewNode} />
+        <TraceDetailPanel tag={selectedTag} onClose={handleCloseTag} onAnalyze={onAnalyze} onViewNode={onViewNode} />
       )}
     </div>
   );

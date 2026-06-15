@@ -16,6 +16,7 @@ import type {
   AtlasReplayPacket,
   HealthStatus,
   LiveSummary,
+  GlobalSearchResponse,
 } from "../types/api";
 import type { WsPacketObservation } from "../types/ws";
 import type { ChannelSummary, ChannelMessage } from "../features/channels/types";
@@ -164,6 +165,18 @@ export async function getHealth(): Promise<HealthStatus> {
     throw new ApiError(res.status, body.error?.code ?? "unknown", body.error?.message ?? res.statusText);
   }
   return res.json();
+}
+
+export function getGlobalSearch(
+  iatas: string[] | undefined,
+  params: { q: string; limit?: number; types?: string },
+): Promise<GlobalSearchResponse> {
+  return request("/search", {
+    q: params.q,
+    iatas: iatasParam(iatas),
+    limit: params.limit ?? 24,
+    types: params.types,
+  });
 }
 
 export function getAtlasRegion(

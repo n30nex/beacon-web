@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { getChannels } from "../../api/client";
 import { useRegion } from "../../hooks/useRegion";
@@ -27,7 +28,10 @@ export function ChannelList({ wsManager, onAnalyze }: ChannelListProps) {
   const [searchField, setSearchField] = useState("name");
   const [keyFilter, setKeyFilter] = useState<ChannelKeyFilter>("");
   const [hashtagFilter, setHashtagFilter] = useState<ChannelHashtagFilter>("");
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const channelIdParam = searchParams.get("channelId");
+  const requestedChannelId = channelIdParam && /^\d+$/.test(channelIdParam) ? Number(channelIdParam) : null;
 
   const prevRegion = useRef(regionKey);
   useEffect(() => {
@@ -38,13 +42,24 @@ export function ChannelList({ wsManager, onAnalyze }: ChannelListProps) {
       setSearch("");
       setKeyFilter("");
       setHashtagFilter("");
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("channelId");
+        return next;
+      }, { replace: true });
     }
-  }, [regionKey]);
+  }, [regionKey, setSearchParams]);
 
   const handleSelect = useCallback((id: number) => {
     setSelectedId(id);
     setHeardCounts({});
-  }, []);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("tab", "Channels");
+      next.set("channelId", String(id));
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   const { data: channels, isLoading } = useQuery({
     queryKey: ["channels", regionKey],
@@ -71,15 +86,21 @@ export function ChannelList({ wsManager, onAnalyze }: ChannelListProps) {
     [sortedChannels, search, searchField, keyFilter, hashtagFilter],
   );
 
-  // resolve against the full list so a selected channel keeps showing even when filtered out
-  const selectedChannel = sortedChannels.find((ch) => ch.id === selectedId) ?? null;
-
-  useEffect(() => {
-    if (isLoading || sortedChannels.length === 0) return;
-    if (selectedId != null && selectedChannel) return;
-    const publicChannel = sortedChannels.find((ch) => ch.name?.trim().toLowerCase() === "public");
-    setSelectedId((publicChannel ?? sortedChannels[0]!).id);
-  }, [isLoading, selectedChannel, selectedId, sortedChannels]);
+  // Resolve against the full list so a selected channel keeps showing even when filtered out. URL
+  // state wins, then manual selection, then Public, then the newest sorted fallback.
+  const selectedChannel = useMemo(() => {
+    if (isLoading || sortedChannels.length === 0) return null;
+    if (requestedChannelId != null) {
+      const requested = sortedChannels.find((ch) => ch.id === requestedChannelId);
+      if (requested) return requested;
+    }
+    if (selectedId != null) {
+      const selected = sortedChannels.find((ch) => ch.id === selectedId);
+      if (selected) return selected;
+    }
+    return sortedChannels.find((ch) => ch.name?.trim().toLowerCase() === "public") ?? sortedChannels[0] ?? null;
+  }, [isLoading, requestedChannelId, selectedId, sortedChannels]);
+  const activeSelectedId = selectedChannel?.id ?? null;
 
   const handleChannelMessage = useCallback(
     (data: ChannelMessage) => {
@@ -98,7 +119,7 @@ export function ChannelList({ wsManager, onAnalyze }: ChannelListProps) {
 
       // use cache directly to avoid stale closure over selectedChannel
       const cached = queryClient.getQueryData<ChannelSummary[]>(["channels", regionKey]);
-      const selected = cached?.find((ch) => ch.id === selectedId);
+      const selected = cached?.find((ch) => ch.id === activeSelectedId);
       if (selected && data.channelHash === selected.channelHash) {
         // same message, multiple observer paths — count the reach
         setHeardCounts((prev) => ({
@@ -107,7 +128,7 @@ export function ChannelList({ wsManager, onAnalyze }: ChannelListProps) {
         }));
         // append to the newest InfiniteData page; MessagePanel re-sorts by sentAt, so the page is arbitrary
         queryClient.setQueryData<InfiniteData<CursorPage<ChannelMessage>>>(
-          ["channel-messages", selectedId, regionKey],
+          ["channel-messages", activeSelectedId, regionKey],
           (old) => {
             if (!old) return old;
             if (old.pages.some((p) => p.items.some((msg) => msg.packetHash === data.packetHash))) return old;
@@ -117,7 +138,7 @@ export function ChannelList({ wsManager, onAnalyze }: ChannelListProps) {
         );
       }
     },
-    [queryClient, selectedId, regionKey],
+    [queryClient, activeSelectedId, regionKey],
   );
 
   useWsChannelMessageHandler(wsManager, handleChannelMessage);
@@ -147,7 +168,7 @@ export function ChannelList({ wsManager, onAnalyze }: ChannelListProps) {
             ) : (
               <ChannelSidebar
                 channels={filteredChannels}
-                selectedId={selectedId}
+                selectedId={activeSelectedId}
                 onSelect={handleSelect}
               />
             )}
