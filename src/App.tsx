@@ -193,6 +193,8 @@ function AppInner() {
       if (tab !== "Stats") {
         next.delete("statsTab");
         next.delete("observerId");
+        next.delete("compare");
+        next.delete("compareIds");
         next.delete("range");
       }
       return next;
@@ -210,7 +212,7 @@ function AppInner() {
       const url = new URL(result.url, window.location.origin);
       const next = new URLSearchParams(searchParams);
       for (const key of Array.from(next.keys())) {
-        if (["hash", "nodeId", "observerId", "channelId", "traceTag", "routeId", "routeReplay", "statsTab"].includes(key)) {
+        if (["hash", "nodeId", "observerId", "channelId", "traceTag", "routeId", "routeReplay", "statsTab", "compare", "compareIds"].includes(key)) {
           next.delete(key);
         }
       }
@@ -268,7 +270,7 @@ function AppInner() {
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
         next.set("tab", "Stats");
-        next.set("statsTab", "observer");
+        next.set("statsTab", "observers");
         next.set("observerId", id);
         return next;
       });

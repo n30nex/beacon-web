@@ -15,6 +15,13 @@ const RANGES: StatsRange[] = ["24h", "7d", "30d"];
 
 const asTab = (v: string | null): StatsTab => (TABS.includes(v as StatsTab) ? (v as StatsTab) : "overview");
 const asRange = (v: string | null): StatsRange => (RANGES.includes(v as StatsRange) ? (v as StatsRange) : "24h");
+const parseCompareIds = (v: string | null): string[] =>
+  (v ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean)
+    .filter((id, index, ids) => ids.indexOf(id) === index)
+    .slice(0, 6);
 
 interface StatsOverviewProps {
   wsManager: WsManager;
@@ -28,6 +35,8 @@ export function StatsOverview({ wsManager }: StatsOverviewProps) {
   const tab = asTab(params.get("statsTab"));
   const range = asRange(params.get("range"));
   const observerId = params.get("observerId");
+  const compareMode = params.get("compare") === "1";
+  const compareIds = parseCompareIds(params.get("compareIds"));
 
   const patch = useCallback(
     (updates: Record<string, string | null>) => {
@@ -49,6 +58,17 @@ export function StatsOverview({ wsManager }: StatsOverviewProps) {
   const handleTab = useCallback((t: StatsTab) => patch({ statsTab: t }), [patch]);
   const handleRange = useCallback((r: StatsRange) => patch({ range: r }), [patch]);
   const handleSelectObserver = useCallback((id: string) => patch({ statsTab: "observers", observerId: id }), [patch]);
+  const handleObserverCompareChange = useCallback(
+    (enabled: boolean, ids: string[]) => {
+      const nextIds = ids.filter((id, index) => id && ids.indexOf(id) === index).slice(0, 6);
+      patch({
+        statsTab: "observers",
+        compare: enabled ? "1" : null,
+        compareIds: enabled && nextIds.length > 0 ? nextIds.join(",") : null,
+      });
+    },
+    [patch],
+  );
   const handleDrill = useCallback(
     (targetTab: string, iata?: string) => {
       patch({ tab: targetTab, iata: iata ?? null });
@@ -65,7 +85,15 @@ export function StatsOverview({ wsManager }: StatsOverviewProps) {
         {tab === "payloads" && <PayloadsTab range={range} />}
         {tab === "rf" && <RFHealthTab range={range} onSelectObserver={handleSelectObserver} />}
         {tab === "observers" && (
-          <ObserverTab range={range} selectedObserverId={observerId} onSelectObserver={handleSelectObserver} wsManager={wsManager} />
+          <ObserverTab
+            compareIds={compareIds}
+            compareMode={compareMode}
+            onCompareChange={handleObserverCompareChange}
+            range={range}
+            selectedObserverId={observerId}
+            onSelectObserver={handleSelectObserver}
+            wsManager={wsManager}
+          />
         )}
         {tab === "scopes" && <ScopesTab range={range} />}
       </div>

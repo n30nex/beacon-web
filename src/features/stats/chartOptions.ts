@@ -1,7 +1,7 @@
 import type { EChartsOption } from "./echarts-setup";
 import { type ChartColors, tooltipStyle, withAlpha } from "./chartTheme";
 import { formatCount } from "../../lib/formatters";
-import type { TelemetryPoint } from "./types";
+import type { StatsObserverCompareItem, StatsObserverComparePoint, TelemetryPoint } from "./types";
 
 const MONO = "Share Tech Mono, JetBrains Mono, monospace";
 
@@ -211,6 +211,45 @@ export function bucketTimelineOption(
     xAxis: timeAxis(c),
     yAxis: valueAxis(c),
     series,
+  };
+}
+
+export function observerCompareTimelineOption(
+  points: StatsObserverComparePoint[],
+  items: StatsObserverCompareItem[],
+  c: ChartColors,
+): EChartsOption {
+  const names = items.slice(0, 6).map((item) => ({
+    id: item.observerId,
+    label: item.displayName?.trim() || item.observerId.slice(0, 8),
+  }));
+  return {
+    animation: false,
+    backgroundColor: "transparent",
+    grid: { left: 48, right: 14, top: 28, bottom: 24 },
+    legend: {
+      data: names.map((item) => item.label),
+      right: 4,
+      top: 0,
+      itemWidth: 10,
+      itemHeight: 10,
+      textStyle: { color: c.textNormal, fontFamily: MONO, fontSize: 10 },
+      inactiveColor: c.textDim,
+    },
+    tooltip: { trigger: "axis", ...tooltipStyle(c) },
+    xAxis: timeAxis(c),
+    yAxis: valueAxis(c),
+    series: names.map((item, index) => ({
+      name: item.label,
+      type: "line" as const,
+      smooth: true,
+      symbol: "none",
+      connectNulls: false,
+      data: points.filter((point) => point.observerId === item.id).map((point) => [point.t, point.observationCount]),
+      lineStyle: { color: c.series[index % c.series.length], width: 1.8 },
+      itemStyle: { color: c.series[index % c.series.length] },
+      areaStyle: { color: withAlpha(c.series[index % c.series.length]!, 0.1) },
+    })),
   };
 }
 

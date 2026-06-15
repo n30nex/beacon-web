@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ObserverTab } from "../../../src/features/stats/ObserverTab";
 import { RegionProvider } from "../../../src/hooks/useRegion";
 import { ALL_REGIONS } from "../../../src/hooks/region-selection";
@@ -25,6 +25,10 @@ vi.mock("../../../src/api/client", () => ({
   getRegion: vi.fn(),
   getStatsObserverCompare: vi.fn(),
   getStatsObserverHealth: vi.fn(),
+}));
+
+vi.mock("../../../src/features/stats/EChart", () => ({
+  EChart: () => <div data-testid="compare-chart" />,
 }));
 
 const idA = "00000000-0000-0000-0000-000000000101";
@@ -112,14 +116,28 @@ const observer: Observer = {
 
 const telemetry: ObserverTelemetry = { range: "24h", interval: "1h", points: [] };
 
-function renderObserverTab() {
+function renderObserverTab(initialCompare = false, initialIds: string[] = []) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  function Harness() {
+    const [compare, setCompare] = useState({ enabled: initialCompare, ids: initialIds });
+    return (
+      <ObserverTab
+        compareIds={compare.ids}
+        compareMode={compare.enabled}
+        onCompareChange={(enabled, ids) => setCompare({ enabled, ids })}
+        range="24h"
+        selectedObserverId={null}
+        onSelectObserver={vi.fn()}
+        wsManager={mockWs}
+      />
+    );
+  }
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>
       <RegionProvider defaultSelection={ALL_REGIONS}>{children}</RegionProvider>
     </QueryClientProvider>
   );
-  render(<ObserverTab range="24h" selectedObserverId={null} onSelectObserver={vi.fn()} wsManager={mockWs} />, { wrapper });
+  render(<Harness />, { wrapper });
 }
 
 beforeEach(() => {
@@ -140,7 +158,15 @@ describe("ObserverTab compare", () => {
     expect(await screen.findByText("Shared IATAs")).toBeInTheDocument();
     expect(screen.getAllByText("Gateway A").length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText("Gateway B").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText("Observation Timeline")).toBeInTheDocument();
     expect(screen.getByText("advert 12")).toBeInTheDocument();
+    await waitFor(() => expect(getStatsObserverCompare).toHaveBeenCalledWith(undefined, [idA, idB], { range: "24h" }));
+  });
+
+  it("hydrates compare mode from provided observer ids", async () => {
+    renderObserverTab(true, [idA, idB]);
+
+    expect(await screen.findByText("Shared IATAs")).toBeInTheDocument();
     await waitFor(() => expect(getStatsObserverCompare).toHaveBeenCalledWith(undefined, [idA, idB], { range: "24h" }));
   });
 });
