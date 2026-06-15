@@ -168,6 +168,55 @@ export interface StatsPayloads {
   routeTimeline: StatsRouteBucket[];
 }
 
+export interface StatsHashSizeCount {
+  hashSize: number;
+  observationCount: number;
+  packetCount: number;
+}
+
+export interface StatsHashTimelinePoint {
+  t: number;
+  hashSize: number;
+  observationCount: number;
+  packetCount: number;
+}
+
+export interface StatsHashCollisionPrefix {
+  prefix: string;
+  hashSize: number;
+  iata: string;
+  packetCount: number;
+  observationCount: number;
+  observerCount: number;
+  firstHeard: number;
+  lastHeard: number;
+}
+
+export interface StatsHashInconsistentPacket {
+  packetHash: string;
+  minHashSize: number;
+  maxHashSize: number;
+  hashSizes: number[];
+  iatas: string[];
+  observationCount: number;
+  firstHeard: number;
+  lastHeard: number;
+}
+
+export interface StatsHashAnalytics {
+  serverTime: number;
+  window: StatsWindow;
+  totalPackets: number;
+  totalObservations: number;
+  multibyteObservations: number;
+  inconsistentPacketCount: number;
+  collisionPrefixCount: number;
+  sizeMix: StatsHashSizeCount[];
+  timeline: StatsHashTimelinePoint[];
+  riskyPrefixes: StatsHashCollisionPrefix[];
+  inconsistentPacketSamples: StatsHashInconsistentPacket[];
+}
+
 export interface StatsObserverHealthFlags {
   stale: boolean;
   lowBattery: boolean;
@@ -288,7 +337,7 @@ export interface ObserverTelemetry {
 }
 
 // Sub-tab + time-range identifiers shared across the Stats page.
-export type StatsTab = "overview" | "regions" | "payloads" | "rf" | "observers" | "scopes";
+export type StatsTab = "overview" | "regions" | "payloads" | "hash" | "rf" | "observers" | "scopes";
 export type StatsRange = "24h" | "7d" | "30d";
 
 export const RANGE_MS: Record<StatsRange, number> = {

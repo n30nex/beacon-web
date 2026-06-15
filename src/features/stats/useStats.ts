@@ -5,6 +5,7 @@ import {
   getStatsSummary,
   getStatsRegions,
   getStatsPayloads,
+  getStatsHashAnalytics,
   getStatsRFHealth,
   getStatsObserverHealth,
   getStatsObserverCompare,
@@ -68,6 +69,15 @@ export function useStatsPayloads(range: StatsRange) {
   return useQuery({
     queryKey: ["stats-payloads", regionKey, range],
     queryFn: () => getStatsPayloads(iatas, { range }),
+    ...common,
+  });
+}
+
+export function useStatsHashAnalytics(range: StatsRange, limit = 25) {
+  const { iatas, regionKey } = useStatsIatas();
+  return useQuery({
+    queryKey: ["stats-hash", regionKey, range, limit],
+    queryFn: () => getStatsHashAnalytics(iatas, { range, limit }),
     ...common,
   });
 }

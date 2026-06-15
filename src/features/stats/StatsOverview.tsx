@@ -5,12 +5,13 @@ import { StatsSubHeader } from "./StatsSubHeader";
 import { OverviewTab } from "./OverviewTab";
 import { RegionsTab } from "./RegionsTab";
 import { PayloadsTab } from "./PayloadsTab";
+import { HashTab } from "./HashTab";
 import { RFHealthTab } from "./RFHealthTab";
 import { ObserverTab } from "./ObserverTab";
 import { ScopesTab } from "./ScopesTab";
 import type { StatsRange, StatsTab } from "./types";
 
-const TABS: StatsTab[] = ["overview", "regions", "payloads", "rf", "observers", "scopes"];
+const TABS: StatsTab[] = ["overview", "regions", "payloads", "hash", "rf", "observers", "scopes"];
 const RANGES: StatsRange[] = ["24h", "7d", "30d"];
 
 const asTab = (v: string | null): StatsTab => (TABS.includes(v as StatsTab) ? (v as StatsTab) : "overview");
@@ -83,6 +84,7 @@ export function StatsOverview({ wsManager }: StatsOverviewProps) {
         {tab === "overview" && <OverviewTab range={range} onSelectObserver={handleSelectObserver} wsManager={wsManager} />}
         {tab === "regions" && <RegionsTab range={range} onDrill={handleDrill} />}
         {tab === "payloads" && <PayloadsTab range={range} />}
+        {tab === "hash" && <HashTab range={range} />}
         {tab === "rf" && <RFHealthTab range={range} onSelectObserver={handleSelectObserver} />}
         {tab === "observers" && (
           <ObserverTab

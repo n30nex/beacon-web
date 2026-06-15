@@ -29,6 +29,14 @@ function PulseIcon() {
   );
 }
 
+function HashIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden>
+      <path d="M4.6 1.8 3.7 12.2M10.3 1.8 9.4 12.2M2 5h10M1.5 9h10" />
+    </svg>
+  );
+}
+
 function ObserverIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden>
@@ -42,6 +50,7 @@ const TAB_OPTIONS = [
   { value: "overview", label: "Overview", icon: <OverviewIcon /> },
   { value: "regions", label: "Regions", icon: <RegionIcon /> },
   { value: "payloads", label: "Payloads", icon: <PulseIcon /> },
+  { value: "hash", label: "Hash", icon: <HashIcon /> },
   { value: "rf", label: "RF", icon: <PulseIcon /> },
   { value: "observers", label: "Observers", icon: <ObserverIcon /> },
   { value: "scopes", label: "Scopes", icon: <OverviewIcon /> },
