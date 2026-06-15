@@ -37,6 +37,7 @@ import type {
   StatsPayloads,
   StatsRFHealth,
   StatsObserverHealthResponse,
+  StatsObserverCompare,
 } from "../features/stats/types";
 
 // typed fetch wrapper with query params
@@ -397,6 +398,22 @@ export function getStatsObserverHealth(
     since: params?.since,
     until: params?.until,
     limit: params?.limit,
+    staleAfterMinutes: params?.staleAfterMinutes,
+  });
+}
+
+export function getStatsObserverCompare(
+  iatas: string[] | undefined,
+  observerIds: string[],
+  params?: { range?: string; since?: number; until?: number; bucket?: string; staleAfterMinutes?: number },
+): Promise<StatsObserverCompare> {
+  return request("/stats/observer-compare", {
+    iatas: iatasParam(iatas),
+    observerIds: observerIds.join(","),
+    range: params?.range,
+    since: params?.since,
+    until: params?.until,
+    bucket: params?.bucket,
     staleAfterMinutes: params?.staleAfterMinutes,
   });
 }

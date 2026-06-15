@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { Badge } from "../../components/Badge";
 import { EmptyState } from "../../components/EmptyState";
+import { IataChip } from "../../components/IataChip";
 import { TerminalLoadingState } from "../../components/TerminalLoader";
 import { formatBattery, formatCount, formatUptime, timeAgoMs } from "../../lib/formatters";
 import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { getObserversPage } from "../../api/client";
 import { useRegion } from "../../hooks/useRegion";
 import { useChartColors } from "./chartTheme";
-import { useStatsObserverHealth } from "./useStats";
+import { useStatsObserverCompare, useStatsObserverHealth } from "./useStats";
 import { useObserver, useObserverTelemetry } from "./useTelemetry";
 import { useTick } from "../../hooks/useTick";
 import { deriveObserverStatus } from "../observers/observer-status";
@@ -18,7 +19,7 @@ import { hasTelemetry } from "./transforms";
 import { useLiveObserver } from "./useLiveStats";
 import type { WsManager } from "../../api/ws-manager";
 import type { Observer } from "../observers/types";
-import type { StatsObserverHealth, StatsRange } from "./types";
+import type { StatsObserverCompareItem, StatsObserverHealth, StatsRange } from "./types";
 
 function compactFlags(row?: StatsObserverHealth): string[] {
   if (!row) return [];
@@ -37,10 +38,18 @@ function ObserverList({
   range,
   selectedId,
   onSelect,
+  compareMode,
+  compareIds,
+  onSetCompareMode,
+  onToggleCompareId,
 }: {
   range: StatsRange;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  compareMode: boolean;
+  compareIds: string[];
+  onSetCompareMode: (enabled: boolean) => void;
+  onToggleCompareId: (id: string) => void;
 }) {
   const { iatas, regionKey } = useRegion();
   const [query, setQuery] = useState("");
@@ -82,7 +91,22 @@ function ObserverList({
   const loading = searching ? search.isLoading : health.isLoading;
 
   return (
-    <Card title="Observers" className="w-full">
+    <Card
+      title="Observers"
+      right={
+        <button
+          type="button"
+          className={`rounded border px-2 py-1 font-mono text-[10px] uppercase tracking-wider transition-colors ${
+            compareMode ? "border-primary bg-primary/12 text-primary" : "border-border bg-bg-base text-text-muted hover:border-primary hover:text-text-normal"
+          }`}
+          onClick={() => onSetCompareMode(!compareMode)}
+          aria-pressed={compareMode}
+        >
+          Compare
+        </button>
+      }
+      className="w-full"
+    >
       <input
         type="text"
         value={query}
@@ -100,15 +124,25 @@ function ObserverList({
         )}
         {rows.map((r) => {
           const active = r.id === selectedId;
+          const compared = compareIds.includes(r.id);
+          const compareDisabled = compareMode && !compared && compareIds.length >= 6;
           return (
             <button
               key={r.id}
               type="button"
-              onClick={() => onSelect(r.id)}
+              onClick={() => {
+                if (compareMode) onToggleCompareId(r.id);
+                else onSelect(r.id);
+              }}
+              disabled={compareDisabled}
               className={`relative overflow-hidden rounded border-l-2 px-2.5 py-1.5 text-left transition-colors cursor-pointer ${
-                active ? "border-primary bg-primary/10" : "border-transparent hover:bg-primary/8"
-              }`}
+                compared ? "border-secondary bg-secondary/10" : active ? "border-primary bg-primary/10" : "border-transparent hover:bg-primary/8"
+              } ${compareDisabled ? "opacity-45" : ""}`}
+              aria-pressed={compareMode ? compared : active}
             >
+              {compareMode && (
+                <span className={`absolute right-2 top-2 h-3 w-3 border ${compared ? "border-secondary bg-secondary shadow-[0_0_8px_rgba(var(--rgb-secondary),0.45)]" : "border-border bg-bg-base"}`} aria-hidden />
+              )}
               {r.count != null && (
                 <div
                   className="absolute inset-y-0 left-0 bg-secondary/10"
@@ -191,6 +225,119 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
+function compareLabel(item: StatsObserverCompareItem) {
+  return sanitizeDisplayLabel(item.displayName, item.observerId.slice(0, 8));
+}
+
+function mixLabel(items: ({ payloadTypeName: string; count: number } | { routeTypeName: string; count: number })[]) {
+  const first = items[0];
+  if (!first) return "-";
+  const label = "payloadTypeName" in first ? first.payloadTypeName : first.routeTypeName;
+  return `${label} ${formatCount(first.count)}`;
+}
+
+function CompareBar({ label, value, max, detail }: { label: string; value: number; max: number; detail?: string }) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2 font-mono text-[10px] uppercase tracking-wider">
+        <span className="text-text-dim">{label}</span>
+        <span className="text-text-muted">{formatCount(value)}</span>
+      </div>
+      <div className="h-1.5 overflow-hidden bg-border/50">
+        <div className="h-full bg-primary shadow-[0_0_8px_rgba(var(--rgb-primary),0.45)]" style={{ width: `${Math.max(6, (value / Math.max(1, max)) * 100)}%` }} />
+      </div>
+      {detail && <div className="mt-1 truncate font-mono text-[10px] text-text-dim">{detail}</div>}
+    </div>
+  );
+}
+
+function ObserverComparePanel({ range, observerIds, onSelectObserver }: { range: StatsRange; observerIds: string[]; onSelectObserver: (id: string) => void }) {
+  const compare = useStatsObserverCompare(range, observerIds);
+  const items = compare.data?.items ?? [];
+  const maxObs = Math.max(1, ...items.map((item) => item.observationCount));
+  const maxPackets = Math.max(1, ...items.map((item) => item.packetCount));
+  const bucketCount = new Set((compare.data?.series ?? []).map((point) => point.t)).size;
+
+  if (observerIds.length < 2) {
+    return (
+      <Card title="Observer Compare">
+        <EmptyState title="Select two observers" subtitle="Enable Compare and pick 2 to 6 observers from the list" />
+      </Card>
+    );
+  }
+
+  if (compare.isLoading) {
+    return (
+      <Card title="Observer Compare">
+        <TerminalLoadingState label="QUERYING OBSERVER COMPARE" detail="PLEASE WAIT" />
+      </Card>
+    );
+  }
+
+  if (compare.isError) {
+    return (
+      <Card title="Observer Compare">
+        <EmptyState title="Compare failed" subtitle="The observer comparison endpoint did not respond" />
+      </Card>
+    );
+  }
+
+  return (
+    <Card
+      title="Observer Compare"
+      right={<span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">{items.length} obs / {bucketCount} buckets</span>}
+    >
+      <div className="mb-3 flex flex-wrap items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-text-dim">
+        <span>Shared IATAs</span>
+        {(compare.data?.sharedIatas.length ?? 0) > 0 ? (
+          compare.data!.sharedIatas.map((iata) => <IataChip key={iata}>{iata}</IataChip>)
+        ) : (
+          <span className="text-text-muted">none in window</span>
+        )}
+      </div>
+      {items.length === 0 ? (
+        <EmptyState title="No compare data" subtitle="Selected observers have no matching activity in this region/window" />
+      ) : (
+        <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+          {items.map((item) => (
+            <button
+              key={item.observerId}
+              type="button"
+              className="rounded border border-border bg-bg-base p-3 text-left transition-colors hover:border-primary/60 hover:bg-primary/8"
+              onClick={() => onSelectObserver(item.observerId)}
+            >
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <span className="min-w-0">
+                  <span className="block truncate font-mono text-[13px] font-semibold text-primary">{compareLabel(item)}</span>
+                  <span className="mt-0.5 flex flex-wrap items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-text-dim">
+                    {item.iata && <IataChip>{item.iata}</IataChip>}
+                    {item.observerType && <span>{item.observerType}</span>}
+                  </span>
+                </span>
+                <span className={`font-mono text-lg font-semibold ${item.healthScore < 60 ? "text-danger" : item.healthScore < 80 ? "text-warn" : "text-green"}`}>
+                  {item.healthScore}
+                </span>
+              </div>
+              <div className="space-y-2">
+                <CompareBar label="Observations" value={item.observationCount} max={maxObs} detail={`${formatCount(item.packetCount)} packets`} />
+                <CompareBar label="Packets" value={item.packetCount} max={maxPackets} />
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-[11px]">
+                <Metric label="Payload" value={mixLabel(item.payloadMix)} />
+                <Metric label="Route" value={mixLabel(item.routeMix)} />
+                <Metric label="Noise" value={item.avgNoiseFloorDb == null ? "-" : `${item.avgNoiseFloorDb.toFixed(1)} dB`} />
+                <Metric label="Airtime" value={item.avgAirtimeTxPct == null && item.avgAirtimeRxPct == null ? "-" : `${item.avgAirtimeTxPct?.toFixed(0) ?? "-"} / ${item.avgAirtimeRxPct?.toFixed(0) ?? "-"}%`} />
+                <Metric label="Battery" value={item.avgBatteryMv == null ? "-" : `${item.avgBatteryMv} mV`} />
+                <Metric label="Errors" value={formatCount(item.receiveErrorsSum)} />
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 interface ObserverTabProps {
   range: StatsRange;
   selectedObserverId: string | null;
@@ -204,6 +351,21 @@ export function ObserverTab({ range, selectedObserverId, onSelectObserver, wsMan
   const health = useStatsObserverHealth(range, 80);
   const observer = useObserver(selectedObserverId);
   const telemetry = useObserverTelemetry(selectedObserverId, range);
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const activeCompareIds = useMemo(() => {
+    if (!compareMode || compareIds.length >= 2) return compareIds;
+    const ids: string[] = [];
+    const add = (id: string | null | undefined) => {
+      if (id && !ids.includes(id)) ids.push(id);
+    };
+    add(selectedObserverId);
+    for (const row of health.data?.items ?? []) {
+      add(row.observerId);
+      if (ids.length >= 2) break;
+    }
+    return ids;
+  }, [compareIds, compareMode, health.data?.items, selectedObserverId]);
 
   // default to the busiest observer once the list loads and nothing is selected
   useEffect(() => {
@@ -211,6 +373,33 @@ export function ObserverTab({ range, selectedObserverId, onSelectObserver, wsMan
     const first = health.data?.items?.[0];
     if (first) onSelectObserver(first.observerId);
   }, [selectedObserverId, health.data?.items, onSelectObserver]);
+
+  function handleSetCompareMode(enabled: boolean) {
+    setCompareMode(enabled);
+    if (!enabled) return;
+    setCompareIds((prev) => {
+      if (prev.length >= 2) return prev;
+      const ids: string[] = [];
+      const add = (id: string | null | undefined) => {
+        if (id && !ids.includes(id)) ids.push(id);
+      };
+      add(selectedObserverId);
+      for (const row of health.data?.items ?? []) {
+        add(row.observerId);
+        if (ids.length >= 2) break;
+      }
+      return ids;
+    });
+  }
+
+  function handleToggleCompareId(id: string) {
+    setCompareIds((prev) => {
+      const base = prev.length > 0 ? prev : activeCompareIds;
+      if (base.includes(id)) return base.filter((existing) => existing !== id);
+      if (base.length >= 6) return base;
+      return [...base, id];
+    });
+  }
 
   const points = useMemo(() => telemetry.data?.points ?? [], [telemetry.data]);
   const airtime = useMemo(() => airtimeOption(points, colors), [points, colors]);
@@ -230,11 +419,21 @@ export function ObserverTab({ range, selectedObserverId, onSelectObserver, wsMan
   return (
     <div className="mx-auto flex max-w-[1100px] flex-col gap-3.5 px-4 py-4 lg:flex-row">
       <div className="w-full shrink-0 lg:w-[260px]">
-        <ObserverList range={range} selectedId={selectedObserverId} onSelect={onSelectObserver} />
+        <ObserverList
+          range={range}
+          selectedId={selectedObserverId}
+          onSelect={onSelectObserver}
+          compareMode={compareMode}
+          compareIds={activeCompareIds}
+          onSetCompareMode={handleSetCompareMode}
+          onToggleCompareId={handleToggleCompareId}
+        />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-3.5">
-        {!selectedObserverId ? (
+        {compareMode ? (
+          <ObserverComparePanel range={range} observerIds={activeCompareIds} onSelectObserver={onSelectObserver} />
+        ) : !selectedObserverId ? (
           <Card title="Telemetry">
             <EmptyState title="Select an observer" subtitle="Pick an observer to view its telemetry" />
           </Card>

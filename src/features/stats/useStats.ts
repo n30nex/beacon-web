@@ -7,6 +7,7 @@ import {
   getStatsPayloads,
   getStatsRFHealth,
   getStatsObserverHealth,
+  getStatsObserverCompare,
   getStatsObservations,
   getPayloadBreakdown,
   getTopNodes,
@@ -85,6 +86,17 @@ export function useStatsObserverHealth(range: StatsRange, limit = 50) {
   return useQuery({
     queryKey: ["stats-observer-health", regionKey, range, limit],
     queryFn: () => getStatsObserverHealth(iatas, { range, limit }),
+    ...common,
+  });
+}
+
+export function useStatsObserverCompare(range: StatsRange, observerIds: string[]) {
+  const { iatas, regionKey } = useStatsIatas();
+  const stableIds = [...observerIds].sort();
+  return useQuery({
+    queryKey: ["stats-observer-compare", regionKey, range, stableIds],
+    queryFn: () => getStatsObserverCompare(iatas, stableIds, { range }),
+    enabled: stableIds.length >= 2,
     ...common,
   });
 }

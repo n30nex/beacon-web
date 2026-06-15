@@ -205,6 +205,39 @@ export interface StatsObserverHealthResponse {
   items: StatsObserverHealth[];
 }
 
+export interface StatsObserverCompareItem extends StatsObserverHealth {
+  packetCount: number;
+  payloadMix: PayloadBreakdownItem[];
+  routeMix: RouteMixItem[];
+  avgNoiseFloorDb?: number;
+  avgAirtimeTxPct?: number;
+  avgAirtimeRxPct?: number;
+  avgBatteryMv?: number;
+  maxQueueLength?: number;
+  receiveErrorsSum: number;
+}
+
+export interface StatsObserverComparePoint {
+  t: number;
+  observerId: string;
+  packetCount: number;
+  observationCount: number;
+  noiseFloorDb?: number;
+  airtimeTxPct?: number;
+  airtimeRxPct?: number;
+  queueLength?: number;
+  receiveErrors: number;
+  batteryMv?: number;
+}
+
+export interface StatsObserverCompare {
+  serverTime: number;
+  window: StatsWindow;
+  sharedIatas: string[];
+  items: StatsObserverCompareItem[];
+  series: StatsObserverComparePoint[];
+}
+
 export interface StatsRFHealthIata {
   iata: string;
   activeObservers: number;
