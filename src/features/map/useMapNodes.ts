@@ -29,8 +29,9 @@ import {
 
 type NodeFC = FeatureCollection<Point, NodeFeatureProps>;
 
-function cssVar(name: string, fallback: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+function mapCssVar(map: MapLibreMap, name: string, fallback: string): string {
+  const scope = map.getContainer().closest("[data-map-profile]") ?? map.getContainer();
+  return getComputedStyle(scope).getPropertyValue(name).trim() || fallback;
 }
 
 const EMPTY_FC: FeatureCollection<Point> = { type: "FeatureCollection", features: [] };
@@ -142,8 +143,8 @@ export function useMapNodes(
     const map = mapRef.current;
     if (!map || !isReady) return;
 
-    const textColor = cssVar("--palette-text-bright", isDark ? "#ffe9a8" : "#120900");
-    const halo = isDark ? "rgba(0,0,0,0.9)" : "rgba(255,176,0,0.26)";
+    const textColor = mapCssVar(map, "--map-node-label", isDark ? "#ffe9a8" : "#120900");
+    const halo = mapCssVar(map, "--map-node-label-halo", isDark ? "rgba(0,0,0,0.9)" : "rgba(255,255,255,0.86)");
 
     // maplibre fixes `cluster` at source creation, so toggling clustering means recreating the
     // source. The spiderfy effect below also keys on `clustered` and re-applies itself around this.
@@ -188,7 +189,11 @@ export function useMapNodes(
           "text-size": ["interpolate", ["linear"], ["get", "point_count"], 2, 13, 25, 16, 100, 20],
           "text-allow-overlap": true,
         },
-        paint: { "text-color": cssVar("--palette-bg-base", "#090500"), "text-halo-color": cssVar("--palette-primary", "#ffb000"), "text-halo-width": 1.2 },
+        paint: {
+          "text-color": mapCssVar(map, "--map-cluster-text", "#fff7cc"),
+          "text-halo-color": mapCssVar(map, "--map-primary", "#ffb000"),
+          "text-halo-width": 1.2,
+        },
       } as SymbolLayerSpecification);
     }
 
@@ -221,7 +226,7 @@ export function useMapNodes(
 
     // Ring under the selected node's icon. Only matches an unclustered point (clusters carry no id);
     // color tracks --palette-primary.
-    const primary = cssVar("--palette-primary", "#ffb000");
+    const primary = mapCssVar(map, "--map-primary", "#ffb000");
     if (!map.getLayer(NODES_SELECTED_LAYER_ID)) {
       map.addLayer(
         {
@@ -268,6 +273,8 @@ export function useMapNodes(
     // node-label colors track the basemap dark/light flag (cluster count is white on the hexagon)
     map.setPaintProperty(NODES_POINT_LAYER_ID, "text-color", textColor);
     map.setPaintProperty(NODES_POINT_LAYER_ID, "text-halo-color", halo);
+    map.setPaintProperty(NODES_CLUSTER_LAYER_ID, "text-color", mapCssVar(map, "--map-cluster-text", "#fff7cc"));
+    map.setPaintProperty(NODES_CLUSTER_LAYER_ID, "text-halo-color", primary);
 
     // Seed only a freshly created source (first build, or a clustering-toggle recreate). On a pure
     // theme/basemap change the source already holds the current data, so re-seeding it would force a
@@ -285,7 +292,7 @@ export function useMapNodes(
     if (!map || !isReady) return;
     let cancelled = false;
     const provide = (id: string) =>
-      rasterizeNodeIcon(id, isDark)
+      rasterizeNodeIcon(id, isDark, map.getContainer().closest("[data-map-profile]") ?? map.getContainer())
         .then((icon) => {
           if (cancelled || !icon || mapRef.current !== map) return;
           if (map.hasImage(id)) map.removeImage(id);
@@ -367,7 +374,7 @@ export function useMapNodes(
       // Connector legs from the cluster to each fanned-out node. Width MUST be an integer: the lib
       // rasterizes each leg as a width×length image, and a fractional width (1.5) renders as a
       // broken dotted sprite — 2 gives a clean line.
-      spiderLegsColor: cssVar("--palette-text-dim", "#6e4818"),
+      spiderLegsColor: mapCssVar(map, "--map-spider-leg", "#6e4818"),
       spiderLegsWidth: 2,
       spiderLeavesLayout: SPIDER_LEAVES_LAYOUT,
     });

@@ -241,8 +241,8 @@ function AppInner() {
   }, []);
 
   const tabContent: Record<string, React.ReactNode> = {
-    Atlas: <AtlasView wsManager={wsManager} onViewNode={setOverlayNodeId} />,
-    Live: <LiveView wsManager={wsManager} onAnalyze={setOverlayPacketHash} />,
+    Atlas: <AtlasView wsManager={wsManager} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} nodePanelOpen={Boolean(selectedNodeId)} />,
+    Live: <LiveView wsManager={wsManager} onAnalyze={setOverlayPacketHash} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} nodePanelOpen={Boolean(selectedNodeId)} />,
     Packets: <PacketList wsManager={wsManager} onAnalyze={handleAnalyze} />,
     Nodes: <NodeTable wsManager={wsManager} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />,
     Observers: <ObserverTable wsManager={wsManager} selectedObserverId={selectedObserverId} onSelectObserver={setSelectedObserverId} onAnalyzePacket={setOverlayPacketHash} onViewStats={handleViewObserverStats} />,
@@ -277,7 +277,7 @@ function AppInner() {
               onViewNode={setOverlayNodeId}
             />
           )}
-          {(activeTab === "Map" || activeTab === "Nodes") && selectedNodeId && (
+          {(activeTab === "Atlas" || activeTab === "Live" || activeTab === "Map" || activeTab === "Nodes") && selectedNodeId && (
             <NodeDetailPanel
               nodeId={selectedNodeId}
               onClose={() => setSelectedNodeId(null)}

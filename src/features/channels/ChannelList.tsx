@@ -74,6 +74,13 @@ export function ChannelList({ wsManager, onAnalyze }: ChannelListProps) {
   // resolve against the full list so a selected channel keeps showing even when filtered out
   const selectedChannel = sortedChannels.find((ch) => ch.id === selectedId) ?? null;
 
+  useEffect(() => {
+    if (isLoading || sortedChannels.length === 0) return;
+    if (selectedId != null && selectedChannel) return;
+    const publicChannel = sortedChannels.find((ch) => ch.name?.trim().toLowerCase() === "public");
+    setSelectedId((publicChannel ?? sortedChannels[0]!).id);
+  }, [isLoading, selectedChannel, selectedId, sortedChannels]);
+
   const handleChannelMessage = useCallback(
     (data: ChannelMessage) => {
       // bump lastSeen, or refetch the list if this is a channel we haven't seen yet

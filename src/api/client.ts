@@ -8,6 +8,7 @@ import type {
   Region,
   BrokerStatus,
   KnownRoute,
+  NodeRouteNeighborhood,
   CrossIATARoute,
   TraceTagSummary,
   TraceDetail,
@@ -206,6 +207,21 @@ export async function getKnownRoutesPage(
     limit,
   });
   return toCursorPage(items, limit, (r) => r.lastSeen);
+}
+
+export function getKnownRoute(routeId: number): Promise<KnownRoute> {
+  return request(`/routes/${routeId}`);
+}
+
+export function getNodeRouteNeighborhood(
+  nodeId: string,
+  params?: { iatas?: string[]; region?: string; maxHops?: number },
+): Promise<NodeRouteNeighborhood> {
+  return request(`/nodes/${nodeId}/route-neighborhood`, {
+    iatas: iatasParam(params?.iatas),
+    region: params?.region,
+    maxHops: params?.maxHops,
+  });
 }
 
 // Search known routes for a path between two node hash prefixes within a single IATA. All three params

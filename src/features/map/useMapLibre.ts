@@ -9,11 +9,14 @@ import {
   DEFAULT_ZOOM,
   DEFAULT_PITCH,
   DEFAULT_BEARING,
+  MAP_TOPOGRAPHY_BEARING,
+  MAP_TOPOGRAPHY_PITCH,
   MAX_PITCH,
   IATA_ZOOM,
   IATA_PITCH,
   resolveMapStyle,
 } from "./types";
+import type { MapVisualProfile } from "./appearance";
 
 // serialized fit target, so the fit effect can skip redundant re-fits
 const fitKey = (points: [number, number][] | null) =>
@@ -52,11 +55,33 @@ function ensureTerrainSource(map: MapLibreMap) {
 // cheap: it only mutates when crossing the engage threshold (guarded by getTerrain/getLayer), so it
 // is safe to call on every moveend and after each style reload. When engaged the result is identical
 // to before; when disengaged the flat view skips the terrain render path entirely.
-function applyTerrainState(map: MapLibreMap, isDark: boolean) {
+interface UseMapLibreOptions {
+  topographyEnabled?: boolean;
+  topographyAlwaysVisible?: boolean;
+  topographyForce3d?: boolean;
+  visualProfile?: MapVisualProfile;
+}
+
+function applyTerrainState(
+  map: MapLibreMap,
+  isDark: boolean,
+  enabled: boolean,
+  alwaysShowHillshade: boolean,
+  force3d: boolean,
+  visualProfile: MapVisualProfile | undefined,
+) {
   if (!map.isStyleLoaded()) return;
+  if (!enabled) {
+    if (map.getTerrain()) map.setTerrain(null);
+    if (map.getLayer(HILLSHADE_LAYER_ID)) map.removeLayer(HILLSHADE_LAYER_ID);
+    map.getContainer().dataset.topography = "off";
+    return;
+  }
   ensureTerrainSource(map);
-  const engaged = map.getPitch() > TERRAIN_ENGAGE_PITCH || map.getZoom() >= TERRAIN_ENGAGE_ZOOM;
-  if (engaged) {
+  const engaged = force3d || map.getPitch() > TERRAIN_ENGAGE_PITCH || map.getZoom() >= TERRAIN_ENGAGE_ZOOM;
+  const showHillshade = alwaysShowHillshade || engaged;
+  map.getContainer().dataset.topography = engaged ? "terrain" : showHillshade ? "hillshade" : "off";
+  if (showHillshade) {
     if (!map.getLayer(HILLSHADE_LAYER_ID)) {
       // insert beneath labels/roads so they stay legible over the relief
       const firstSymbolId = map.getStyle().layers?.find((l) => l.type === "symbol")?.id;
@@ -66,19 +91,38 @@ function applyTerrainState(map: MapLibreMap, isDark: boolean) {
           type: "hillshade",
           source: TERRAIN_SOURCE_ID,
           paint: {
-            "hillshade-exaggeration": 0.5,
-            "hillshade-shadow-color": isDark ? "#000000" : "#1a1a1a",
-            "hillshade-highlight-color": isDark ? "#333333" : "#ffffff",
+            "hillshade-exaggeration": visualProfile?.hillshadeExaggeration ?? 0.5,
+            "hillshade-shadow-color": visualProfile?.hillshadeShadowColor ?? (isDark ? "#000000" : "#1a1a1a"),
+            "hillshade-highlight-color": visualProfile?.hillshadeHighlightColor ?? (isDark ? "#333333" : "#ffffff"),
             "hillshade-illumination-direction": 315,
           },
         },
         firstSymbolId,
       );
     }
-    if (!map.getTerrain()) map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: TERRAIN_EXAGGERATION });
+    map.setPaintProperty(HILLSHADE_LAYER_ID, "hillshade-exaggeration", visualProfile?.hillshadeExaggeration ?? 0.5);
+    map.setPaintProperty(
+      HILLSHADE_LAYER_ID,
+      "hillshade-shadow-color",
+      visualProfile?.hillshadeShadowColor ?? (isDark ? "#000000" : "#1a1a1a"),
+    );
+    map.setPaintProperty(
+      HILLSHADE_LAYER_ID,
+      "hillshade-highlight-color",
+      visualProfile?.hillshadeHighlightColor ?? (isDark ? "#333333" : "#ffffff"),
+    );
+  } else if (map.getLayer(HILLSHADE_LAYER_ID)) {
+    map.removeLayer(HILLSHADE_LAYER_ID);
+  }
+
+  if (engaged) {
+    const exaggeration = force3d ? visualProfile?.terrainExaggeration ?? TERRAIN_EXAGGERATION : TERRAIN_EXAGGERATION;
+    const terrain = map.getTerrain();
+    if (!terrain || terrain.exaggeration !== exaggeration) {
+      map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration });
+    }
   } else {
     if (map.getTerrain()) map.setTerrain(null);
-    if (map.getLayer(HILLSHADE_LAYER_ID)) map.removeLayer(HILLSHADE_LAYER_ID);
   }
 }
 
@@ -87,6 +131,7 @@ export function useMapLibre(
   // lng/lat pairs to fitBounds over; null/empty falls back to the configured default view
   fitPoints: [number, number][] | null,
   onStyleError?: (lastGoodStyleId: string) => void,
+  options?: UseMapLibreOptions,
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -97,6 +142,10 @@ export function useMapLibre(
   const swapPendingRef = useRef(false); // a setStyle() basemap swap is in flight (awaiting style.load)
   const onStyleErrorRef = useRef(onStyleError);
   const lastFitKeyRef = useRef<string | null>(null); // last applied fit target; skips redundant re-fits
+  const topographyEnabledRef = useRef(options?.topographyEnabled ?? true);
+  const topographyAlwaysVisibleRef = useRef(options?.topographyAlwaysVisible ?? false);
+  const topographyForce3dRef = useRef(options?.topographyForce3d ?? false);
+  const visualProfileRef = useRef(options?.visualProfile);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -107,6 +156,54 @@ export function useMapLibre(
   useEffect(() => {
     onStyleErrorRef.current = onStyleError;
   }, [onStyleError]);
+  useEffect(() => {
+    topographyEnabledRef.current = options?.topographyEnabled ?? true;
+    topographyAlwaysVisibleRef.current = options?.topographyAlwaysVisible ?? false;
+    topographyForce3dRef.current = options?.topographyForce3d ?? false;
+    visualProfileRef.current = options?.visualProfile;
+    const map = mapRef.current;
+    if (map && hasLoadedRef.current && !swapPendingRef.current && map.isStyleLoaded()) {
+      applyTerrainState(
+        map,
+        resolveMapStyle(styleIdRef.current).dark,
+        topographyEnabledRef.current,
+        topographyAlwaysVisibleRef.current,
+        topographyForce3dRef.current,
+        visualProfileRef.current,
+      );
+      if (topographyEnabledRef.current && topographyForce3dRef.current && map.getPitch() < TERRAIN_ENGAGE_PITCH) {
+        map.easeTo({
+          pitch: MAP_TOPOGRAPHY_PITCH,
+          bearing: Math.abs(map.getBearing()) < 1 ? MAP_TOPOGRAPHY_BEARING : map.getBearing(),
+          duration: 550,
+        });
+      }
+    }
+  }, [options?.topographyAlwaysVisible, options?.topographyEnabled, options?.topographyForce3d, options?.visualProfile]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isReady || swapPendingRef.current) return;
+    let timeoutId: number | undefined;
+    const apply = () => {
+      if (!map.isStyleLoaded()) {
+        timeoutId = window.setTimeout(apply, 100);
+        return;
+      }
+      applyTerrainState(
+        map,
+        resolveMapStyle(styleIdRef.current).dark,
+        topographyEnabledRef.current,
+        topographyAlwaysVisibleRef.current,
+        topographyForce3dRef.current,
+        visualProfileRef.current,
+      );
+    };
+    timeoutId = window.setTimeout(apply, 0);
+    return () => {
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
+  }, [isReady, options?.topographyAlwaysVisible, options?.topographyEnabled, options?.topographyForce3d, options?.visualProfile]);
 
   // Init once. StrictMode-safe: the guard prevents a duplicate map, and cleanup fully tears the
   // map down (map.remove() disposes the GL context + all map.on listeners) and nulls the ref so a
@@ -122,8 +219,9 @@ export function useMapLibre(
       style: resolveMapStyle(styleIdRef.current).url,
       center: DEFAULT_CENTER,
       zoom: DEFAULT_ZOOM,
-      pitch: DEFAULT_PITCH,
-      bearing: DEFAULT_BEARING,
+      pitch: topographyEnabledRef.current && topographyForce3dRef.current ? MAP_TOPOGRAPHY_PITCH : DEFAULT_PITCH,
+      bearing:
+        topographyEnabledRef.current && topographyForce3dRef.current ? MAP_TOPOGRAPHY_BEARING : DEFAULT_BEARING,
       maxPitch: MAX_PITCH,
       attributionControl: false, // replaced below with a compact (always-collapsed) control
     });
@@ -141,7 +239,14 @@ export function useMapLibre(
     attrib?.classList.remove("maplibregl-compact-show");
 
     const onStyleReady = () => {
-      applyTerrainState(map, resolveMapStyle(styleIdRef.current).dark);
+      applyTerrainState(
+        map,
+        resolveMapStyle(styleIdRef.current).dark,
+        topographyEnabledRef.current,
+        topographyAlwaysVisibleRef.current,
+        topographyForce3dRef.current,
+        visualProfileRef.current,
+      );
       hasLoadedRef.current = true;
       swapPendingRef.current = false;
       lastGoodStyleIdRef.current = styleIdRef.current;
@@ -155,7 +260,14 @@ export function useMapLibre(
     // returning to a flat overview turns it off. Idempotent, so a plain pan at high zoom is a no-op.
     const onCameraSettle = () => {
       if (!hasLoadedRef.current || swapPendingRef.current || !map.isStyleLoaded()) return;
-      applyTerrainState(map, resolveMapStyle(styleIdRef.current).dark);
+      applyTerrainState(
+        map,
+        resolveMapStyle(styleIdRef.current).dark,
+        topographyEnabledRef.current,
+        topographyAlwaysVisibleRef.current,
+        topographyForce3dRef.current,
+        visualProfileRef.current,
+      );
     };
     map.on("moveend", onCameraSettle);
 
@@ -221,7 +333,16 @@ export function useMapLibre(
     lastFitKeyRef.current = key;
 
     if (!fitPoints || fitPoints.length === 0) {
-      map.flyTo({ center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM, pitch: DEFAULT_PITCH, bearing: DEFAULT_BEARING });
+      map.flyTo({
+        center: DEFAULT_CENTER,
+        zoom: DEFAULT_ZOOM,
+        pitch:
+          topographyEnabledRef.current && topographyForce3dRef.current ? MAP_TOPOGRAPHY_PITCH : DEFAULT_PITCH,
+        bearing:
+          topographyEnabledRef.current && topographyForce3dRef.current
+            ? MAP_TOPOGRAPHY_BEARING
+            : DEFAULT_BEARING,
+      });
       return;
     }
 
@@ -232,8 +353,14 @@ export function useMapLibre(
     map.fitBounds(bounds, {
       padding: 48,
       maxZoom: IATA_ZOOM,
-      pitch: fitPoints.length === 1 ? IATA_PITCH : DEFAULT_PITCH,
-      bearing: DEFAULT_BEARING,
+      pitch:
+        topographyEnabledRef.current && topographyForce3dRef.current
+          ? MAP_TOPOGRAPHY_PITCH
+          : fitPoints.length === 1
+            ? IATA_PITCH
+            : DEFAULT_PITCH,
+      bearing:
+        topographyEnabledRef.current && topographyForce3dRef.current ? MAP_TOPOGRAPHY_BEARING : DEFAULT_BEARING,
     });
   }, [fitPoints, isReady]);
 

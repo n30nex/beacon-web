@@ -6,12 +6,10 @@ import { useScopes } from "../../hooks/useScopes";
 import { useInfinitePages } from "../../hooks/useInfinitePages";
 import { useCoalescedInfinitePatch } from "../../hooks/useCoalescedInfinitePatch";
 import { useWsNodeUpdateHandler } from "../../hooks/useWsHandlers";
-import { formatHex, timeAgoMs, formatRadio } from "../../lib/formatters";
+import { formatHex, formatRadio, timeAgoMs } from "../../lib/formatters";
 import { sanitizeDisplayLabel } from "../../lib/display-label";
-import { Badge } from "../../components/Badge";
 import { Tooltip } from "../../components/Tooltip";
 import { ObserverIcon } from "../../components/ObserverIcon";
-import { DataTable, type Column } from "../../components/DataTable";
 import { LoadingPill } from "../../components/LoadingPill";
 import { NodeFilterBar, type MultibyteFilter } from "./NodeFilterBar";
 import { patchNodeSummary } from "./node-updates";
@@ -19,109 +17,71 @@ import type { NodeSummary } from "./types";
 import type { WsManager } from "../../api/ws-manager";
 import type { WsNodeUpdate } from "../../types/ws";
 
-const nodeId = (n: NodeSummary) => n.id; // stable id accessor for the paged hook's dedup
-const nodeUpdateKey = (d: WsNodeUpdate["data"]) => d.nodeId; // collapse repeat updates to one node per frame
+const NODE_GRID_PAGE_SIZE = 500;
+const nodeId = (n: NodeSummary) => n.id;
+const nodeUpdateKey = (d: WsNodeUpdate["data"]) => d.nodeId;
 
 interface NodeTableProps {
   wsManager: WsManager;
-  // shared with the Map tab (lifted to AppInner) so the detail panel persists across tab switches
   selectedNodeId: string | null;
   onSelectNode: (id: string | null) => void;
 }
 
-const COLUMNS: Column<NodeSummary>[] = [
-  {
-    header: "Name",
-    sortValue: (node) => sanitizeDisplayLabel(node.name, formatHex(node.id)),
-    cell: (node) => {
-      const label = sanitizeDisplayLabel(node.name, formatHex(node.id));
-      const hasName = Boolean(node.name && label !== formatHex(node.id));
-      return (
-        <span className={`truncate ${hasName ? "text-text-normal" : "text-text-dim italic"}`}>
-          {label}
-        </span>
-      );
-    },
-  },
-  {
-    header: "Type",
-    sortValue: (node) => node.nodeTypeName,
-    cell: (node) => (
-      <Badge variant="default">
-        {node.isObserver && (
-          <Tooltip label="Observer" className="mr-1"><ObserverIcon /></Tooltip>
-        )}
-        {node.nodeTypeName}
-      </Badge>
-    ),
-  },
-  {
-    header: "Radio",
-    className: "text-text-muted",
-    sortValue: (node) => formatRadio(node.radio) ?? null,
-    cell: (node) => formatRadio(node.radio) ?? "—",
-  },
-  {
-    header: "IATAs",
-    cell: (node) =>
-      node.iatas && node.iatas.length > 0 ? (
-        <div className="flex flex-wrap gap-1">
-          {node.iatas.map((entry) => (
-            <Tooltip key={entry.iata} label={`last heard ${timeAgoMs(entry.lastHeard)} ago`}>
-              <Badge variant="default">{entry.iata}</Badge>
-            </Tooltip>
-          ))}
-        </div>
-      ) : (
-        <span className="text-text-dim">—</span>
-      ),
-  },
-  {
-    header: "Location",
-    className: "text-text-muted",
-    cell: (node) =>
-      node.lat != null && node.lng != null
-        ? `${node.lat.toFixed(2)}, ${node.lng.toFixed(2)}`
-        : "—",
-  },
-];
+function nodeLastHeard(node: NodeSummary): number {
+  return Math.max(0, ...node.iatas.map((entry) => entry.lastHeard));
+}
 
-function renderNodeCard(node: NodeSummary) {
+function nodeAccent(node: NodeSummary): string {
+  const source = sanitizeDisplayLabel(node.name, node.id);
+  let hash = 2166136261;
+  for (let i = 0; i < source.length; i += 1) {
+    hash ^= source.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `hsl(${Math.abs(hash) % 360} 86% 56%)`;
+}
+
+function NodeGridCard({
+  node,
+  onSelect,
+  selected,
+}: {
+  node: NodeSummary;
+  onSelect: (id: string) => void;
+  selected: boolean;
+}) {
   const label = sanitizeDisplayLabel(node.name, formatHex(node.id));
   const hasName = Boolean(node.name && label !== formatHex(node.id));
-  const location =
-    node.lat != null && node.lng != null
-      ? `${node.lat.toFixed(2)}, ${node.lng.toFixed(2)}`
-      : null;
+  const accent = nodeAccent(node);
+  const lastHeard = nodeLastHeard(node);
+
   return (
-    <div className="flex flex-col gap-1.5 font-mono text-xs">
-      <div className="flex items-center justify-between gap-2">
-        <span className={`flex-1 min-w-0 truncate ${hasName ? "text-text-normal" : "text-text-dim italic"}`}>
+    <button
+      type="button"
+      onClick={() => onSelect(node.id)}
+      className={`group min-w-0 rounded-sm border bg-bg-surface/80 p-1.5 text-left font-mono transition-colors hover:bg-primary/8 ${
+        selected ? "border-primary text-text-bright" : "border-border-subtle text-text-normal"
+      }`}
+      style={{ boxShadow: selected ? `0 0 14px ${accent}66` : `inset 2px 0 0 ${accent}` }}
+      title={label}
+    >
+      <div className="flex min-w-0 items-center gap-1">
+        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: accent, color: accent }} />
+        <span className={`min-w-0 flex-1 truncate text-[10px] leading-tight ${hasName ? "" : "italic text-text-dim"}`}>
           {label}
         </span>
-        <span className="shrink-0">
-          <Badge variant="default">
-            {node.isObserver && (
-              <Tooltip label="Observer" className="mr-1"><ObserverIcon /></Tooltip>
-            )}
-            {node.nodeTypeName}
-          </Badge>
-        </span>
+        {node.isObserver && (
+          <Tooltip label="Observer">
+            <span className="shrink-0 text-primary"><ObserverIcon /></span>
+          </Tooltip>
+        )}
       </div>
-      <div className="flex items-center gap-2 text-text-muted">
-        <span>{formatRadio(node.radio) ?? "—"}</span>
-        {location && <span>· {location}</span>}
+      <div className="mt-1 truncate text-[9px] uppercase leading-tight tracking-wide text-text-muted">{node.nodeTypeName}</div>
+      <div className="mt-1 flex items-center justify-between gap-1 text-[9px] leading-tight text-text-dim">
+        <span className="truncate">{formatRadio(node.radio) ?? "no radio"}</span>
+        <span className="shrink-0">{lastHeard > 0 ? timeAgoMs(lastHeard) : "never"}</span>
       </div>
-      {node.iatas && node.iatas.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {node.iatas.map((entry) => (
-            <Tooltip key={entry.iata} label={`last heard ${timeAgoMs(entry.lastHeard)} ago`}>
-              <Badge variant="default">{entry.iata}</Badge>
-            </Tooltip>
-          ))}
-        </div>
-      )}
-    </div>
+    </button>
   );
 }
 
@@ -131,7 +91,7 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
   const [typeFilter, setTypeFilter] = useState("");
   const [pathsFilter, setPathsFilter] = useState<MultibyteFilter>("");
   const [tracesFilter, setTracesFilter] = useState<MultibyteFilter>("");
-  const [scopeFilter, setScopeFilter] = useState(""); // "" = Any; applied client-side over the loaded set
+  const [scopeFilter, setScopeFilter] = useState("");
   const [search, setSearch] = useState("");
   const [searchField, setSearchField] = useState("name");
 
@@ -140,13 +100,12 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
     [regionKey, typeFilter, pathsFilter, tracesFilter, search, searchField],
   );
 
-  // page the region's nodes 50 at a time (filters stay server-side, in the query key); rows stream
-  // in as each batch lands. Loads once per filter set — WS updates keep them live, no 30s refetch.
   const { items: nodes, loadedCount, isPaging, isError, isLoading } = useInfinitePages<NodeSummary>({
     queryKey,
     queryFn: (cursor) =>
       getNodesPage(iatas, {
         cursor,
+        limit: NODE_GRID_PAGE_SIZE,
         type: typeFilter || undefined,
         name: searchField === "name" ? search || undefined : undefined,
         supportsMultibytePaths: pathsFilter || undefined,
@@ -156,15 +115,15 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
     keepPrevious: true,
   });
 
-  // scope options are the configured scopes; the filter itself is applied client-side on defaultScope
   const scopeOptions = useScopes();
-
   const displayNodes = useMemo(
-    () => (scopeFilter ? nodes.filter((n) => n.defaultScope === scopeFilter) : nodes),
+    () =>
+      (scopeFilter ? nodes.filter((n) => n.defaultScope === scopeFilter) : nodes)
+        .slice()
+        .sort((a, b) => nodeLastHeard(b) - nodeLastHeard(a) || sanitizeDisplayLabel(a.name, a.id).localeCompare(sanitizeDisplayLabel(b.name, b.id))),
     [nodes, scopeFilter],
   );
 
-  // refresh the open node's detail panel live; this side effect runs per event (not coalesced)
   const onNodeUpdate = useCallback(
     (data: WsNodeUpdate["data"]) => {
       if (selectedNodeId === data.nodeId) {
@@ -173,7 +132,7 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
     },
     [queryClient, selectedNodeId],
   );
-  // cache patches are coalesced per frame so an advert flood is one items rebuild + one table render
+
   useWsNodeUpdateHandler(
     wsManager,
     useCoalescedInfinitePatch<NodeSummary, WsNodeUpdate["data"]>(queryKey, nodeUpdateKey, patchNodeSummary, onNodeUpdate),
@@ -181,7 +140,7 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
 
   return (
     <div className="flex flex-1 min-h-0">
-      <div className="relative flex flex-col flex-1 min-w-0">
+      <div className="relative flex min-w-0 flex-1 flex-col">
         <NodeFilterBar
           search={search}
           onSearchChange={setSearch}
@@ -198,17 +157,19 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
           scopeOptions={scopeOptions}
         />
 
-        <DataTable
-          columns={COLUMNS}
-          rows={displayNodes}
-          rowKey={(n) => n.id}
-          selectedKey={selectedNodeId}
-          onSelect={onSelectNode}
-          isLoading={isLoading}
-          emptyLabel="No nodes"
-          defaultSort={{ header: "Name" }}
-          renderCard={renderNodeCard}
-        />
+        <div className="min-h-0 flex-1 overflow-y-auto p-2">
+          {isLoading ? (
+            <div className="py-10 text-center font-mono text-sm text-text-dim">Loading nodes</div>
+          ) : displayNodes.length === 0 ? (
+            <div className="py-10 text-center font-mono text-sm text-text-dim">No nodes</div>
+          ) : (
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-10 2xl:grid-cols-[repeat(20,minmax(0,1fr))]">
+              {displayNodes.map((node) => (
+                <NodeGridCard key={node.id} node={node} selected={selectedNodeId === node.id} onSelect={onSelectNode} />
+              ))}
+            </div>
+          )}
+        </div>
         <LoadingPill loading={isPaging} error={isError} count={loadedCount} noun="nodes" position="bottom-3 right-3" />
       </div>
     </div>

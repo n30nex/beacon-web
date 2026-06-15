@@ -270,6 +270,65 @@
   backdrop-filter: none;
 }
 
+.map-profile-scope {
+  --map-panel-bg: var(--color-bg-surface);
+  --map-panel-bg-raised: var(--color-bg-raised);
+  --map-panel-border: var(--color-border);
+  --map-panel-border-subtle: var(--color-border-subtle);
+  --map-panel-shadow: 0 0 16px color-mix(in srgb, var(--color-primary) 14%, transparent);
+  --map-control-bg: var(--color-bg-raised);
+  --map-control-hover: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  --map-canvas-filter: sepia(0.22) saturate(1.18) contrast(1.1) brightness(0.9)
+    drop-shadow(0 0 8px color-mix(in srgb, var(--color-primary) 12%, transparent));
+}
+
+.map-profile-scope .crt-panel,
+.map-profile-scope .crt-float-panel {
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 4px,
+      color-mix(in srgb, var(--map-primary, var(--color-primary)) 5%, transparent) 4px,
+      color-mix(in srgb, var(--map-primary, var(--color-primary)) 5%, transparent) 5px
+    ),
+    linear-gradient(180deg, color-mix(in srgb, var(--map-panel-bg-raised) 84%, var(--map-primary, var(--color-primary)) 16%), var(--map-panel-bg)),
+    var(--map-panel-bg);
+  border-color: var(--map-panel-border);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--map-primary, var(--color-primary)) 10%, transparent),
+    inset 0 0 20px rgba(0, 0, 0, 0.58),
+    var(--map-panel-shadow);
+}
+
+.map-profile-scope .border-border {
+  border-color: var(--map-panel-border);
+}
+
+.map-profile-scope .border-border-subtle {
+  border-color: var(--map-panel-border-subtle);
+}
+
+.map-profile-scope[data-map-profile="liberty"] .text-text-bright,
+.map-profile-scope[data-map-profile="light"] .text-text-bright {
+  color: var(--map-text-bright);
+}
+
+.map-profile-scope[data-map-profile="liberty"] .text-text-normal,
+.map-profile-scope[data-map-profile="light"] .text-text-normal {
+  color: var(--map-text-normal);
+}
+
+.map-profile-scope[data-map-profile="liberty"] .text-text-muted,
+.map-profile-scope[data-map-profile="light"] .text-text-muted {
+  color: var(--map-text-muted);
+}
+
+.map-profile-scope[data-map-profile="liberty"] .text-text-dim,
+.map-profile-scope[data-map-profile="light"] .text-text-dim {
+  color: var(--map-text-dim);
+}
+
 .live-command-dock {
   left: 0.5rem;
   right: 0.5rem;
@@ -668,6 +727,14 @@ canvas {
     drop-shadow(0 0 8px color-mix(in srgb, var(--color-primary) 12%, transparent));
 }
 
+.map-profile-scope .maplibregl-canvas {
+  filter: var(--map-canvas-filter);
+}
+
+.map-profile-scope .live-map-canvas {
+  filter: none;
+}
+
 .crt-shell svg {
   filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-primary) 38%, transparent));
 }
@@ -704,6 +771,33 @@ canvas {
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 8%, transparent),
     0 0 12px color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.map-profile-scope .maplibregl-ctrl-group {
+  background: var(--map-control-bg);
+  border-color: var(--map-panel-border);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--map-primary, var(--color-primary)) 10%, transparent),
+    0 0 12px color-mix(in srgb, var(--map-primary, var(--color-primary)) 14%, transparent);
+}
+
+.map-profile-scope .maplibregl-ctrl-group button + button {
+  border-top-color: var(--map-panel-border);
+}
+
+.map-profile-scope .maplibregl-ctrl-group button:hover {
+  background: var(--map-control-hover);
+}
+
+.map-profile-scope .maplibregl-ctrl-scale,
+.map-profile-scope .maplibregl-ctrl-attrib {
+  background: var(--map-control-bg);
+  border-color: var(--map-panel-border);
+  color: var(--map-text-normal);
+}
+
+.map-profile-scope .maplibregl-ctrl-attrib a {
+  color: var(--map-text-muted);
 }
 .maplibregl-ctrl-group button + button {
   border-top-color: var(--color-border);

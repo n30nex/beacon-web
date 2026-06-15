@@ -35,6 +35,7 @@ export const DEM_ATTRIBUTION =
   '<a href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md" target="_blank" rel="noopener">Tilezen Joerd</a>';
 
 export const TERRAIN_EXAGGERATION = 1.5;
+export const MAP_TERRAIN_EXAGGERATION = 3;
 
 // The fallback/initial map view, configured per deployment via .env (VITE_MAP_CENTER as decimal
 // "lat,lon", VITE_MAP_ZOOM). Used before airports load and when a selection has no airport coords;
@@ -76,6 +77,8 @@ export const DEFAULT_ZOOM = parseMapZoom(import.meta.env.VITE_MAP_ZOOM as string
 export const DEFAULT_PITCH = 0; // flat overview, no tilt
 export const DEFAULT_BEARING = 0;
 export const MAX_PITCH = 85;
+export const MAP_TOPOGRAPHY_PITCH = 58;
+export const MAP_TOPOGRAPHY_BEARING = -18;
 
 // fitBounds caps zoom at IATA_ZOOM; a single-airport fit also gets IATA_PITCH (3D terrain tilt).
 export const IATA_ZOOM = 9;

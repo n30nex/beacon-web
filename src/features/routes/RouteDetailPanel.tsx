@@ -10,9 +10,10 @@ import type { KnownRoute, ResolvedHop } from "../../types/api";
 interface RouteDetailPanelProps {
   route: KnownRoute;
   onClose: () => void;
+  onViewOnMap: (route: KnownRoute) => void;
 }
 
-export function RouteDetailPanel({ route, onClose }: RouteDetailPanelProps) {
+export function RouteDetailPanel({ route, onClose, onViewOnMap }: RouteDetailPanelProps) {
   return (
     <DetailPanel title="Route Detail" onClose={onClose}>
       <Section title="Summary" first>
@@ -21,6 +22,13 @@ export function RouteDetailPanel({ route, onClose }: RouteDetailPanelProps) {
           <Field label="Hops" value={route.hopCount} />
           <Field label="Obs" value={route.observationCount.toLocaleString()} />
         </div>
+        <button
+          type="button"
+          onClick={() => onViewOnMap(route)}
+          className="mt-3 w-full rounded-sm border border-primary/40 bg-primary/10 px-3 py-2 font-mono text-[11px] font-semibold uppercase tracking-wider text-primary transition-colors hover:bg-primary/15 hover:text-text-bright"
+        >
+          View on Map
+        </button>
       </Section>
 
       <Section title="Route">

@@ -190,6 +190,32 @@ export interface KnownRoute {
   observationCount: number;
 }
 
+export interface RouteNeighborhoodNode {
+  id: string;
+  name?: string;
+  publicKey: string;
+  lat: number;
+  lng: number;
+  hopDistance: number;
+}
+
+export interface RouteNeighborhoodEdge {
+  fromNodeId: string;
+  toNodeId: string;
+  iata: string;
+  routeIds: number[];
+  hopDistance: number;
+  lastSeen: number;
+  observationCount: number;
+}
+
+export interface NodeRouteNeighborhood {
+  nodeId: string;
+  maxHops: number;
+  nodes: RouteNeighborhoodNode[];
+  edges: RouteNeighborhoodEdge[];
+}
+
 // the boundary hop in a cross-IATA route: the link from the last node in the source IATA to the
 // first node in the target IATA.
 export interface CrossIATAHop {

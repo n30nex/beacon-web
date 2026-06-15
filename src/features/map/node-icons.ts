@@ -32,15 +32,15 @@ function svgText(type: string, observer: boolean, isDark: boolean): string | und
 
 // Per-type node color (theme palette var + hard fallback). Drives the glyph via the SVG's currentColor.
 const NODE_TYPE_COLOR: Record<string, { colorVar: string; fallback: string }> = {
-  companion: { colorVar: "--palette-primary", fallback: "#ffb000" },
-  repeater: { colorVar: "--palette-secondary", fallback: "#42ff7c" },
-  room_server: { colorVar: "--palette-green", fallback: "#42ff7c" },
-  sensor: { colorVar: "--palette-warn", fallback: "#ffd166" },
+  companion: { colorVar: "--map-node-companion", fallback: "#ffb000" },
+  repeater: { colorVar: "--map-node-repeater", fallback: "#42ff7c" },
+  room_server: { colorVar: "--map-node-room", fallback: "#42ff7c" },
+  sensor: { colorVar: "--map-node-sensor", fallback: "#ffd166" },
 };
 
 // Observer is a ROLE pip layered on any type; use the active secondary phosphor so it belongs to
 // the selected CRT profile while still separating observers from plain nodes.
-const OBSERVER_COLOR = { colorVar: "--palette-secondary", fallback: "#42ff7c" };
+const OBSERVER_COLOR = { colorVar: "--map-observer", fallback: "#42ff7c" };
 
 // On the light basemaps the hollow Wireframe glyph loses contrast, so a near-white disc is filled
 // behind it (a dark disc clashed with the saturated glyph). Sized to the outer ring (r=29 in the
@@ -68,7 +68,7 @@ const CLUSTER_SIZE = 56; // logical px for the cluster hexagon (72 hex in a 96 p
 
 // Cluster color tracks --palette-primary like the per-type glyphs (count + gauge inherit it via
 // currentColor), keeping clusters on-theme rather than set apart.
-const CLUSTER_COLOR = { colorVar: "--palette-primary", fallback: "#ffb000" };
+const CLUSTER_COLOR = { colorVar: "--map-primary", fallback: "#ffb000" };
 
 // Render at ~2x device pixel ratio (capped): resolution headroom so icons stay crisp at icon-size 1,
 // under the cluster layer's up-to-1.5x scaling, under sub-pixel placement, and across DPR changes.
@@ -189,12 +189,12 @@ const CLUSTER_DIM = 0.16; // dormant segment opacity
 
 // The hexagon with `lit` of its 12 gauge segments glowing. The count is overlaid by the symbol
 // layer's text-field; the var(--node-color)/glow matches styleSvg so it themes like the glyphs.
-function clusterSvg(lit: number): string {
+function clusterSvg(lit: number, fillColor: string): string {
   const lines = CLUSTER_GAUGE.map(
     ([x1, y1, x2, y2], i) =>
       `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" opacity="${i < lit ? CLUSTER_LIT : CLUSTER_DIM}"></line>`,
   ).join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" width="72" height="72" fill="none" role="img" aria-label="cluster" style="color:var(--node-color,#ffb000);filter:drop-shadow(0 0 6px currentColor);overflow:visible"><polygon points="36.0,10.0 58.5,23.0 58.5,49.0 36.0,62.0 13.5,49.0 13.5,23.0" fill="#090500" fill-opacity="0.92" stroke="currentColor" stroke-width="2.25" stroke-linejoin="round"></polygon>${lines}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" width="72" height="72" fill="none" role="img" aria-label="cluster" style="color:var(--node-color,#ffb000);filter:drop-shadow(0 0 6px currentColor);overflow:visible"><polygon points="36.0,10.0 58.5,23.0 58.5,49.0 36.0,62.0 13.5,49.0 13.5,23.0" fill="${fillColor}" fill-opacity="0.92" stroke="currentColor" stroke-width="2.25" stroke-linejoin="round"></polygon>${lines}</svg>`;
 }
 
 export interface RasterIcon {
@@ -204,9 +204,10 @@ export interface RasterIcon {
 
 // Produce the maplibre image for one icon id, themed for the current palette + basemap. Returns
 // null for unrecognized ids.
-export async function rasterizeNodeIcon(id: string, isDark: boolean): Promise<RasterIcon | null> {
+export async function rasterizeNodeIcon(id: string, isDark: boolean, styleRoot: Element = document.documentElement): Promise<RasterIcon | null> {
   const scale = currentScale();
-  const styles = getComputedStyle(document.documentElement);
+  const styles = getComputedStyle(styleRoot);
+  const backplate = styles.getPropertyValue("--map-node-backplate").trim() || WIREFRAME_BACKING;
 
   // Cluster hexagon: look up this id's density level and rasterize the recolored SVG. Checked before
   // the generic node- arm so cluster ids never fall into the per-type glyph path.
@@ -215,16 +216,16 @@ export async function rasterizeNodeIcon(id: string, isDark: boolean): Promise<Ra
     if (!bucket) return null;
     const color = styles.getPropertyValue(CLUSTER_COLOR.colorVar).trim() || CLUSTER_COLOR.fallback;
     const observerColor = styles.getPropertyValue(OBSERVER_COLOR.colorVar).trim() || OBSERVER_COLOR.fallback;
-    const svg = styleSvg(clusterSvg(bucket.lit), color, observerColor, isDark, { base: 72, padded: 96 });
+    const svg = styleSvg(clusterSvg(bucket.lit, backplate), color, observerColor, isDark, { base: 72, padded: 96 });
     const data = await rasterizeSvg(svg, scale, CLUSTER_SIZE);
     return { data, pixelRatio: scale };
   }
   if (id === NODE_ICON_UNKNOWN) {
-    const muted = styles.getPropertyValue("--palette-text-muted").trim() || "#b97c24";
+    const muted = styles.getPropertyValue("--map-text-muted").trim() || "#b97c24";
     return { data: drawRing(muted, scale), pixelRatio: scale };
   }
   if (id === SELECTION_RING_ICON_ID) {
-    const primary = styles.getPropertyValue("--palette-primary").trim() || "#ffb000";
+    const primary = styles.getPropertyValue("--map-primary").trim() || "#ffb000";
     return { data: drawSelectionRing(primary, scale), pixelRatio: scale };
   }
 
@@ -238,7 +239,7 @@ export async function rasterizeNodeIcon(id: string, isDark: boolean): Promise<Ra
   const nodeColor = styles.getPropertyValue(color.colorVar).trim() || color.fallback;
   const observerColor = styles.getPropertyValue(OBSERVER_COLOR.colorVar).trim() || OBSERVER_COLOR.fallback;
   // light basemaps use the hollow Wireframe glyph -> give it a solid backing for contrast
-  const backing = isDark ? undefined : WIREFRAME_BACKING;
+  const backing = isDark ? undefined : backplate;
   const data = await rasterizeSvg(styleSvg(svg, nodeColor, observerColor, isDark), scale, MARKER_SIZE, backing);
   return { data, pixelRatio: scale };
 }

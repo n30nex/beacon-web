@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import type { WsNodeUpdate } from "../../types/ws";
@@ -7,9 +7,15 @@ import { getAtlasRegion, getHealth } from "../../api/client";
 import { useMapLibre } from "../map/useMapLibre";
 import { useMapNodes } from "../map/useMapNodes";
 import { useMapNodesData } from "../map/useMapNodesData";
+import { useVerifiedRouteNeighborhoodOverlay } from "../map/useRouteOverlays";
 import { useCoalescedNodeUpdates } from "../map/useNodeUpdates";
 import { nodesToFeatureCollection } from "../map/node-geojson";
 import { DEFAULT_STYLE_ID, MAP_STYLE_STORAGE_KEY, resolveMapStyle } from "../map/types";
+import {
+  mapVisualProfileStyle,
+  readMapAppearanceSettings,
+  resolveMapVisualProfile,
+} from "../map/appearance";
 import { useTheme } from "../../hooks/useTheme";
 import { useWsNodeUpdateHandler } from "../../hooks/useWsHandlers";
 import { LoadingPill } from "../../components/LoadingPill";
@@ -30,7 +36,9 @@ const ATLAS_NODE_LOAD_DELAY_MS = 1_200;
 
 interface AtlasViewProps {
   wsManager: WsManager;
-  onViewNode: (nodeId: string) => void;
+  selectedNodeId: string | null;
+  onSelectNode: (nodeId: string) => void;
+  nodePanelOpen?: boolean;
 }
 
 function PillButton({
@@ -151,16 +159,15 @@ function MixList({
   );
 }
 
-export function AtlasView({ wsManager, onViewNode }: AtlasViewProps) {
+export function AtlasView({ wsManager, selectedNodeId, onSelectNode, nodePanelOpen }: AtlasViewProps) {
   const [params, setParams] = useSearchParams();
-  const regionSlug = params.get("atlasRegion") || "western-canada";
+  const regionSlug = params.get("atlasRegion") || "all";
   const range = asAtlasRange(params.get("atlasRange"));
   const [now] = useState(() => Date.now());
   const atlasWindow = useMemo(() => atlasWindowForRange(range, now), [range, now]);
   const [styleId, setStyleId] = useState(
     () => resolveMapStyle(localStorage.getItem(MAP_STYLE_STORAGE_KEY) ?? DEFAULT_STYLE_ID).id,
   );
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const summary = useQuery({
@@ -180,14 +187,23 @@ export function AtlasView({ wsManager, onViewNode }: AtlasViewProps) {
   const atlasIatas = summary.data?.region.slug === "all" ? undefined : summary.data?.region.iatas;
   const atlasRegionKey = summary.data ? `atlas:${summary.data.region.slug}:${atlasIatas?.join(",") ?? "all"}` : `atlas:${regionSlug}:loading`;
   const nodesKey = useMemo(() => ["map-nodes", atlasRegionKey], [atlasRegionKey]);
-  const { themeId, themes } = useTheme();
+  const { themeId, themes, paletteRev } = useTheme();
   const themeKey = themes.length ? themeId : "";
+  const [appearanceSettings] = useState(readMapAppearanceSettings);
+  const visualProfile = useMemo(
+    () => resolveMapVisualProfile(styleId, appearanceSettings),
+    [appearanceSettings, paletteRev, styleId],
+  );
+  const visualProfileStyle = useMemo(() => mapVisualProfileStyle(visualProfile) as CSSProperties, [visualProfile]);
+  const profileKey = `${themeKey}:${visualProfile.key}`;
 
   const handleStyleError = useCallback((lastGoodStyleId: string) => {
     setStyleId(lastGoodStyleId);
     localStorage.setItem(MAP_STYLE_STORAGE_KEY, lastGoodStyleId);
   }, []);
-  const { containerRef, mapRef, isReady, error } = useMapLibre(styleId, fitPoints, handleStyleError);
+  const { containerRef, mapRef, isReady, error } = useMapLibre(styleId, fitPoints, handleStyleError, {
+    visualProfile,
+  });
   const isDark = resolveMapStyle(styleId).dark;
   const nodeOverlayKey = `${regionSlug}:${range}:${isReady ? "ready" : "loading"}:${summary.data?.window.since ?? ""}:${
     summary.data?.window.until ?? ""
@@ -213,7 +229,8 @@ export function AtlasView({ wsManager, onViewNode }: AtlasViewProps) {
     limit: ATLAS_NODE_LIMIT,
   });
   const geojson = useMemo(() => nodesToFeatureCollection(nodes), [nodes]);
-  useMapNodes(mapRef, isReady, geojson, isDark, themeKey, true, setSelectedNodeId, selectedNodeId, atlasRegionKey);
+  useMapNodes(mapRef, isReady, geojson, isDark, profileKey, true, onSelectNode, selectedNodeId, atlasRegionKey);
+  useVerifiedRouteNeighborhoodOverlay(mapRef, isReady, selectedNodeId, atlasIatas, profileKey);
 
   const onNodeUpdate = useCallback(
     (data: WsNodeUpdate["data"]) => {
@@ -244,9 +261,9 @@ export function AtlasView({ wsManager, onViewNode }: AtlasViewProps) {
         name: sanitizeDisplayLabel(node.nodeName, node.nodeId.slice(0, 8)),
         value: node.observationCount,
         meta: `${node.nodeTypeName} / ${node.iata}`,
-        onClick: () => onViewNode(node.nodeId),
+        onClick: () => onSelectNode(node.nodeId),
       })),
-    [onViewNode, summary.data?.topNodes],
+    [onSelectNode, summary.data?.topNodes],
   );
   const topObserverRows = useMemo(
     () =>
@@ -300,7 +317,13 @@ export function AtlasView({ wsManager, onViewNode }: AtlasViewProps) {
   const kpis = summary.data?.kpis;
 
   return (
-    <div className="relative flex min-h-0 flex-1 overflow-hidden bg-bg-base">
+    <div
+      className="map-profile-scope relative flex min-h-0 flex-1 overflow-hidden bg-bg-base"
+      data-map-profile={visualProfile.id}
+      data-map-contrast={visualProfile.effectiveContrast}
+      data-map-tint={visualProfile.effectiveTint}
+      style={visualProfileStyle}
+    >
       <div ref={containerRef} data-dark={isDark} className="flex-1" />
 
       <div className="absolute left-3 top-3 z-10 flex w-[min(560px,calc(100vw-24px))] flex-col gap-2">
@@ -350,7 +373,7 @@ export function AtlasView({ wsManager, onViewNode }: AtlasViewProps) {
         </div>
       </div>
 
-      <div className="absolute right-3 top-3 z-10 hidden max-h-[calc(100vh-160px)] w-[min(520px,calc(100vw-24px))] flex-col gap-2 overflow-y-auto xl:flex">
+      <div className={`absolute right-3 top-3 z-10 hidden max-h-[calc(100vh-160px)] w-[min(520px,calc(100vw-24px))] flex-col gap-2 overflow-y-auto xl:flex ${nodePanelOpen ? "xl:hidden" : ""}`}>
         <div className="crt-float-panel grid grid-cols-4 gap-3 rounded-sm border border-border p-3">
           <Kpi label="Packets" value={formatCount(kpis?.totalPackets)} tone="text-primary" />
           <Kpi label="Observations" value={formatCount(kpis?.totalObservations)} tone="text-green" />
@@ -381,7 +404,7 @@ export function AtlasView({ wsManager, onViewNode }: AtlasViewProps) {
         </div>
       </div>
 
-      <div className="crt-float-panel absolute bottom-3 right-3 z-10 w-[min(360px,calc(100vw-24px))] rounded-sm border border-border p-3">
+      <div className={`crt-float-panel absolute bottom-3 right-3 z-10 w-[min(360px,calc(100vw-24px))] rounded-sm border border-border p-3 ${nodePanelOpen ? "hidden" : ""}`}>
         <div className="min-w-0">
           <div className="truncate font-mono text-xs font-semibold text-text-bright">Regional map overlay</div>
           <div className="mt-1 font-mono text-[10px] text-text-dim">

@@ -5,10 +5,19 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useMapLibre } from "../map/useMapLibre";
 import { useMapNodes } from "../map/useMapNodes";
 import { useMapNodesData } from "../map/useMapNodesData";
+import { useVerifiedRouteNeighborhoodOverlay } from "../map/useRouteOverlays";
 import { nodesToFeatureCollection, filterByNodeType } from "../map/node-geojson";
+import { MapAppearanceControls } from "../map/MapAppearanceControls";
 import { MapStyleSwitcher } from "../map/MapStyleSwitcher";
 import { SegmentedControl } from "../map/SegmentedControl";
 import { MAP_STYLE_STORAGE_KEY, DEFAULT_STYLE_ID, NODE_TYPE_FILTER_OPTIONS, resolveMapStyle } from "../map/types";
+import {
+  mapVisualProfileStyle,
+  persistMapAppearanceSettings,
+  readMapAppearanceSettings,
+  resolveMapVisualProfile,
+  type MapAppearanceSettings,
+} from "../map/appearance";
 import { LoadingPill } from "../../components/LoadingPill";
 import { EmptyState } from "../../components/EmptyState";
 import { useRegion } from "../../hooks/useRegion";
@@ -42,6 +51,9 @@ import {
 interface LiveViewProps {
   wsManager: WsManager;
   onAnalyze: (hash: string) => void;
+  selectedNodeId: string | null;
+  onSelectNode: (id: string) => void;
+  nodePanelOpen?: boolean;
 }
 
 interface Coord {
@@ -124,14 +136,14 @@ const MAX_PENDING_ANIMATIONS = 48;
 const MAX_PROPAGATION_WAVE_PATHS = 6;
 const MAX_HOPS_PER_PACKET = 6;
 const MAX_ACTIVE_ANIMATIONS = 10;
-const MAX_HEAT_POINTS = 48;
-const MAX_TRAILS = 12;
+const MAX_HEAT_POINTS = 72;
+const MAX_TRAILS = 28;
 const MAX_PULSES = 20;
 const MAX_RAIN_DROPS = 6;
 const COMPACT_LIVE_WIDTH = 640;
 const COMPACT_ACTIVE_ANIMATIONS = 7;
-const COMPACT_HEAT_POINTS = 28;
-const COMPACT_TRAILS = 8;
+const COMPACT_HEAT_POINTS = 42;
+const COMPACT_TRAILS = 16;
 const COMPACT_PULSES = 12;
 const COMPACT_RAIN_DROPS = 3;
 const MAX_RAIN_BYTES = 14;
@@ -333,9 +345,9 @@ function buildIataCoordMap(iatas: IataCode[] | undefined): Map<string, Coord> {
   return map;
 }
 
-function readCssVar(name: string, fallback: string): string {
+function readCssVar(name: string, fallback: string, scope?: Element | null): string {
   if (typeof window === "undefined") return fallback;
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+  return getComputedStyle(scope ?? document.documentElement).getPropertyValue(name).trim() || fallback;
 }
 
 function cssColorToRgb(color: string, fallback: [number, number, number]): [number, number, number] {
@@ -417,6 +429,7 @@ function useLiveAnimationCanvas(
   matrixMode: boolean,
   pressureRef: MutableRefObject<number>,
   onActiveCount: (count: number) => void,
+  profileKey: string,
 ) {
   useEffect(() => {
     const map = mapRef.current;
@@ -442,10 +455,12 @@ function useLiveAnimationCanvas(
     let recoveryFrames = 0;
     let slowFrames = 0;
     const frameSamples: number[] = [];
-    const matrixColor = readCssVar("--crt-phosphor", readCssVar("--color-primary", "#ffb000"));
-    const heatCoreColor = cssColorToRgb(readCssVar("--crt-phosphor", "#ffb000"), [255, 176, 0]);
-    const heatMidColor = cssColorToRgb(readCssVar("--crt-phosphor-soft", "#ff7a18"), [255, 122, 24]);
-    const heatEdgeColor = cssColorToRgb(readCssVar("--color-secondary", "#42ff7c"), [66, 255, 124]);
+    const profileScope = canvas.closest("[data-map-profile]");
+    const matrixColor = readCssVar("--map-primary", readCssVar("--crt-phosphor", "#ffb000"), profileScope);
+    const heatCoreColor = cssColorToRgb(readCssVar("--map-live-heat-core", "#ffb000", profileScope), [255, 176, 0]);
+    const heatMidColor = cssColorToRgb(readCssVar("--map-live-heat-mid", "#ff7a18", profileScope), [255, 122, 24]);
+    const heatEdgeColor = cssColorToRgb(readCssVar("--map-live-heat-edge", "#42ff7c", profileScope), [66, 255, 124]);
+    const glowFactor = Number(readCssVar("--map-glow-factor", "1", profileScope)) || 1;
     const debugPerf = new URLSearchParams(window.location.search).has("livePerf");
 
     const HEAT_SPRITE_R = 128;
@@ -677,8 +692,8 @@ function useLiveAnimationCanvas(
 
           const progress = Math.max(0, Math.min(1, age / heat.lifetimeMs));
           const point = projectCoord(heat.coord);
-          const radius = 16 + Math.min(22, heat.intensity * 5) + 12 * (1 - progress);
-          const alpha = (1 - progress) * Math.min(0.08, 0.03 + heat.intensity * 0.014);
+          const radius = 28 + Math.min(36, heat.intensity * 8) + 24 * (1 - progress);
+          const alpha = (1 - progress) * Math.min(0.24, (0.055 + heat.intensity * 0.026) * glowFactor);
 
           ctx.save();
           ctx.globalCompositeOperation = "lighter";
@@ -707,13 +722,20 @@ function useLiveAnimationCanvas(
 
           ctx.save();
           ctx.globalCompositeOperation = "lighter";
-          ctx.globalAlpha = (1 - progress) * (matrixMode ? 0.16 : 0.085);
+          ctx.globalAlpha = (1 - progress) * (matrixMode ? 0.28 : 0.19) * glowFactor;
           ctx.strokeStyle = color;
-          ctx.lineWidth = matrixMode ? 1 : 1.25;
-          ctx.shadowBlur = frameCaps.shadows ? (matrixMode ? 4 : 1.75) : 0;
+          ctx.lineWidth = matrixMode ? 1.4 : 1.8;
+          ctx.shadowBlur = frameCaps.shadows ? (matrixMode ? 8 : 7) : 0;
           ctx.shadowColor = color;
           drawProjectedPath(projectedTrail);
           ctx.stroke();
+          if (!matrixMode) {
+            ctx.globalAlpha = (1 - progress) * 0.08 * glowFactor;
+            ctx.lineWidth = 4.5;
+            ctx.shadowBlur = frameCaps.shadows ? 12 : 0;
+            drawProjectedPath(projectedTrail);
+            ctx.stroke();
+          }
           ctx.restore();
         }
       } else if (trailsRef.current.length) {
@@ -742,7 +764,7 @@ function useLiveAnimationCanvas(
         ctx.shadowColor = color;
         ctx.shadowBlur = frameCaps.shadows ? (matrixMode ? 8 : 5) : 0;
 
-        ctx.globalAlpha = (matrixMode ? 0.24 : 0.18) * (1 - progress);
+        ctx.globalAlpha = (matrixMode ? 0.24 : 0.18) * (1 - progress) * glowFactor;
         ctx.lineWidth = 1.3 + energy * 0.28;
         ctx.beginPath();
         ctx.arc(point.x, point.y, 6 + 24 * progress, 0, Math.PI * 2);
@@ -834,7 +856,7 @@ function useLiveAnimationCanvas(
               to: anim.to,
               path: anim.path,
               createdAt: now,
-              lifetimeMs: matrixMode ? 5_000 : 6_000,
+              lifetimeMs: matrixMode ? 14_000 : 18_000,
               color: anim.color,
             });
           }
@@ -888,6 +910,20 @@ function useLiveAnimationCanvas(
         ctx.beginPath();
         ctx.arc(x, y, 3.8 + 1.2 * (1 - progress), 0, Math.PI * 2);
         ctx.fill();
+
+        if (!matrixMode && frameCaps.shadows) {
+          const seed = hashSeed(anim.id);
+          for (let i = 0; i < 3; i += 1) {
+            const phase = ((seed % 97) / 97 + progress * 2.8 + i * 0.31) % 1;
+            const angle = phase * Math.PI * 2;
+            const distance = 5 + i * 3 + 7 * (1 - progress);
+            ctx.globalAlpha = Math.max(0, 0.18 * (1 - progress) * (1 - i * 0.18));
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.arc(x + Math.cos(angle) * distance, y + Math.sin(angle) * distance, 1.2 + i * 0.25, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
 
         if (matrixMode && frameCaps.labels) {
           if (pathDistance > 44 && anim.bytes.length > 0) {
@@ -1031,6 +1067,7 @@ function useLiveAnimationCanvas(
     onActiveCount,
     pressureRef,
     pulsesRef,
+    profileKey,
     rainEnabled,
     rainRef,
     trailsEnabled,
@@ -1144,12 +1181,9 @@ const LiveControlDock = memo(function LiveControlDock({
   activeAnimations,
   colorByHash,
   compact,
-  feedVisible,
   heatVisible,
   laggedCount,
-  onClear,
   onToggleColorByHash,
-  onToggleFeed,
   onToggleHeat,
   onTogglePaused,
   onTogglePropagation,
@@ -1170,12 +1204,9 @@ const LiveControlDock = memo(function LiveControlDock({
   activeAnimations: number;
   colorByHash: boolean;
   compact: boolean;
-  feedVisible: boolean;
   heatVisible: boolean;
   laggedCount: number;
-  onClear: () => void;
   onToggleColorByHash: () => void;
-  onToggleFeed: () => void;
   onToggleHeat: () => void;
   onTogglePaused: () => void;
   onTogglePropagation: () => void;
@@ -1207,9 +1238,9 @@ const LiveControlDock = memo(function LiveControlDock({
         </div>
         <LiveControlButton compact icon="trail" label="Trails" active={trails} onClick={onToggleTrails} title="Toggle persistent map trails" />
         <LiveControlButton compact icon="pace" label="Pace" active={realisticPropagation} onClick={onTogglePropagation} title="Pace repeated observations before rendering" />
-        <LiveControlButton compact icon="feed" label="Feed" active={feedVisible} onClick={onToggleFeed} title="Toggle packet feed" />
+        <LiveControlButton compact icon="heat" label="Heat" active={heatVisible} onClick={onToggleHeat} title="Toggle live activity heat overlay" />
+        <LiveControlButton compact icon="color" label="Color" active={colorByHash} onClick={onToggleColorByHash} title="Color packet paths by hash" />
         <LiveControlButton compact icon="settings" label="Settings" active={settingsOpen} onClick={onToggleSettings} title="Open Live settings" />
-        <LiveControlButton compact icon="clear" label="Clear" danger onClick={onClear} title="Clear local live buffer" />
       </div>
     );
   }
@@ -1242,9 +1273,7 @@ const LiveControlDock = memo(function LiveControlDock({
       <LiveControlButton icon="pace" label="Pace" active={realisticPropagation} onClick={onTogglePropagation} title="Pace repeated observations before rendering" />
       <LiveControlButton icon="heat" className="hidden sm:inline-flex" label="Heat" active={heatVisible} onClick={onToggleHeat} title="Toggle live activity heat overlay" />
       <LiveControlButton icon="color" className="hidden sm:inline-flex" label="Color" active={colorByHash} onClick={onToggleColorByHash} title="Color packet paths by hash" />
-      <LiveControlButton icon="feed" label="Feed" active={feedVisible} onClick={onToggleFeed} title="Toggle packet feed" />
       <LiveControlButton icon="settings" label="Settings" active={settingsOpen} onClick={onToggleSettings} title="Open Live settings" />
-      <LiveControlButton icon="clear" className="hidden sm:inline-flex" label="Clear" danger onClick={onClear} title="Clear local live buffer" />
     </div>
   );
 });
@@ -1344,9 +1373,11 @@ function LiveSettingsPanel({
   audioBpm,
   audioEnabled,
   audioVolume,
+  appearanceSettings,
   clustered,
   matrixMode,
   matrixRain,
+  onAppearanceChange,
   onAudioBpmChange,
   onAudioVolumeChange,
   onClusteredChange,
@@ -1361,9 +1392,11 @@ function LiveSettingsPanel({
   audioBpm: number;
   audioEnabled: boolean;
   audioVolume: number;
+  appearanceSettings: MapAppearanceSettings;
   clustered: boolean;
   matrixMode: boolean;
   matrixRain: boolean;
+  onAppearanceChange: (patch: Partial<MapAppearanceSettings>) => void;
   onAudioBpmChange: (value: number) => void;
   onAudioVolumeChange: (value: number) => void;
   onClusteredChange: (value: boolean) => void;
@@ -1383,6 +1416,7 @@ function LiveSettingsPanel({
           <div className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-text-dim">Map Tiles</div>
           <MapStyleSwitcher styleId={styleId} onChange={onStyleChange} className="w-full" />
         </div>
+        <MapAppearanceControls settings={appearanceSettings} onChange={onAppearanceChange} includeRelief={false} />
         <div>
           <div className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-text-dim">Node Type</div>
           <SegmentedControl
@@ -1446,6 +1480,7 @@ function LiveInspectorRail({
   audioBpm,
   audioEnabled,
   audioVolume,
+  appearanceSettings,
   backfillCount,
   backfillStatus,
   clockTick,
@@ -1458,6 +1493,7 @@ function LiveInspectorRail({
   matrixRain,
   onAnalyze,
   onAudioBpmChange,
+  onAppearanceChange,
   onAudioVolumeChange,
   onClusteredChange,
   onSelect,
@@ -1481,6 +1517,7 @@ function LiveInspectorRail({
   audioBpm: number;
   audioEnabled: boolean;
   audioVolume: number;
+  appearanceSettings: MapAppearanceSettings;
   backfillCount: number;
   backfillStatus: string;
   clockTick: number;
@@ -1493,6 +1530,7 @@ function LiveInspectorRail({
   matrixRain: boolean;
   onAnalyze: (hash: string) => void;
   onAudioBpmChange: (value: number) => void;
+  onAppearanceChange: (patch: Partial<MapAppearanceSettings>) => void;
   onAudioVolumeChange: (value: number) => void;
   onClusteredChange: (value: boolean) => void;
   onSelect: (event: LivePacketEvent) => void;
@@ -1533,9 +1571,11 @@ function LiveInspectorRail({
               audioBpm={audioBpm}
               audioEnabled={audioEnabled}
               audioVolume={audioVolume}
+              appearanceSettings={appearanceSettings}
               clustered={clustered}
               matrixMode={matrixMode}
               matrixRain={matrixRain}
+              onAppearanceChange={onAppearanceChange}
               onAudioBpmChange={onAudioBpmChange}
               onAudioVolumeChange={onAudioVolumeChange}
               onClusteredChange={onClusteredChange}
@@ -1608,9 +1648,11 @@ function LiveInspectorRail({
           audioBpm={audioBpm}
           audioEnabled={audioEnabled}
           audioVolume={audioVolume}
+          appearanceSettings={appearanceSettings}
           clustered={clustered}
           matrixMode={matrixMode}
           matrixRain={matrixRain}
+          onAppearanceChange={onAppearanceChange}
           onAudioBpmChange={onAudioBpmChange}
           onAudioVolumeChange={onAudioVolumeChange}
           onClusteredChange={onClusteredChange}
@@ -1668,9 +1710,9 @@ function LiveInspectorRail({
   );
 }
 
-export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
+export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, nodePanelOpen }: LiveViewProps) {
   const { iatas: selectedIatas, regionKey } = useRegion();
-  const { themeId, themes } = useTheme();
+  const { themeId, themes, paletteRev } = useTheme();
   const themeKey = themes.length ? themeId : "";
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationsRef = useRef<LiveAnimation[]>([]);
@@ -1706,6 +1748,13 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   const [styleId, setStyleId] = useState(
     () => resolveMapStyle(localStorage.getItem(MAP_STYLE_STORAGE_KEY) ?? DEFAULT_STYLE_ID).id,
   );
+  const [appearanceSettings, setAppearanceSettings] = useState(readMapAppearanceSettings);
+  const visualProfile = useMemo(
+    () => resolveMapVisualProfile(styleId, appearanceSettings),
+    [appearanceSettings, paletteRev, styleId],
+  );
+  const visualProfileStyle = useMemo(() => mapVisualProfileStyle(visualProfile) as CSSProperties, [visualProfile]);
+  const profileKey = `${themeKey}:${visualProfile.key}`;
   const [typeFilter, setTypeFilter] = useState("");
   const [clustered, setClustered] = useState(false);
   const [events, setEvents] = useState<LivePacketEvent[]>([]);
@@ -1720,13 +1769,11 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [audioVolume, setAudioVolume] = useState(() => storedNumber("live-audio-volume", 0.22, 0, 1));
   const [audioBpm, setAudioBpm] = useState(() => Math.round(storedNumber("live-audio-bpm", 132, 60, 240)));
-  const [feedVisible, setFeedVisible] = useState(() => (typeof window === "undefined" ? true : window.innerWidth >= 768));
   const [totalPackets, setTotalPackets] = useState(0);
   const [laggedCount, setLaggedCount] = useState(0);
   const [visualQueueSize, setVisualQueueSize] = useState(0);
   const [visualDroppedCount, setVisualDroppedCount] = useState(0);
   const [activeAnimations, setActiveAnimations] = useState(0);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<LivePacketEvent | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [backfillStatus, setBackfillStatus] = useState("ok");
@@ -1881,6 +1928,14 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     localStorage.setItem(MAP_STYLE_STORAGE_KEY, id);
   }, []);
 
+  const handleAppearanceChange = useCallback((patch: Partial<MapAppearanceSettings>) => {
+    setAppearanceSettings((current) => {
+      const next = { ...current, ...patch };
+      persistMapAppearanceSettings(next);
+      return next;
+    });
+  }, []);
+
   const handleStyleError = useCallback((lastGoodStyleId: string) => {
     setStyleId(lastGoodStyleId);
     localStorage.setItem(MAP_STYLE_STORAGE_KEY, lastGoodStyleId);
@@ -1901,10 +1956,13 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
   const baseFc = useMemo(() => nodesToFeatureCollection(nodes), [nodes]);
   const geojson = useMemo(() => filterByNodeType(baseFc, typeFilter), [baseFc, typeFilter]);
 
-  const { containerRef, mapRef, isReady, error } = useMapLibre(styleId, null, handleStyleError);
+  const { containerRef, mapRef, isReady, error } = useMapLibre(styleId, null, handleStyleError, {
+    visualProfile,
+  });
   const isDark = resolveMapStyle(styleId).dark;
 
-  useMapNodes(mapRef, isReady, geojson, isDark, themeKey, clustered, setSelectedNodeId, selectedNodeId, `${regionKey}:${typeFilter}`);
+  useMapNodes(mapRef, isReady, geojson, isDark, profileKey, clustered, onSelectNode, selectedNodeId, `${regionKey}:${typeFilter}`);
+  useVerifiedRouteNeighborhoodOverlay(mapRef, isReady, selectedNodeId, selectedIatas, profileKey);
 
   const playPacketAudio = useCallback(
     (event: LivePacketEvent) => {
@@ -2010,17 +2068,15 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
         ];
       }
 
-      if (heatVisible) {
-        const heatSource = path && path.length > 0 ? path : targetCoord ? [{ coord: targetCoord }] : [];
-        const heatPoints = heatSource.slice(-MAX_HOPS_PER_PACKET).map((point, index) => ({
-          id: `${event.id}:heat:${index}`,
-          coord: point.coord,
-          createdAt: startedAt,
-          lifetimeMs: 14_000,
-          intensity: Math.max(1, Math.min(4, event.observationCount + 0.4)),
-        }));
-        heatRef.current = [...heatRef.current.slice(-Math.max(0, caps.heatPoints - heatPoints.length)), ...heatPoints].slice(-caps.heatPoints);
-      }
+      const heatSource = path && path.length > 0 ? path : targetCoord ? [{ coord: targetCoord }] : [];
+      const heatPoints = heatSource.slice(-MAX_HOPS_PER_PACKET).map((point, index) => ({
+        id: `${event.id}:heat:${index}`,
+        coord: point.coord,
+        createdAt: startedAt,
+        lifetimeMs: 28_000,
+        intensity: Math.max(1, Math.min(4, event.observationCount + 0.6)),
+      }));
+      heatRef.current = [...heatRef.current.slice(-Math.max(0, caps.heatPoints - heatPoints.length)), ...heatPoints].slice(-caps.heatPoints);
 
       if (matrixRain && rainRef.current.length < caps.rainDrops) {
         const shouldSampleRain = visualQueueRef.current.length < 12 || (event.sequence + hashSeed(event.packetHash)) % 3 === 0;
@@ -2069,7 +2125,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       requestCanvasFrameRef.current?.();
       return true;
     },
-    [byPathPrefix, colorByHash, heatVisible, iataCoords, matrixMode, matrixRain, nodeCoords, playPacketAudio],
+    [byPathPrefix, colorByHash, iataCoords, matrixMode, matrixRain, nodeCoords, playPacketAudio],
   );
 
   const queueAnimation = useCallback(
@@ -2185,6 +2241,7 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     matrixMode,
     visualPressureRef,
     setActiveAnimations,
+    profileKey,
   );
 
   const shouldAnimateEvent = useCallback((event: LivePacketEvent) => {
@@ -2309,56 +2366,30 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
     else setPaused(true);
   }, [resumeLive]);
   const toggleColorByHash = useCallback(() => setColorByHash((v) => !v), []);
-  const toggleFeed = useCallback(() => setFeedVisible((v) => !v), []);
   const toggleHeat = useCallback(() => setHeatVisible((v) => !v), []);
   const togglePropagation = useCallback(() => setRealisticPropagation((v) => !v), []);
   const toggleSettings = useCallback(() => setSettingsOpen((v) => !v), []);
   const toggleTrails = useCallback(() => setTrails((v) => !v), []);
 
-  const clearFeed = useCallback(() => {
-    if (liveStateFlushTimerRef.current !== 0) {
-      window.clearTimeout(liveStateFlushTimerRef.current);
-      liveStateFlushTimerRef.current = 0;
-    }
-    for (const group of propagationGroupsRef.current.values()) clearTimeout(group.timer);
-    propagationGroupsRef.current.clear();
-    pendingEventsRef.current = [];
-    pendingQueuedEventsRef.current = [];
-    pendingTotalPacketsRef.current = 0;
-    pendingVisualDroppedRef.current = 0;
-    setEvents([]);
-    setQueuedEvents([]);
-    setSelectedEvent(null);
-    setLaggedCount(0);
-    setBackfillCount(0);
-    setBackfillStatus("ok");
-    lastObservationIdRef.current = 0;
-    seenObservationIdsRef.current.clear();
-    seenObservationOrderRef.current = [];
-    animationsRef.current = [];
-    trailsRef.current = [];
-    pulsesRef.current = [];
-    rainRef.current = [];
-    heatRef.current = [];
-    visualQueueRef.current = [];
-    publishedVisualQueueSizeRef.current = 0;
-    setVisualQueueSize(0);
-    setVisualDroppedCount(0);
-    requestCanvasFrameRef.current?.();
-  }, []);
-
   const feedClock = Math.floor(now / 5_000);
   const ratePerMin = useMemo(() => countRecent(events, now, 60_000), [events, now]);
   const desktopLiveLayout = viewportWidth >= LIVE_DESKTOP_LAYOUT_WIDTH;
   const compactLiveLayout = viewportWidth < 768;
+  const feedVisible = !compactLiveLayout;
   const mobileConsoleExpanded = compactLiveLayout && (feedVisible || settingsOpen);
   const commandDockStyle = useMemo(() => liveCommandDockStyle(desktopLiveLayout), [desktopLiveLayout]);
   const inspectorRailStyle = useMemo(() => liveInspectorRailStyle(desktopLiveLayout, mobileConsoleExpanded), [desktopLiveLayout, mobileConsoleExpanded]);
 
   return (
-    <div className="relative flex flex-1 min-h-0 overflow-hidden bg-bg-base">
+    <div
+      className="map-profile-scope relative flex flex-1 min-h-0 overflow-hidden bg-bg-base"
+      data-map-profile={visualProfile.id}
+      data-map-contrast={visualProfile.effectiveContrast}
+      data-map-tint={visualProfile.effectiveTint}
+      style={visualProfileStyle}
+    >
       <div ref={containerRef} data-dark={isDark} className={`flex-1 min-w-0 ${matrixMode ? "live-map-matrix" : ""}`} />
-      <canvas ref={canvasRef} className="absolute inset-0 z-[5] h-full w-full pointer-events-none" aria-hidden="true" />
+      <canvas ref={canvasRef} className="live-map-canvas absolute inset-0 z-[5] h-full w-full pointer-events-none" aria-hidden="true" />
       {matrixMode && <div className="live-matrix-overlay absolute inset-0 pointer-events-none z-[6]" aria-hidden="true" />}
 
       <div className="pointer-events-none absolute top-12 left-2 right-2 z-10 flex max-w-[calc(100vw-16px)] flex-wrap items-center gap-1.5 md:top-3 md:left-3 md:right-[360px] md:max-w-[calc(100vw-24px)] md:gap-2">
@@ -2379,52 +2410,53 @@ export function LiveView({ wsManager, onAnalyze }: LiveViewProps) {
       </div>
 
       <LoadingPill loading={isPaging} error={nodesError} count={loadedCount} noun="nodes" />
-      <LiveInspectorRail
-        activeAnimations={activeAnimations}
-        audioBpm={audioBpm}
-        audioEnabled={audioEnabled}
-        audioVolume={audioVolume}
-        backfillCount={backfillCount}
-        backfillStatus={backfillStatus}
-        clockTick={feedClock}
-        clustered={clustered}
-        compact={compactLiveLayout}
-        events={events}
-        feedVisible={feedVisible}
-        laggedCount={laggedCount}
-        matrixMode={matrixMode}
-        matrixRain={matrixRain}
-        onAnalyze={onAnalyze}
-        onAudioBpmChange={setAudioBpm}
-        onAudioVolumeChange={setAudioVolume}
-        onClusteredChange={setClustered}
-        onSelect={setSelectedEvent}
-        onStyleChange={handleStyleChange}
-        onToggleAudio={() => setAudioEnabled((value) => !value)}
-        onToggleMatrix={() => setMatrixMode((v) => !v)}
-        onToggleRain={() => setMatrixRain((v) => !v)}
-        onTypeChange={setTypeFilter}
-        quality={visualQuality}
-        ratePerMin={ratePerMin}
-        selectedEvent={selectedEvent ?? undefined}
-        settingsOpen={settingsOpen}
-        styleId={styleId}
-        style={inspectorRailStyle}
-        summary={liveSummary}
-        totalPackets={totalPackets}
-        typeFilter={typeFilter}
-        visualDroppedCount={visualDroppedCount}
-      />
+      {!nodePanelOpen && (
+        <LiveInspectorRail
+          activeAnimations={activeAnimations}
+          audioBpm={audioBpm}
+          audioEnabled={audioEnabled}
+          audioVolume={audioVolume}
+          appearanceSettings={appearanceSettings}
+          backfillCount={backfillCount}
+          backfillStatus={backfillStatus}
+          clockTick={feedClock}
+          clustered={clustered}
+          compact={compactLiveLayout}
+          events={events}
+          feedVisible={feedVisible}
+          laggedCount={laggedCount}
+          matrixMode={matrixMode}
+          matrixRain={matrixRain}
+          onAnalyze={onAnalyze}
+          onAudioBpmChange={setAudioBpm}
+          onAppearanceChange={handleAppearanceChange}
+          onAudioVolumeChange={setAudioVolume}
+          onClusteredChange={setClustered}
+          onSelect={setSelectedEvent}
+          onStyleChange={handleStyleChange}
+          onToggleAudio={() => setAudioEnabled((value) => !value)}
+          onToggleMatrix={() => setMatrixMode((v) => !v)}
+          onToggleRain={() => setMatrixRain((v) => !v)}
+          onTypeChange={setTypeFilter}
+          quality={visualQuality}
+          ratePerMin={ratePerMin}
+          selectedEvent={selectedEvent ?? undefined}
+          settingsOpen={settingsOpen}
+          styleId={styleId}
+          style={inspectorRailStyle}
+          summary={liveSummary}
+          totalPackets={totalPackets}
+          typeFilter={typeFilter}
+          visualDroppedCount={visualDroppedCount}
+        />
+      )}
       <LiveControlDock
         activeAnimations={activeAnimations}
         colorByHash={colorByHash}
         compact={compactLiveLayout}
-        feedVisible={feedVisible}
         heatVisible={heatVisible}
         laggedCount={laggedCount}
-        onClear={clearFeed}
         onToggleColorByHash={toggleColorByHash}
-        onToggleFeed={toggleFeed}
         onToggleHeat={toggleHeat}
         onTogglePaused={togglePaused}
         onTogglePropagation={togglePropagation}

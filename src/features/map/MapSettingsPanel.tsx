@@ -1,7 +1,9 @@
 import { memo, useState } from "react";
+import { MapAppearanceControls } from "./MapAppearanceControls";
 import { MapStyleSwitcher } from "./MapStyleSwitcher";
 import { SegmentedControl } from "./SegmentedControl";
 import { NODE_TYPE_FILTER_OPTIONS } from "./types";
+import type { MapAppearanceSettings } from "./appearance";
 import { Section } from "../../components/DetailPanel";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 
@@ -13,6 +15,10 @@ const CLUSTER_OPTIONS = [
   { value: "on", label: "On" },
   { value: "off", label: "Off" },
 ];
+const TOPOGRAPHY_OPTIONS = [
+  { value: "on", label: "On" },
+  { value: "off", label: "Off" },
+];
 
 interface MapSettingsPanelProps {
   styleId: string;
@@ -21,6 +27,10 @@ interface MapSettingsPanelProps {
   onTypeChange: (t: string) => void;
   clustered: boolean;
   onClusteredChange: (c: boolean) => void;
+  topographyEnabled: boolean;
+  onTopographyChange: (enabled: boolean) => void;
+  appearanceSettings: MapAppearanceSettings;
+  onAppearanceChange: (patch: Partial<MapAppearanceSettings>) => void;
 }
 
 // Memoized: its props are reference-stable (callbacks are useCallback/setState setters), so it skips
@@ -32,6 +42,10 @@ export const MapSettingsPanel = memo(function MapSettingsPanel({
   onTypeChange,
   clustered,
   onClusteredChange,
+  topographyEnabled,
+  onTopographyChange,
+  appearanceSettings,
+  onAppearanceChange,
 }: MapSettingsPanelProps) {
   const isMobile = useIsMobile();
   // collapsed by default on mobile (the card would cover the map); a saved preference still wins
@@ -75,6 +89,9 @@ export const MapSettingsPanel = memo(function MapSettingsPanel({
           <Section title="Map Tiles" first>
             <MapStyleSwitcher styleId={styleId} onChange={onStyleChange} className="w-full" />
           </Section>
+          <Section title="Appearance">
+            <MapAppearanceControls settings={appearanceSettings} onChange={onAppearanceChange} />
+          </Section>
           <Section title="Node Type">
             <SegmentedControl
               wrap
@@ -90,6 +107,15 @@ export const MapSettingsPanel = memo(function MapSettingsPanel({
               options={CLUSTER_OPTIONS}
               value={clustered ? "on" : "off"}
               onChange={(v) => onClusteredChange(v === "on")}
+              className="w-full"
+            />
+          </Section>
+          <Section title="Topography">
+            <SegmentedControl
+              ariaLabel="Topography"
+              options={TOPOGRAPHY_OPTIONS}
+              value={topographyEnabled ? "on" : "off"}
+              onChange={(v) => onTopographyChange(v === "on")}
               className="w-full"
             />
           </Section>

@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getKnownRoutesPage, searchKnownRoutes, searchCrossIATARoutes, getIatas } from "../../api/client";
 import { useRegion } from "../../hooks/useRegion";
@@ -144,6 +145,7 @@ function directedPairs(iatas: string[]): [string, string][] {
 
 export function RouteTable() {
   const { iatas, regionKey } = useRegion();
+  const [, setSearchParams] = useSearchParams();
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
@@ -249,6 +251,19 @@ export function RouteTable() {
     setSearch(null);
     setSelectedKey(null);
   }, []);
+  const viewRouteOnMap = useCallback(
+    (route: KnownRoute) => {
+      setSelectedKey(null);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("tab", "Map");
+        next.set("routeId", String(route.id));
+        next.set("routeReplay", "1");
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") submitSearch();
@@ -335,7 +350,7 @@ export function RouteTable() {
           </div>
         )}
         {selectedRoute && (
-          <RouteDetailPanel route={selectedRoute} onClose={() => setSelectedKey(null)} />
+          <RouteDetailPanel route={selectedRoute} onClose={() => setSelectedKey(null)} onViewOnMap={viewRouteOnMap} />
         )}
       </div>
     </div>
