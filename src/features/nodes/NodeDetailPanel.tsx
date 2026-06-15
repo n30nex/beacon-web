@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { getNode, getNodeObservations, getNodeNeighbors } from "../../api/client";
+import { getNode, getNodeAnalytics, getNodeObservations, getNodeNeighbors } from "../../api/client";
 import { Badge } from "../../components/Badge";
 import { DetailPanel, Section, Field } from "../../components/DetailPanel";
 import { IataChip } from "../../components/IataChip";
 import { formatHex, formatSnr, snrLevel, formatRadio, SIGNAL_LEVEL_CLASSES } from "../../lib/formatters";
 import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { Timestamp } from "../../components/Timestamp";
-import type { NodeObservation, NodeNeighbor } from "./types";
+import { useRegion } from "../../hooks/useRegion";
+import type { NodeAnalyticsCount, NodeAnalyticsPeer, NodeObservation, NodeNeighbor } from "./types";
 
 function NodeNeighborRow({ neighbor, onClick }: { neighbor: NodeNeighbor; onClick?: () => void }) {
   const label = sanitizeDisplayLabel(neighbor.name, formatHex(neighbor.id));
@@ -65,6 +66,65 @@ function NodeObservationRow({ obs, onClick }: { obs: NodeObservation; onClick?: 
   );
 }
 
+function compactNumber(value: number | undefined) {
+  if (value == null || Number.isNaN(value)) return "-";
+  return value.toLocaleString(undefined, { maximumFractionDigits: value >= 10 ? 0 : 1 });
+}
+
+function AnalyticsMetric({ label, value, detail }: { label: string; value: string; detail?: string }) {
+  return (
+    <div className="border border-border bg-bg-base px-2.5 py-2">
+      <div className="font-mono text-[10px] uppercase tracking-wider text-text-dim">{label}</div>
+      <div className="mt-1 font-mono text-sm font-semibold text-primary">{value}</div>
+      {detail && <div className="mt-0.5 truncate font-mono text-[10px] text-text-muted">{detail}</div>}
+    </div>
+  );
+}
+
+function AnalyticsBars({ title, items, emptyLabel }: { title: string; items: NodeAnalyticsCount[]; emptyLabel: string }) {
+  const max = Math.max(1, ...items.map((item) => item.count));
+  return (
+    <div className="min-w-0">
+      <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-text-dim">{title}</div>
+      {items.length === 0 ? (
+        <div className="font-mono text-[11px] text-text-dim">{emptyLabel}</div>
+      ) : (
+        <div className="space-y-1">
+          {items.slice(0, 5).map((item) => (
+            <div key={item.key} className="grid grid-cols-[72px_1fr_44px] items-center gap-2 font-mono text-[11px]">
+              <span className="truncate text-text-muted" title={item.label}>{item.label}</span>
+              <span className="h-1.5 overflow-hidden bg-border/55">
+                <span className="block h-full bg-primary shadow-[0_0_8px_rgba(var(--rgb-primary),0.45)]" style={{ width: `${Math.max(8, (item.count / max) * 100)}%` }} />
+              </span>
+              <span className="text-right text-text-normal">{item.count.toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PeerAnalyticsRow({ peer, onClick }: { peer: NodeAnalyticsPeer; onClick?: () => void }) {
+  const label = sanitizeDisplayLabel(peer.name, formatHex(peer.id));
+  return (
+    <button
+      type="button"
+      className="grid w-full grid-cols-[1fr_auto] gap-2 border border-border bg-bg-base px-2.5 py-1.5 text-left font-mono text-[11px] hover:border-primary/60 hover:bg-primary/8"
+      onClick={onClick}
+      disabled={!onClick}
+    >
+      <span className="min-w-0">
+        <span className="block truncate font-semibold text-primary">{label}</span>
+        <span className="block truncate text-text-dim">{peer.nodeTypeName} / {peer.iata}</span>
+      </span>
+      <span className="text-right text-text-muted">
+        {peer.observationCount.toLocaleString()} obs
+      </span>
+    </button>
+  );
+}
+
 interface NodeDetailPanelProps {
   nodeId: string;
   onClose: () => void;
@@ -74,6 +134,7 @@ interface NodeDetailPanelProps {
 }
 
 export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, onAnalyzePacket }: NodeDetailPanelProps) {
+  const { iatas, regionKey } = useRegion();
   const { data: node, isLoading } = useQuery({
     queryKey: ["node", nodeId],
     queryFn: () => getNode(nodeId),
@@ -91,6 +152,13 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, o
   const { data: neighbors } = useQuery({
     queryKey: ["node-neighbors", nodeId],
     queryFn: () => getNodeNeighbors(nodeId),
+    staleTime: 30_000,
+  });
+
+  const { data: analytics, isLoading: analyticsLoading } = useQuery({
+    queryKey: ["node-analytics", nodeId, regionKey],
+    queryFn: () => getNodeAnalytics(nodeId, iatas),
+    enabled: !!node,
     staleTime: 30_000,
   });
 
@@ -158,6 +226,40 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, o
                 <Field label="Last" value={<Timestamp value={node.lastSeen} />} />
                 {node.lastAdvertAt != null && <Field label="Advert" value={<Timestamp value={node.lastAdvertAt} />} />}
               </div>
+            </Section>
+
+            <Section title="Analytics">
+              {analyticsLoading ? (
+                <div role="status" className="font-mono text-[12px] uppercase tracking-wider text-text-dim">QUERYING NODE ANALYTICS...</div>
+              ) : analytics ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <AnalyticsMetric label="Packets" value={compactNumber(analytics.kpis.packetCount)} />
+                    <AnalyticsMetric label="Obs" value={compactNumber(analytics.kpis.observationCount)} />
+                    <AnalyticsMetric label="Observers" value={compactNumber(analytics.kpis.activeObservers)} />
+                    <AnalyticsMetric label="IATAs" value={compactNumber(analytics.kpis.activeIatas)} />
+                    <AnalyticsMetric label="Avg SNR" value={analytics.kpis.avgSnr == null ? "-" : `${analytics.kpis.avgSnr.toFixed(1)} dB`} />
+                    <AnalyticsMetric label="Avg RSSI" value={analytics.kpis.avgRssi == null ? "-" : `${analytics.kpis.avgRssi.toFixed(0)} dBm`} />
+                  </div>
+                  <div className="grid grid-cols-1 gap-3">
+                    <AnalyticsBars title="Payload mix" items={analytics.payloadMix} emptyLabel="No payload mix" />
+                    <AnalyticsBars title="Route mix" items={analytics.routeMix} emptyLabel="No route mix" />
+                    <AnalyticsBars title="SNR buckets" items={analytics.snrBuckets.map((bucket) => ({ key: bucket.bucket, label: bucket.bucket, count: bucket.count }))} emptyLabel="No signal data" />
+                  </div>
+                  {analytics.topPeers.length > 0 && (
+                    <div>
+                      <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-text-dim">Top peers</div>
+                      <div className="space-y-1">
+                        {analytics.topPeers.slice(0, 4).map((peer) => (
+                          <PeerAnalyticsRow key={`${peer.id}-${peer.iata}`} peer={peer} onClick={onViewNode ? () => onViewNode(peer.id) : undefined} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="font-mono text-[13px] text-text-dim">No node analytics</div>
+              )}
             </Section>
 
             <Section title="Neighbors">

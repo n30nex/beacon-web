@@ -21,7 +21,7 @@ import type {
 import type { WsPacketObservation } from "../types/ws";
 import type { ChannelSummary, ChannelMessage } from "../features/channels/types";
 import type { ObserverSummary, Observer, AdvertObservation } from "../features/observers/types";
-import type { NodeSummary, Node, NodeObservation, NodeNeighbor } from "../features/nodes/types";
+import type { NodeSummary, Node, NodeObservation, NodeNeighbor, NodeAnalytics } from "../features/nodes/types";
 import type {
   StatsOverview,
   ObservationPoint,
@@ -344,6 +344,14 @@ export function getNodeObservations(
 
 export function getNodeNeighbors(nodeId: string): Promise<NodeNeighbor[]> {
   return request(`/nodes/${nodeId}/neighbors`);
+}
+
+export function getNodeAnalytics(nodeId: string, iatas?: string[], params?: { since?: number; until?: number }): Promise<NodeAnalytics> {
+  return request(`/nodes/${nodeId}/analytics`, {
+    iatas: iatasParam(iatas),
+    since: params?.since,
+    until: params?.until,
+  });
 }
 
 // stats endpoints. `iata` is a single code (undefined = all regions); the /stats/* endpoints filter

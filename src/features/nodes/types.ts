@@ -56,3 +56,56 @@ export interface NodeObservation {
   snr?: number;
   hopCount?: number;
 }
+
+export interface NodeAnalyticsCount {
+  key: string;
+  label: string;
+  count: number;
+}
+
+export interface NodeActivityPoint {
+  timestamp: number;
+  packets: number;
+  observations: number;
+}
+
+export interface NodeSignalBucket {
+  bucket: string;
+  count: number;
+}
+
+export interface NodeAnalyticsPeer {
+  id: string;
+  name?: string;
+  publicKey: string;
+  nodeTypeName: string;
+  iata: string;
+  observationCount: number;
+  lastSeen: number;
+}
+
+export interface NodeAnalytics {
+  nodeId: string;
+  since: number;
+  until: number;
+  kpis: {
+    packetCount: number;
+    observationCount: number;
+    activeObservers: number;
+    activeIatas: number;
+    firstHeardAt?: number;
+    lastHeardAt?: number;
+    avgSnr?: number;
+    avgRssi?: number;
+    avgHopCount?: number;
+  };
+  payloadMix: NodeAnalyticsCount[];
+  routeMix: NodeAnalyticsCount[];
+  iataMix: NodeAnalyticsCount[];
+  hourly: NodeActivityPoint[];
+  snrBuckets: NodeSignalBucket[];
+  rssiBuckets: NodeSignalBucket[];
+  hopBuckets: NodeSignalBucket[];
+  topObservers: NodeAnalyticsCount[];
+  topPeers: NodeAnalyticsPeer[];
+}
