@@ -240,6 +240,114 @@
   content: none;
 }
 
+.crt-shell > :not(.theme-ambient-layer) {
+  position: relative;
+  z-index: 1;
+}
+
+.theme-ambient-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--color-primary);
+  opacity: 0.62;
+}
+
+.theme-ambient-layer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-primary) 4%, transparent) 0 1px,
+      transparent 1px 68px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-primary) 3%, transparent) 0 1px,
+      transparent 1px 52px
+    );
+  opacity: 0.22;
+}
+
+.theme-ambient-sweep {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 18%;
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--color-primary) 9%, transparent),
+      transparent
+    );
+  mix-blend-mode: screen;
+  animation: theme-ambient-sweep 12s linear infinite;
+}
+
+.theme-ambient-blip {
+  position: absolute;
+  width: 72px;
+  height: 72px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 36%, transparent);
+  box-shadow:
+    0 0 16px color-mix(in srgb, var(--color-primary) 18%, transparent),
+    inset 0 0 18px color-mix(in srgb, var(--color-primary) 10%, transparent);
+  clip-path: polygon(50% 0, 94% 25%, 94% 75%, 50% 100%, 6% 75%, 6% 25%);
+  opacity: 0;
+  animation: theme-ambient-blip 6.8s ease-in-out infinite;
+}
+
+.theme-ambient-blip-a {
+  left: 8%;
+  top: 18%;
+}
+
+.theme-ambient-blip-b {
+  right: 14%;
+  bottom: 18%;
+  animation-delay: 3.1s;
+}
+
+.theme-ambient-ticker {
+  position: absolute;
+  right: 0;
+  bottom: 2.15rem;
+  display: inline-block;
+  min-width: 200%;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.13;
+  text-shadow: 0 0 8px currentColor;
+  animation: theme-ambient-ticker 26s linear infinite;
+}
+
+.theme-ambient-ticker::after {
+  content: " // BEACON OPS // LIVE PACKETS // MAP CORE // NODE INDEX // PLEASE WAIT";
+}
+
+.theme-ambient-layer[data-ambient-theme="crt-green"] {
+  opacity: 0.54;
+}
+
+.theme-ambient-layer[data-ambient-theme="crt-ibm-dos"] .theme-ambient-sweep,
+.theme-ambient-layer[data-ambient-theme="crt-3278"] .theme-ambient-sweep {
+  animation-duration: 16s;
+}
+
+.theme-ambient-layer[data-ambient-tab="live"] .theme-ambient-blip,
+.theme-ambient-layer[data-ambient-tab="map"] .theme-ambient-blip,
+.theme-ambient-layer[data-ambient-tab="atlas"] .theme-ambient-blip {
+  animation-duration: 4.8s;
+}
+
 .crt-panel {
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--color-bg-surface) 88%, var(--crt-phosphor, var(--color-primary)) 12%), var(--color-bg-surface)),
@@ -249,6 +357,12 @@
     inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 8%, transparent),
     inset 0 0 18px rgba(0, 0, 0, 0.48),
     0 0 18px color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .crt-panel {
+    animation: crt-panel-breathe 9s ease-in-out infinite;
+  }
 }
 
 .crt-float-panel {
@@ -421,6 +535,58 @@
   to { width: 100%; }
 }
 
+@keyframes terminal-boot-meter {
+  from { width: 0; opacity: 0.25; }
+  70% { opacity: 1; }
+  to { width: 100%; opacity: 0.9; }
+}
+
+@keyframes terminal-boot-scope-sweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes terminal-boot-scope-blip {
+  0%, 100% { opacity: 0.18; transform: scale(0.82); }
+  42% { opacity: 1; transform: scale(1.18); }
+}
+
+@keyframes terminal-boot-ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes theme-ambient-sweep {
+  from { transform: translateX(-38%) skewX(-18deg); }
+  to { transform: translateX(138%) skewX(-18deg); }
+}
+
+@keyframes theme-ambient-blip {
+  0%, 100% { opacity: 0; transform: scale(0.65); }
+  18% { opacity: 0.22; transform: scale(1); }
+  38% { opacity: 0; transform: scale(1.62); }
+}
+
+@keyframes theme-ambient-ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes crt-panel-breathe {
+  0%, 100% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 8%, transparent),
+      inset 0 0 18px rgba(0, 0, 0, 0.48),
+      0 0 18px color-mix(in srgb, var(--color-primary) 10%, transparent);
+  }
+  48% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 12%, transparent),
+      inset 0 0 22px rgba(0, 0, 0, 0.46),
+      0 0 24px color-mix(in srgb, var(--color-primary) 15%, transparent);
+  }
+}
+
 .terminal-spinner {
   position: relative;
   display: inline-grid;
@@ -531,6 +697,17 @@
   text-transform: uppercase;
 }
 
+.loading-pill {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 8%, transparent),
+    0 0 16px color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+
+.loading-pill-progress {
+  height: 0.25rem;
+  width: min(14rem, calc(100vw - 3rem));
+}
+
 .terminal-skeleton-rows {
   display: flex;
   flex-direction: column;
@@ -578,6 +755,8 @@
 }
 
 .terminal-boot-frame {
+  position: relative;
+  overflow: hidden;
   width: min(92vw, 720px);
   border: 1px solid color-mix(in srgb, var(--color-primary) 48%, var(--color-border));
   background:
@@ -593,13 +772,150 @@
     0 0 22px color-mix(in srgb, var(--color-primary) 16%, transparent);
 }
 
+.terminal-boot-frame::before {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  background:
+    linear-gradient(
+      115deg,
+      transparent 0 42%,
+      color-mix(in srgb, var(--color-primary) 10%, transparent) 49%,
+      transparent 56% 100%
+    );
+  animation: theme-ambient-sweep 5.6s linear infinite;
+}
+
+.terminal-boot-frame > * {
+  position: relative;
+  z-index: 1;
+}
+
 .terminal-boot-line {
   opacity: 0;
   animation: terminal-boot-line 280ms ease-out forwards;
 }
 
+.terminal-boot-stage-meter {
+  display: none;
+  width: 42px;
+  height: 4px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 32%, var(--color-border-subtle));
+  background: color-mix(in srgb, var(--color-bg-base) 90%, black);
+}
+
+.terminal-boot-stage-meter > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--color-primary-dim), var(--color-primary), var(--color-text-bright));
+  box-shadow: 0 0 7px color-mix(in srgb, var(--color-primary) 65%, transparent);
+  animation: terminal-boot-meter 520ms steps(7, end) forwards;
+}
+
+@media (min-width: 520px) {
+  .terminal-boot-stage-meter {
+    display: block;
+  }
+}
+
 .terminal-boot-progress-fill {
   animation: terminal-boot-progress 4.2s steps(28, end) forwards;
+}
+
+.terminal-boot-visual {
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 8%, transparent),
+    inset 0 0 18px rgba(0, 0, 0, 0.38);
+}
+
+.terminal-boot-scope {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 28%, var(--color-border-subtle));
+  background:
+    radial-gradient(circle at center, color-mix(in srgb, var(--color-primary) 14%, transparent) 0 3px, transparent 4px),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 8%, transparent) 0 1px, transparent 1px 18px),
+    repeating-linear-gradient(to bottom, color-mix(in srgb, var(--color-primary) 7%, transparent) 0 1px, transparent 1px 18px),
+    color-mix(in srgb, var(--color-bg-base) 86%, black);
+  clip-path: polygon(50% 0, 94% 25%, 94% 75%, 50% 100%, 6% 75%, 6% 25%);
+}
+
+.terminal-boot-scope-core,
+.terminal-boot-scope-ring,
+.terminal-boot-scope-sweep,
+.terminal-boot-scope-blip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-origin: center;
+}
+
+.terminal-boot-scope-core {
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  background: currentColor;
+  box-shadow: 0 0 14px currentColor;
+}
+
+.terminal-boot-scope-ring {
+  border: 1px solid color-mix(in srgb, var(--color-primary) 42%, transparent);
+  border-radius: 999px;
+}
+
+.terminal-boot-scope-ring-1 {
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
+}
+
+.terminal-boot-scope-ring-2 {
+  width: 88px;
+  height: 88px;
+  margin: -44px 0 0 -44px;
+}
+
+.terminal-boot-scope-sweep {
+  width: 54px;
+  height: 1px;
+  background: linear-gradient(90deg, currentColor, transparent);
+  animation: terminal-boot-scope-sweep 1.65s linear infinite;
+}
+
+.terminal-boot-scope-blip {
+  width: 7px;
+  height: 7px;
+  background: currentColor;
+  box-shadow: 0 0 10px currentColor;
+  animation: terminal-boot-scope-blip 1.8s ease-in-out infinite;
+}
+
+.terminal-boot-scope-blip-1 {
+  margin: -28px 0 0 18px;
+}
+
+.terminal-boot-scope-blip-2 {
+  margin: 24px 0 0 -34px;
+  animation-delay: 0.62s;
+}
+
+.terminal-boot-ticker {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.terminal-boot-ticker > span {
+  display: inline-block;
+  min-width: 200%;
+  animation: terminal-boot-ticker 8s linear infinite;
+}
+
+.terminal-boot-ticker > span::after {
+  content: " // MU/TH/UR LINK // WY-STYLE DIAGNOSTIC // READY";
 }
 
 .crt-title {
@@ -675,6 +991,7 @@ textarea {
 @media (prefers-reduced-motion: reduce) {
   body::after,
   .crt-shell,
+  .crt-panel,
   .beacon-core-pulse,
   .beacon-ring,
   .crt-terminal-cursor::after,
@@ -683,13 +1000,25 @@ textarea {
   .terminal-progress-fill,
   .terminal-skeleton-row,
   .terminal-boot-line,
-  .terminal-boot-progress-fill {
+  .terminal-boot-progress-fill,
+  .terminal-boot-stage-meter > span,
+  .terminal-boot-frame::before,
+  .terminal-boot-scope-sweep,
+  .terminal-boot-scope-blip,
+  .terminal-boot-ticker > span,
+  .theme-ambient-sweep,
+  .theme-ambient-blip,
+  .theme-ambient-ticker {
     animation: none;
   }
 
   .terminal-boot-line {
     opacity: 1;
     transform: none;
+  }
+
+  .theme-ambient-layer {
+    opacity: 0.22;
   }
 }
 

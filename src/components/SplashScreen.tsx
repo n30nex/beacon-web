@@ -14,7 +14,9 @@ interface BootVariant {
   title: string;
   subtitle: string;
   prompt: string;
+  signal: string;
   matrix: string[];
+  diagnostics: Array<[string, string]>;
   stages: string[];
 }
 
@@ -24,7 +26,9 @@ const BOOT_VARIANTS: Record<string, BootVariant> = {
     title: "MU/TH/UR LINK",
     subtitle: "Beacon mesh operations console",
     prompt: "WY-STYLE DIAGNOSTIC",
+    signal: "INDUSTRIAL MAINFRAME",
     matrix: ["SYS 221-B", "CREWNET", "BROKER BUS", "OPS READY"],
+    diagnostics: [["CORE", "LOCK"], ["API", "READY"], ["CACHE", "WARM"], ["RF", "LISTEN"]],
     stages: [
       "POST: PHOSPHOR DISPLAY BUS",
       "CHECK: MAP CORE MEMORY",
@@ -38,7 +42,9 @@ const BOOT_VARIANTS: Record<string, BootVariant> = {
     title: "CREWNET UPLINK",
     subtitle: "Monochrome regional telemetry",
     prompt: "SHIPBOARD NETWORK CHECK",
+    signal: "MONOCHROME SHIP LINK",
     matrix: ["TTY 77", "RX GREEN", "ROUTE BUS", "READY"],
+    diagnostics: [["TTY", "OK"], ["WS", "SYNC"], ["IATA", "SCAN"], ["CREW", "NET"]],
     stages: [
       "POST: TERMINAL FONT ROM",
       "CHECK: OBSERVER STATUS",
@@ -52,7 +58,9 @@ const BOOT_VARIANTS: Record<string, BootVariant> = {
     title: "WY BIOS LINK",
     subtitle: "Regional mesh boot loader",
     prompt: "C:\\BEACON\\BOOT",
+    signal: "BIOS VECTOR LOAD",
     matrix: ["INT 10H", "NET BIOS", "WS BUS", "READY"],
+    diagnostics: [["BIOS", "OK"], ["MEM", "640K"], ["COM", "ARM"], ["MAP", "LOAD"]],
     stages: [
       "POST: VIDEO BIOS",
       "CHECK: CACHE SEGMENTS",
@@ -66,7 +74,9 @@ const BOOT_VARIANTS: Record<string, BootVariant> = {
     title: "MU/TH/UR FIELD 01",
     subtitle: "Block terminal mesh monitor",
     prompt: "WY-OPS FIELD VERIFY",
+    signal: "FIELD CONTROL BLOCK",
     matrix: ["LU 0001", "SNA BUS", "RF GRID", "READY"],
+    diagnostics: [["LU", "BIND"], ["SNA", "OK"], ["RF", "GRID"], ["SCOPE", "SET"]],
     stages: [
       "BIND: DISPLAY STATION",
       "CHECK: SCOPE FIELDS",
@@ -80,7 +90,9 @@ const BOOT_VARIANTS: Record<string, BootVariant> = {
     title: "MU/TH/UR BASIC",
     subtitle: "Disk-style terminal startup",
     prompt: "] RUN WY.BEACON",
+    signal: "ROM DISK MONITOR",
     matrix: ["ROM OK", "DISK II", "RF IO", "READY"],
+    diagnostics: [["ROM", "OK"], ["DISK", "SEEK"], ["IO", "READY"], ["RUN", "GO"]],
     stages: [
       "READ: DISPLAY PROM",
       "CHECK: DISK BUFFER",
@@ -187,19 +199,40 @@ export function SplashScreen() {
                 >
                   <span className="text-primary">&gt;</span>
                   <span className="min-w-0 flex-1 truncate">{stage}</span>
+                  <span className="terminal-boot-stage-meter" aria-hidden>
+                    <span style={reducedMotion ? { width: "100%", animation: "none" } : { animationDelay: `${520 + i * 430}ms` }} />
+                  </span>
                   <span className="text-green">OK</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="border border-border-subtle bg-bg-base/40 p-3 font-mono text-[10px] uppercase tracking-[0.12em] text-text-dim">
-            <div className="mb-2 text-text-muted">BOOT VECTOR</div>
+          <div className="terminal-boot-visual border border-border-subtle bg-bg-base/40 p-3 font-mono text-[10px] uppercase tracking-[0.12em] text-text-dim">
+            <div className="mb-2 flex items-center justify-between gap-2 text-text-muted">
+              <span>BOOT VECTOR</span>
+              <span className="text-primary">{variant.signal}</span>
+            </div>
+            <div className="terminal-boot-scope mx-auto mb-3" aria-hidden>
+              <span className="terminal-boot-scope-core" />
+              <span className="terminal-boot-scope-ring terminal-boot-scope-ring-1" />
+              <span className="terminal-boot-scope-ring terminal-boot-scope-ring-2" />
+              <span className="terminal-boot-scope-sweep" />
+              <span className="terminal-boot-scope-blip terminal-boot-scope-blip-1" />
+              <span className="terminal-boot-scope-blip terminal-boot-scope-blip-2" />
+            </div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-              <span>API</span><span className="text-green">READY</span>
-              <span>MAP</span><span className="text-green">ARMED</span>
-              <span>WS</span><span className="text-warn">LINKING</span>
-              <span>RF</span><span className="text-primary">LISTEN</span>
+              {variant.diagnostics.map(([label, value]) => (
+                <div key={label} className="contents">
+                  <span>{label}</span>
+                  <span className={value === "READY" || value === "OK" || value === "LOCK" || value === "GO" ? "text-green" : "text-primary"}>
+                    {value}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="terminal-boot-ticker mt-3 border-t border-border-subtle pt-2 text-primary">
+              <span>{variant.prompt} // CREWNET // BROKER BUS // BEACON OPS READY</span>
             </div>
           </div>
         </div>

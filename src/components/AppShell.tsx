@@ -317,6 +317,25 @@ function DisplayPreferences() {
   );
 }
 
+function ThemeAmbientLayer({ activeTab }: { activeTab: string }) {
+  const { themeId } = useTheme();
+  return (
+    <div
+      className="theme-ambient-layer"
+      data-ambient-theme={themeId}
+      data-ambient-tab={activeTab.toLowerCase()}
+      aria-hidden="true"
+    >
+      <span className="theme-ambient-sweep" />
+      <span className="theme-ambient-blip theme-ambient-blip-a" />
+      <span className="theme-ambient-blip theme-ambient-blip-b" />
+      <span className="theme-ambient-ticker">
+        BEACON OPS // {activeTab.toUpperCase()} // CREWNET // BROKER BUS // PLEASE WAIT
+      </span>
+    </div>
+  );
+}
+
 // top-level layout: header, tabs, content, footer
 
 interface AppShellProps {
@@ -329,7 +348,8 @@ interface AppShellProps {
 
 export function AppShell({ activeTab, onTabChange, wsManager, onOpenSearch, children }: AppShellProps) {
   return (
-    <div className="crt-shell flex flex-col h-dvh">
+    <div className="crt-shell flex flex-col h-dvh" data-active-tab={activeTab.toLowerCase()}>
+      <ThemeAmbientLayer activeTab={activeTab} />
       <header className="crt-panel flex items-center justify-between gap-2 px-3 md:px-4 h-[46px] bg-bg-surface border-b border-border shrink-0">
         <BeaconWordmark iconSize={22} textClassName="text-sm" />
         <div className="flex items-center gap-1.5 md:gap-3 min-w-0">

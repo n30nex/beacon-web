@@ -454,6 +454,48 @@ function drawDirectionalChevron(
   ctx.restore();
 }
 
+function livePulseShortLabel(role: LivePulse["role"]): string {
+  switch (role) {
+    case "origin":
+      return "TX";
+    case "destination":
+      return "RX";
+    case "relay":
+      return "HOP";
+    default:
+      return "ACT";
+  }
+}
+
+function drawTerminalTag(
+  ctx: CanvasRenderingContext2D,
+  label: string,
+  x: number,
+  y: number,
+  color: string,
+  alpha: number,
+): void {
+  ctx.save();
+  ctx.font = "700 9px Share Tech Mono, JetBrains Mono, monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const width = Math.max(22, ctx.measureText(label).width + 10);
+  ctx.globalAlpha = Math.max(0, Math.min(1, alpha * 0.48));
+  ctx.fillStyle = "rgba(0,0,0,0.78)";
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.rect(x - width / 2, y - 7, width, 14);
+  ctx.fill();
+  ctx.stroke();
+  ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 5;
+  ctx.fillText(label, x, y + 0.5);
+  ctx.restore();
+}
+
 function useLiveAnimationCanvas(
   mapRef: RefObject<MapLibreMap | null>,
   canvasRef: RefObject<HTMLCanvasElement | null>,
@@ -813,6 +855,8 @@ function useLiveAnimationCanvas(
         const endpoint = role === "origin" || role === "destination";
         const rippleRadius = endpoint ? 52 : 28;
         const coreRadius = endpoint ? 6.2 + energy : 3.4 + energy * 0.8;
+        const roleLabel = livePulseShortLabel(role);
+        const ringCount = endpoint ? Math.max(2, frameCaps.pulseRings + 1) : Math.max(1, frameCaps.pulseRings);
         const headingAngle = headingPoint
           ? role === "destination"
             ? Math.atan2(point.y - headingPoint.y, point.x - headingPoint.x)
@@ -838,6 +882,44 @@ function useLiveAnimationCanvas(
           ctx.beginPath();
           ctx.arc(point.x, point.y, (endpoint ? 16 : 12) + (endpoint ? 72 : 36) * progress, 0, Math.PI * 2);
           ctx.stroke();
+        }
+
+        for (let ring = 0; ring < ringCount; ring += 1) {
+          const wave = (progress * (endpoint ? 1.65 : 1.28) + ring / ringCount) % 1;
+          const waveAlpha = (endpoint ? 0.32 : 0.13) * (1 - wave) * (1 - progress * 0.36) * glowFactor;
+          if (waveAlpha <= 0.01) continue;
+          ctx.globalAlpha = waveAlpha;
+          ctx.lineWidth = endpoint ? 1.35 : 0.95;
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, coreRadius + 10 + wave * (endpoint ? 58 : 30), 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        if (!endpoint) {
+          const flash = 0.5 + 0.5 * Math.sin(progress * Math.PI * 8);
+          const nodeFlash = Math.max(0, 1 - progress * 1.18);
+          const relayRadius = role === "relay" ? 12 : 15;
+
+          ctx.globalAlpha = Math.max(0.08, 0.2 * nodeFlash);
+          ctx.shadowBlur = frameCaps.shadows ? 12 : 0;
+          drawHexPath(ctx, point.x, point.y, relayRadius + flash * 3);
+          ctx.fill();
+
+          ctx.globalAlpha = Math.max(0.12, 0.36 * (1 - progress));
+          ctx.lineWidth = 1 + flash * 0.25;
+          ctx.shadowBlur = frameCaps.shadows ? 10 : 0;
+          drawHexPath(ctx, point.x, point.y, relayRadius + 1 + flash * 2);
+          ctx.stroke();
+
+          if (headingPoint) {
+            ctx.globalAlpha = Math.max(0.16, 0.48 * (1 - progress));
+            ctx.shadowBlur = frameCaps.shadows ? 9 : 0;
+            drawDirectionalChevron(ctx, point.x, point.y, headingAngle, 19 + 8 * progress, role === "relay" ? 5.6 : 6.4);
+          }
+
+          if (frameCaps.labels && progress < 0.86) {
+            drawTerminalTag(ctx, roleLabel, point.x, point.y - 19 - 4 * progress, color, Math.max(0.2, 0.78 * (1 - progress)));
+          }
         }
 
         if (endpoint) {
@@ -878,6 +960,18 @@ function useLiveAnimationCanvas(
           ctx.stroke();
 
           if (headingPoint) {
+            const beamStart = role === "destination" ? -56 + 8 * progress : 8;
+            const beamEnd = role === "destination" ? -7 : 58 - 12 * progress;
+            ctx.globalAlpha = Math.max(0.12, 0.36 * (1 - progress));
+            ctx.lineWidth = 2.2;
+            ctx.shadowBlur = frameCaps.shadows ? 18 : 0;
+            ctx.setLineDash([7, 7]);
+            ctx.beginPath();
+            ctx.moveTo(point.x + Math.cos(headingAngle) * beamStart, point.y + Math.sin(headingAngle) * beamStart);
+            ctx.lineTo(point.x + Math.cos(headingAngle) * beamEnd, point.y + Math.sin(headingAngle) * beamEnd);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
             const chevronBase = role === "origin" ? 23 + 12 * progress : -(34 - 12 * progress);
             const chevronSize = role === "origin" ? 8.5 : 7.5;
             ctx.globalAlpha = Math.max(0.2, 0.74 * (1 - progress));
@@ -903,6 +997,15 @@ function useLiveAnimationCanvas(
             ctx.textBaseline = "middle";
             ctx.fillText(pulse.label ?? (role === "origin" ? "TX ORIGIN" : "RX DEST"), point.x, point.y - 24 - 9 * progress);
           }
+
+          drawTerminalTag(
+            ctx,
+            roleLabel,
+            point.x + Math.cos(headingAngle) * (role === "destination" ? -34 : 34),
+            point.y + Math.sin(headingAngle) * (role === "destination" ? -34 : 34),
+            color,
+            Math.max(0.24, 0.86 * (1 - progress)),
+          );
         }
 
         ctx.globalAlpha = Math.max(endpoint ? 0.18 : 0.07, (endpoint ? 0.5 : 0.24) * (1 - progress));
@@ -1038,6 +1141,13 @@ function useLiveAnimationCanvas(
         ctx.arc(x, y, 3.8 + 1.2 * (1 - progress), 0, Math.PI * 2);
         ctx.fill();
 
+        ctx.globalAlpha = Math.max(0.1, alpha * (matrixMode ? 0.32 : 0.46));
+        ctx.lineWidth = matrixMode ? 1.1 : 1.35;
+        ctx.shadowBlur = frameCaps.shadows ? (matrixMode ? 7 : 11) : 0;
+        ctx.beginPath();
+        ctx.arc(x, y, 8 + 5 * Math.sin(progress * Math.PI * 5) ** 2, 0, Math.PI * 2);
+        ctx.stroke();
+
         if (pathDistance > 18) {
           const dx = current.to.x - current.from.x;
           const dy = current.to.y - current.from.y;
@@ -1123,6 +1233,16 @@ function useLiveAnimationCanvas(
           ctx.beginPath();
           ctx.arc(to.x, to.y, 8 + 18 * pulse, 0, Math.PI * 2);
           ctx.stroke();
+        }
+
+        if (frameCaps.labels && pathDistance > 64) {
+          if (progress < 0.34) {
+            drawTerminalTag(ctx, "TX", from.x, from.y - 24, color, Math.max(0.18, 0.62 * (1 - progress / 0.34)));
+          }
+          if (progress > 0.66) {
+            const arrive = (progress - 0.66) / 0.34;
+            drawTerminalTag(ctx, "RX", to.x, to.y - 24, color, Math.max(0.18, 0.62 * arrive));
+          }
         }
 
         if (frameCaps.labels && pathDistance > 72 && progress > 0.16 && progress < 0.9) {
@@ -2276,6 +2396,7 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
       if (!targetCoord && !hasRoute) return false;
 
       const pulsePath = path && path.length > 0 ? path : targetCoord ? [{ coord: targetCoord, label: observerTarget?.label ?? event.iata, nodeId: `${event.id}:target` }] : [];
+      const flightDurationMs = hasRoute && path ? 1_850 + Math.min(1_000, Math.max(0, path.length - 2) * 280) : 0;
       const activityPulses: LivePulse[] = [];
       const originPoint = pulsePath[0];
       const destinationPoint = pulsePath.at(-1);
@@ -2296,14 +2417,16 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
       }
       const relayPulses = pulsePath.length > 2 ? pulsePath.slice(1, -1).slice(-4) : [];
       relayPulses.forEach((point, index) => {
+        const hopIndex = pulsePath.indexOf(point);
+        const routeFraction = pulsePath.length > 1 && hopIndex > 0 ? hopIndex / (pulsePath.length - 1) : (index + 1) / Math.max(2, relayPulses.length + 1);
         activityPulses.push({
           id: `${event.id}:relay:${point.nodeId}:${index}`,
           coord: point.coord,
-          headingTo: pulsePath[pulsePath.indexOf(point) + 1]?.coord,
-          createdAt: startedAt + 120 * (index + 1),
-          lifetimeMs: matrixMode ? 2_200 : 3_000,
+          headingTo: pulsePath[hopIndex + 1]?.coord,
+          createdAt: startedAt + (flightDurationMs ? Math.max(140, flightDurationMs * routeFraction * 0.78) : 120 * (index + 1)),
+          lifetimeMs: matrixMode ? 2_400 : 3_300,
           color,
-          strength: 1,
+          strength: 1.35,
           role: "relay",
           label: "HOP",
         });
@@ -2316,8 +2439,8 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
           id: `${event.id}:destination:${destinationPoint.nodeId}`,
           coord: destinationPoint.coord,
           headingTo: destinationHeading,
-          createdAt: startedAt + Math.min(560, 140 * Math.max(1, pulsePath.length - 1)),
-          lifetimeMs: matrixMode ? 3_900 : 5_600,
+          createdAt: startedAt + (flightDurationMs ? Math.max(520, flightDurationMs * 0.82) : Math.min(560, 140 * Math.max(1, pulsePath.length - 1))),
+          lifetimeMs: matrixMode ? 4_200 : 6_000,
           color,
           strength: Math.max(2.3, event.observationCount + 0.85),
           role: "destination",
@@ -2366,7 +2489,6 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
       playPacketAudio(event);
 
       if (hasRoute && path && routeFrom && routeTo && animationsRef.current.length < caps.activeAnimations) {
-        const durationMs = 1_850 + Math.min(1_000, Math.max(0, path.length - 2) * 280);
         animationsRef.current = [
           ...animationsRef.current.slice(-(caps.activeAnimations - 1)),
           {
@@ -2376,7 +2498,7 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
             to: routeTo,
             path,
             startedAt,
-            durationMs,
+            durationMs: flightDurationMs,
             color,
             waveIndex,
             waveCount,
