@@ -1,11 +1,11 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, type CSSProperties } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getNodesPage } from "../../api/client";
 import { useRegion } from "../../hooks/useRegion";
 import { useScopes } from "../../hooks/useScopes";
 import { useInfinitePages } from "../../hooks/useInfinitePages";
 import { useCoalescedInfinitePatch } from "../../hooks/useCoalescedInfinitePatch";
-import { useWsNodeUpdateHandler } from "../../hooks/useWsHandlers";
+import { useWsNodeUpdateHandler, useWsPacketHandler } from "../../hooks/useWsHandlers";
 import { formatHex, formatRadio, timeAgoMs } from "../../lib/formatters";
 import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { Tooltip } from "../../components/Tooltip";
@@ -13,13 +13,32 @@ import { ObserverIcon } from "../../components/ObserverIcon";
 import { LoadingPill } from "../../components/LoadingPill";
 import { NodeFilterBar, type MultibyteFilter } from "./NodeFilterBar";
 import { patchNodeSummary } from "./node-updates";
+import { pathChunks } from "../live/live-model";
 import type { NodeSummary } from "./types";
 import type { WsManager } from "../../api/ws-manager";
-import type { WsNodeUpdate } from "../../types/ws";
+import type { WsNodeUpdate, WsPacketObservation } from "../../types/ws";
 
 const NODE_GRID_PAGE_SIZE = 500;
+const NODE_LIVE_ACTIVITY_MS = 8_500;
+const NODE_LIVE_ACTIVITY_MAX = 600;
 const nodeId = (n: NodeSummary) => n.id;
 const nodeUpdateKey = (d: WsNodeUpdate["data"]) => d.nodeId;
+
+type NodeLiveRole = "tx" | "relay" | "rx";
+
+interface NodeLiveActivity {
+  role: NodeLiveRole;
+  lastAt: number;
+  count: number;
+  packetHash: string;
+  iata: string;
+}
+
+interface NodeTrafficLookup {
+  byId: Map<string, NodeSummary>;
+  byObserver: Map<string, NodeSummary>;
+  byPathPrefix: Map<string, NodeSummary[]>;
+}
 
 interface NodeTableProps {
   wsManager: WsManager;
@@ -41,11 +60,80 @@ function nodeAccent(node: NodeSummary): string {
   return `hsl(${Math.abs(hash) % 360} 86% 56%)`;
 }
 
+function normalizeHex(value: string | undefined): string {
+  return (value ?? "").replace(/[^a-fA-F0-9]/g, "").toUpperCase();
+}
+
+function buildNodeTrafficLookup(nodes: NodeSummary[]): NodeTrafficLookup {
+  const byId = new Map<string, NodeSummary>();
+  const byObserver = new Map<string, NodeSummary>();
+  const byPathPrefix = new Map<string, NodeSummary[]>();
+
+  for (const node of nodes) {
+    byId.set(node.id, node);
+    if (node.observerId) byObserver.set(node.observerId, node);
+
+    const publicKey = normalizeHex(node.publicKey);
+    for (let length = 2; length <= Math.min(16, publicKey.length); length += 2) {
+      const prefix = publicKey.slice(0, length);
+      const bucket = byPathPrefix.get(prefix) ?? [];
+      bucket.push(node);
+      byPathPrefix.set(prefix, bucket);
+    }
+  }
+
+  return { byId, byObserver, byPathPrefix };
+}
+
+function setTrafficRole(roles: Map<string, NodeLiveRole>, nodeId: string, role: NodeLiveRole) {
+  const current = roles.get(nodeId);
+  if (!current || current === "relay" || role === "tx" || role === "rx") {
+    roles.set(nodeId, role);
+  }
+}
+
+function nodesFromPacketPath(data: WsPacketObservation["data"], lookup: NodeTrafficLookup): NodeSummary[] {
+  const resolved = data.observation.resolvedPath
+    ?.map((hop) => (hop.confidence === "high" && hop.nodes.length === 1 ? lookup.byId.get(hop.nodes[0]!.id) : undefined))
+    .filter((node): node is NodeSummary => Boolean(node));
+  if (resolved && resolved.length > 0) return resolved;
+
+  const chunks = pathChunks(data.observation.pathBytes, data.observation.pathLength?.hashSize, data.observation.pathLength?.hopCount, 8);
+  return chunks
+    .map((chunk) => {
+      const candidates = lookup.byPathPrefix.get(chunk);
+      return candidates?.length === 1 ? candidates[0] : undefined;
+    })
+    .filter((node): node is NodeSummary => Boolean(node));
+}
+
+function resolvePacketNodeRoles(data: WsPacketObservation["data"], lookup: NodeTrafficLookup): Map<string, NodeLiveRole> {
+  const roles = new Map<string, NodeLiveRole>();
+  const pathNodes = nodesFromPacketPath(data, lookup);
+  const observerNode = lookup.byObserver.get(data.observation.observerId);
+
+  pathNodes.forEach((node, index) => {
+    const role: NodeLiveRole = index === 0 ? "tx" : index === pathNodes.length - 1 ? "rx" : "relay";
+    setTrafficRole(roles, node.id, role);
+  });
+
+  if (observerNode) {
+    setTrafficRole(roles, observerNode.id, "rx");
+    if (pathNodes.length === 1 && pathNodes[0]!.id !== observerNode.id) {
+      setTrafficRole(roles, pathNodes[0]!.id, "tx");
+    }
+  }
+
+  return roles;
+}
+
 function NodeGridCard({
+  activity,
   node,
   onSelect,
   selected,
 }: {
+  activity?: NodeLiveActivity;
   node: NodeSummary;
   onSelect: (id: string) => void;
   selected: boolean;
@@ -54,15 +142,27 @@ function NodeGridCard({
   const hasName = Boolean(node.name && label !== formatHex(node.id));
   const accent = nodeAccent(node);
   const lastHeard = nodeLastHeard(node);
+  const style = {
+    "--node-accent": accent,
+    boxShadow: activity
+      ? `0 0 18px ${accent}cc, inset 0 0 18px ${accent}2e, inset 2px 0 0 ${accent}`
+      : selected
+        ? `0 0 14px ${accent}66`
+        : `inset 2px 0 0 ${accent}`,
+  } as CSSProperties;
 
   return (
     <button
       type="button"
       onClick={() => onSelect(node.id)}
-      className={`group min-w-0 rounded-sm border bg-bg-surface/80 p-1.5 text-left font-mono transition-colors hover:bg-primary/8 ${
+      className={`node-grid-card group min-w-0 rounded-sm border bg-bg-surface/80 p-1.5 text-left font-mono transition-colors hover:bg-primary/8 ${
+        activity ? "node-grid-card-live" : ""
+      } ${
         selected ? "border-primary text-text-bright" : "border-border-subtle text-text-normal"
       }`}
-      style={{ boxShadow: selected ? `0 0 14px ${accent}66` : `inset 2px 0 0 ${accent}` }}
+      data-live-role={activity?.role}
+      data-pulse-phase={activity ? activity.count % 2 : undefined}
+      style={style}
       title={label}
     >
       <div className="flex min-w-0 items-center gap-1">
@@ -70,6 +170,11 @@ function NodeGridCard({
         <span className={`min-w-0 flex-1 truncate text-[10px] leading-tight ${hasName ? "" : "italic text-text-dim"}`}>
           {label}
         </span>
+        {activity && (
+          <span className="node-live-badge shrink-0" title={`${activity.role.toUpperCase()} ${formatHex(activity.packetHash)} / ${activity.iata}`}>
+            {activity.role.toUpperCase()}
+          </span>
+        )}
         {node.isObserver && (
           <Tooltip label="Observer">
             <span className="shrink-0 text-primary"><ObserverIcon /></span>
@@ -94,6 +199,7 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
   const [scopeFilter, setScopeFilter] = useState("");
   const [search, setSearch] = useState("");
   const [searchField, setSearchField] = useState("name");
+  const [liveActivity, setLiveActivity] = useState<Record<string, NodeLiveActivity>>({});
 
   const queryKey = useMemo(
     () => ["nodes", regionKey, typeFilter, pathsFilter, tracesFilter, search, searchField],
@@ -116,6 +222,7 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
   });
 
   const scopeOptions = useScopes();
+  const trafficLookup = useMemo(() => buildNodeTrafficLookup(nodes), [nodes]);
   const displayNodes = useMemo(
     () =>
       (scopeFilter ? nodes.filter((n) => n.defaultScope === scopeFilter) : nodes)
@@ -137,6 +244,54 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
     wsManager,
     useCoalescedInfinitePatch<NodeSummary, WsNodeUpdate["data"]>(queryKey, nodeUpdateKey, patchNodeSummary, onNodeUpdate),
   );
+
+  const handlePacketActivity = useCallback(
+    (data: WsPacketObservation["data"]) => {
+      const roles = resolvePacketNodeRoles(data, trafficLookup);
+      if (roles.size === 0) return;
+      const now = Date.now();
+      setLiveActivity((current) => {
+        const cutoff = now - NODE_LIVE_ACTIVITY_MS;
+        const next: Record<string, NodeLiveActivity> = {};
+        for (const [id, activity] of Object.entries(current)) {
+          if (activity.lastAt >= cutoff) next[id] = activity;
+        }
+        roles.forEach((role, id) => {
+          const previous = next[id];
+          next[id] = {
+            role,
+            lastAt: now,
+            count: (previous?.count ?? 0) + 1,
+            packetHash: data.packetHash,
+            iata: data.observation.iata,
+          };
+        });
+
+        const entries = Object.entries(next);
+        if (entries.length <= NODE_LIVE_ACTIVITY_MAX) return next;
+        return Object.fromEntries(entries.sort((a, b) => b[1].lastAt - a[1].lastAt).slice(0, NODE_LIVE_ACTIVITY_MAX));
+      });
+    },
+    [trafficLookup],
+  );
+
+  useWsPacketHandler(wsManager, handlePacketActivity);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const cutoff = Date.now() - NODE_LIVE_ACTIVITY_MS;
+      setLiveActivity((current) => {
+        let changed = false;
+        const next: Record<string, NodeLiveActivity> = {};
+        for (const [nodeId, activity] of Object.entries(current)) {
+          if (activity.lastAt >= cutoff) next[nodeId] = activity;
+          else changed = true;
+        }
+        return changed ? next : current;
+      });
+    }, 1_500);
+    return () => window.clearInterval(id);
+  }, []);
 
   return (
     <div className="flex flex-1 min-h-0">
@@ -165,7 +320,7 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
           ) : (
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-10 2xl:grid-cols-[repeat(20,minmax(0,1fr))]">
               {displayNodes.map((node) => (
-                <NodeGridCard key={node.id} node={node} selected={selectedNodeId === node.id} onSelect={onSelectNode} />
+                <NodeGridCard key={node.id} activity={liveActivity[node.id]} node={node} selected={selectedNodeId === node.id} onSelect={onSelectNode} />
               ))}
             </div>
           )}

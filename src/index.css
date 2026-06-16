@@ -708,6 +708,96 @@
   width: min(14rem, calc(100vw - 3rem));
 }
 
+@keyframes node-live-pulse-a {
+  0% {
+    transform: translateY(-1px) scale(1.018);
+    border-color: color-mix(in srgb, var(--node-live-color, var(--node-accent, var(--color-primary))) 86%, white 6%);
+    filter: brightness(1.24);
+  }
+  42% {
+    transform: translateY(0) scale(1);
+    filter: brightness(1.06);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes node-live-pulse-b {
+  0% {
+    transform: translateY(-1px) scale(1.018);
+    border-color: color-mix(in srgb, var(--node-live-color, var(--node-accent, var(--color-primary))) 86%, white 6%);
+    filter: brightness(1.24);
+  }
+  42% {
+    transform: translateY(0) scale(1);
+    filter: brightness(1.06);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    filter: brightness(1);
+  }
+}
+
+.node-grid-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.node-grid-card::before {
+  content: "";
+  position: absolute;
+  inset: -35%;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 50%, var(--node-live-color, var(--node-accent, var(--color-primary))) 0 2px, transparent 3px),
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--node-live-color, var(--node-accent, var(--color-primary))) 32%, transparent) 0, transparent 44%);
+  opacity: 0;
+  transform: scale(0.4);
+}
+
+.node-grid-card-live {
+  --node-live-color: var(--node-accent, var(--color-primary));
+  animation: node-live-pulse-a 820ms ease-out both;
+}
+
+.node-grid-card-live[data-pulse-phase="1"] {
+  animation-name: node-live-pulse-b;
+}
+
+.node-grid-card-live::before {
+  opacity: 0.22;
+  transform: scale(1);
+  transition: opacity 420ms ease-out, transform 780ms ease-out;
+}
+
+.node-grid-card-live[data-live-role="tx"] {
+  --node-live-color: var(--color-primary);
+}
+
+.node-grid-card-live[data-live-role="rx"] {
+  --node-live-color: var(--color-green);
+}
+
+.node-grid-card-live[data-live-role="relay"] {
+  --node-live-color: var(--color-secondary);
+}
+
+.node-live-badge {
+  border: 1px solid color-mix(in srgb, var(--node-live-color, var(--color-primary)) 52%, transparent);
+  background: color-mix(in srgb, var(--node-live-color, var(--color-primary)) 14%, var(--color-bg-base));
+  color: var(--node-live-color, var(--color-primary));
+  padding: 0 0.2rem;
+  font-size: 0.48rem;
+  line-height: 0.78rem;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 7px currentColor;
+  box-shadow:
+    0 0 8px color-mix(in srgb, var(--node-live-color, var(--color-primary)) 32%, transparent),
+    inset 0 0 8px color-mix(in srgb, var(--node-live-color, var(--color-primary)) 12%, transparent);
+}
+
 .terminal-skeleton-rows {
   display: flex;
   flex-direction: column;
@@ -1008,7 +1098,8 @@ textarea {
   .terminal-boot-ticker > span,
   .theme-ambient-sweep,
   .theme-ambient-blip,
-  .theme-ambient-ticker {
+  .theme-ambient-ticker,
+  .node-grid-card-live {
     animation: none;
   }
 

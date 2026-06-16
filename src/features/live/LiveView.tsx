@@ -167,6 +167,7 @@ const LIVE_DRAW_PRESSURE_SLOW_FRAMES = 8;
 const LIVE_DRAW_PRESSURE_RECOVERY_FRAMES = 120;
 const LIVE_STATE_FLUSH_MS = 250;
 const LIVE_PACKET_WAIT_PROGRESS_MS = 30_000;
+const LIVE_INITIAL_SEED_LIMIT = 72;
 const AUDIO_MIN_INTERVAL_MS = 85;
 const AUDIO_SCALE = [220, 247, 277, 330, 370, 415, 494, 554, 659, 740, 831, 988];
 const LIVE_DESKTOP_LAYOUT_WIDTH = 1024;
@@ -1573,9 +1574,16 @@ function LivePacketWaitState({
 }) {
   const elapsedMs = waitStartedAt > 0 ? Math.max(0, now - waitStartedAt) : 0;
   const hasServerActivity = (summary?.latestObservationId ?? 0) > 0 || (summary?.observationCount ?? 0) > 0;
-  const label = backfillStatus === "sync" ? "SYNCING LIVE CURSOR" : hasServerActivity ? "ACQUIRING PACKET STREAM" : "WAITING FOR PACKETS";
+  const label =
+    backfillStatus === "priming"
+      ? "PRIMING RECENT PACKETS"
+      : backfillStatus === "sync"
+        ? "SYNCING LIVE CURSOR"
+        : hasServerActivity
+          ? "LISTENING FOR NEXT PACKET"
+          : "WAITING FOR PACKETS";
   const detail = hasServerActivity
-    ? `elapsed ${formatLiveWait(elapsedMs)} / ${formatCount(summary?.observationCount ?? 0)} obs / ${summary?.activeObservers ?? "--"} observers`
+    ? `cursor ${summary?.latestObservationId ?? "--"} / ${formatCount(summary?.observationCount ?? 0)} obs / ${summary?.activeObservers ?? "--"} observers`
     : `elapsed ${formatLiveWait(elapsedMs)} / broker listener armed`;
 
   return (
@@ -2096,6 +2104,7 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
   const pausedRef = useRef(false);
   const lastObservationIdRef = useRef(0);
   const backfillInFlightRef = useRef(false);
+  const seededLiveCursorRef = useRef("");
   const seenObservationIdsRef = useRef(new Set<number>());
   const seenObservationOrderRef = useRef<number[]>([]);
 
@@ -2266,6 +2275,7 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
   useEffect(() => {
     const id = window.setTimeout(() => {
       lastObservationIdRef.current = 0;
+      seededLiveCursorRef.current = "";
       seenObservationIdsRef.current.clear();
       seenObservationOrderRef.current = [];
       setEvents([]);
@@ -2688,14 +2698,16 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
   );
 
   const fetchLiveBackfill = useCallback(
-    async (afterObservationId: number) => {
-      if (backfillInFlightRef.current || afterObservationId <= 0) return;
+    async (afterObservationId: number, options: { seed?: boolean; limit?: number } = {}) => {
+      if (backfillInFlightRef.current || afterObservationId < 0) return;
       backfillInFlightRef.current = true;
-      setBackfillStatus("sync");
+      setBackfillStatus(options.seed ? "priming" : "sync");
       try {
-        const page = await getLiveBackfill(selectedIatas, { afterObservationId, limit: 100 });
+        const limit = options.limit ?? (options.seed ? LIVE_INITIAL_SEED_LIMIT : 100);
+        const page = await getLiveBackfill(selectedIatas, { afterObservationId, limit });
         const normalized = page.items.map((item) => toLivePacketEvent(item, ++sequenceRef.current));
-        const animateIds = new Set(normalized.slice(-Math.min(8, liveVisualCaps(undefined, visualPressureRef.current).activeAnimations)).map((event) => event.id));
+        const animateCap = options.seed ? Math.min(12, liveVisualCaps(undefined, visualPressureRef.current).activeAnimations + 4) : Math.min(8, liveVisualCaps(undefined, visualPressureRef.current).activeAnimations);
+        const animateIds = new Set(normalized.slice(-animateCap).map((event) => event.id));
         let accepted = 0;
         for (const event of normalized) {
           if (acceptLiveEvent(event, { animate: animateIds.has(event.id) })) {
@@ -2704,15 +2716,17 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
         }
         if (accepted > 0) {
           setBackfillCount((count) => count + accepted);
+          setPacketWaitStartedAt(Date.now());
+          flushLiveState();
         }
-        setBackfillStatus(page.hasMore ? "more" : "ok");
+        setBackfillStatus(options.seed ? "ok" : page.hasMore ? "more" : "ok");
       } catch {
         setBackfillStatus("degraded");
       } finally {
         backfillInFlightRef.current = false;
       }
     },
-    [acceptLiveEvent, selectedIatas],
+    [acceptLiveEvent, flushLiveState, selectedIatas],
   );
 
   const handlePacketObservation = useCallback(
@@ -2722,6 +2736,15 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
     },
     [acceptLiveEvent],
   );
+
+  useEffect(() => {
+    const latestObservationId = liveSummary?.latestObservationId ?? 0;
+    if (!isReady || latestObservationId <= 0 || events.length > 0) return;
+    const seedKey = `${regionKey}:${latestObservationId}`;
+    if (seededLiveCursorRef.current === seedKey) return;
+    seededLiveCursorRef.current = seedKey;
+    void fetchLiveBackfill(0, { seed: true, limit: LIVE_INITIAL_SEED_LIMIT });
+  }, [events.length, fetchLiveBackfill, isReady, liveSummary?.latestObservationId, regionKey]);
 
   const handleLagged = useCallback(
     (data: WsLagged) => {
