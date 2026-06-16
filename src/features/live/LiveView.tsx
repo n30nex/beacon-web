@@ -139,11 +139,11 @@ interface NodeCoord extends Coord {
 const MAX_PENDING_ANIMATIONS = 48;
 const MAX_PROPAGATION_WAVE_PATHS = 6;
 const MAX_HOPS_PER_PACKET = 6;
-const MAX_ACTIVE_ANIMATIONS = 10;
-const MAX_HEAT_POINTS = 72;
-const MAX_TRAILS = 28;
-const MAX_PULSES = 28;
-const MAX_RAIN_DROPS = 6;
+const MAX_ACTIVE_ANIMATIONS = 8;
+const MAX_HEAT_POINTS = 52;
+const MAX_TRAILS = 18;
+const MAX_PULSES = 20;
+const MAX_RAIN_DROPS = 4;
 const COMPACT_LIVE_WIDTH = 640;
 const COMPACT_ACTIVE_ANIMATIONS = 7;
 const COMPACT_HEAT_POINTS = 42;
@@ -160,11 +160,11 @@ const LIVE_PERF_SAMPLE_LIMIT = 180;
 const LIVE_PERF_IDLE_GAP_MS = 250;
 const LIVE_FRAME_TARGET_MS = 1000 / 60;
 const LIVE_FRAME_TOLERANCE_MS = 3;
-const LIVE_DRAW_PRESSURE_MS = 7;
-const LIVE_DRAW_RECOVERY_MS = 3;
-const LIVE_DRAW_PRESSURE_WARMUP_FRAMES = 30;
-const LIVE_DRAW_PRESSURE_SLOW_FRAMES = 8;
-const LIVE_DRAW_PRESSURE_RECOVERY_FRAMES = 120;
+const LIVE_DRAW_PRESSURE_MS = 5.5;
+const LIVE_DRAW_RECOVERY_MS = 2.4;
+const LIVE_DRAW_PRESSURE_WARMUP_FRAMES = 18;
+const LIVE_DRAW_PRESSURE_SLOW_FRAMES = 5;
+const LIVE_DRAW_PRESSURE_RECOVERY_FRAMES = 180;
 const LIVE_STATE_FLUSH_MS = 250;
 const LIVE_PACKET_WAIT_PROGRESS_MS = 30_000;
 const LIVE_INITIAL_SEED_LIMIT = 72;
@@ -203,6 +203,7 @@ interface LiveVisualCaps {
   quality: LiveVisualQuality;
   rainDrops: number;
   shadows: boolean;
+  sparkCount: number;
   targetFrameMs: number;
   trails: number;
 }
@@ -273,6 +274,7 @@ function liveVisualCaps(width?: number, pressure = 0): LiveVisualCaps {
       quality,
       rainDrops: COMPACT_RAIN_DROPS,
       shadows: false,
+      sparkCount: 0,
       targetFrameMs: 1000 / 30,
       trails: Math.min(COMPACT_TRAILS, 5),
     };
@@ -280,30 +282,32 @@ function liveVisualCaps(width?: number, pressure = 0): LiveVisualCaps {
 
   if (quality === "balanced") {
     return {
-      activeAnimations: compact ? COMPACT_ACTIVE_ANIMATIONS : 8,
-      dprLimit: compact ? 1 : 1.15,
-      heatPoints: compact ? COMPACT_HEAT_POINTS : 36,
-      labels: !compact,
-      pulses: compact ? COMPACT_PULSES : 16,
+      activeAnimations: compact ? COMPACT_ACTIVE_ANIMATIONS : 6,
+      dprLimit: 1,
+      heatPoints: compact ? COMPACT_HEAT_POINTS : 28,
+      labels: false,
+      pulses: compact ? COMPACT_PULSES : 10,
       pulseRings: 1,
       quality,
-      rainDrops: compact ? COMPACT_RAIN_DROPS : 4,
+      rainDrops: compact ? COMPACT_RAIN_DROPS : 3,
       shadows: true,
+      sparkCount: compact ? 1 : 1,
       targetFrameMs: compact ? 1000 / 45 : LIVE_FRAME_TARGET_MS,
-      trails: compact ? COMPACT_TRAILS : 10,
+      trails: compact ? COMPACT_TRAILS : 8,
     };
   }
 
   return {
     activeAnimations: MAX_ACTIVE_ANIMATIONS,
-    dprLimit: 1.25,
+    dprLimit: 1,
     heatPoints: MAX_HEAT_POINTS,
     labels: true,
     pulses: MAX_PULSES,
-    pulseRings: 2,
+    pulseRings: 1,
     quality,
     rainDrops: MAX_RAIN_DROPS,
     shadows: true,
+    sparkCount: 2,
     targetFrameMs: LIVE_FRAME_TARGET_MS,
     trails: MAX_TRAILS,
   };
@@ -533,6 +537,7 @@ function useLiveAnimationCanvas(
     let canvasHasContent = false;
     let cssHeight = 1;
     let cssWidth = 1;
+    let canvasDpr = 1;
     let drawPressure = 0;
     pressureRef.current = 0;
     let drawCostEma = 0;
@@ -579,14 +584,22 @@ function useLiveAnimationCanvas(
       const width = rect.width || fallbackRect?.width || 1;
       const height = rect.height || fallbackRect?.height || 1;
       const dpr = Math.min(window.devicePixelRatio || 1, liveVisualCaps(width, drawPressure).dprLimit);
+      const canvasWidth = Math.max(1, Math.floor(width * dpr));
+      const canvasHeight = Math.max(1, Math.floor(height * dpr));
+      const sizeChanged = canvas.width !== canvasWidth || canvas.height !== canvasHeight || canvasDpr !== dpr;
       cssWidth = width;
       cssHeight = height;
-      canvas.width = Math.max(1, Math.floor(width * dpr));
-      canvas.height = Math.max(1, Math.floor(height * dpr));
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      projectedPathCache = new WeakMap();
-      projectedCoordCache.clear();
-      requestFrame();
+      if (sizeChanged) {
+        canvasDpr = dpr;
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        projectedPathCache = new WeakMap();
+        projectedCoordCache.clear();
+        requestFrame();
+      } else if (canvasHasContent || hasFrameWork()) {
+        requestFrame();
+      }
     };
 
     const projectPath = (path: LivePathPoint[]): ProjectedLivePath => {
@@ -1170,9 +1183,9 @@ function useLiveAnimationCanvas(
           ctx.restore();
         }
 
-        if (!matrixMode && frameCaps.shadows) {
+        if (!matrixMode && frameCaps.shadows && frameCaps.sparkCount > 0) {
           const seed = hashSeed(anim.id);
-          for (let i = 0; i < 3; i += 1) {
+          for (let i = 0; i < frameCaps.sparkCount; i += 1) {
             const phase = ((seed % 97) / 97 + progress * 2.8 + i * 0.31) % 1;
             const angle = phase * Math.PI * 2;
             const distance = 5 + i * 3 + 7 * (1 - progress);

@@ -360,9 +360,27 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .crt-panel {
+  .crt-shell:not([data-active-tab="live"]) .crt-panel {
     animation: crt-panel-breathe 9s ease-in-out infinite;
   }
+}
+
+.crt-shell[data-active-tab="live"] .theme-ambient-layer {
+  opacity: 0.18;
+}
+
+.crt-shell[data-active-tab="live"] .theme-ambient-layer::before {
+  opacity: 0.08;
+}
+
+.crt-shell[data-active-tab="live"] .theme-ambient-sweep,
+.crt-shell[data-active-tab="live"] .theme-ambient-blip,
+.crt-shell[data-active-tab="live"] .theme-ambient-ticker {
+  display: none;
+}
+
+.crt-shell[data-active-tab="live"] .crt-panel {
+  animation: none;
 }
 
 .crt-float-panel {
@@ -1152,7 +1170,9 @@ canvas {
 }
 
 .map-profile-scope .live-map-canvas {
+  contain: strict;
   filter: none;
+  transform: translateZ(0);
 }
 
 .crt-shell svg {
