@@ -21,6 +21,7 @@ export function nodesToFeatureCollection(
     if (n.lat == null || n.lng == null) continue;
     features.push({
       type: "Feature",
+      id: n.id,
       // GeoJSON/maplibre order is [lng, lat]; the API sends decimal degrees as-is
       geometry: { type: "Point", coordinates: [n.lng, n.lat] },
       properties: {

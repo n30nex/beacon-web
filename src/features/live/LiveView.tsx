@@ -10,7 +10,7 @@ import { nodesToFeatureCollection, filterByNodeType } from "../map/node-geojson"
 import { MapAppearanceControls } from "../map/MapAppearanceControls";
 import { MapStyleSwitcher } from "../map/MapStyleSwitcher";
 import { SegmentedControl } from "../map/SegmentedControl";
-import { MAP_STYLE_STORAGE_KEY, DEFAULT_STYLE_ID, NODE_TYPE_FILTER_OPTIONS, resolveMapStyle } from "../map/types";
+import { MAP_STYLE_STORAGE_KEY, DEFAULT_STYLE_ID, NODE_TYPE_FILTER_OPTIONS, NODES_SOURCE_ID, resolveMapStyle } from "../map/types";
 import {
   mapVisualProfileStyle,
   persistMapAppearanceSettings,
@@ -169,6 +169,7 @@ const LIVE_STATE_FLUSH_MS = 250;
 const LIVE_PACKET_WAIT_PROGRESS_MS = 30_000;
 const LIVE_INITIAL_SEED_LIMIT = 72;
 const LIVE_VIEWPORT_PADDING_PX = 96;
+const LIVE_NODE_ACTIVITY_MS = 4_600;
 const AUDIO_MIN_INTERVAL_MS = 85;
 const AUDIO_SCALE = [220, 247, 277, 330, 370, 415, 494, 554, 659, 740, 831, 988];
 const LIVE_DESKTOP_LAYOUT_WIDTH = 1024;
@@ -434,6 +435,43 @@ function coordInMapViewport(map: MapLibreMap, coord: Coord, paddingPx = LIVE_VIE
 
 function pathHasVisibleNode(map: MapLibreMap, path: Array<{ coord: Coord }>, paddingPx = LIVE_VIEWPORT_PADDING_PX): boolean {
   return path.some((point) => coordInMapViewport(map, point.coord, paddingPx));
+}
+
+type LiveNodeMarkerRole = "tx" | "relay" | "rx";
+
+const liveNodeActivityTimers = new WeakMap<MapLibreMap, Map<string, number>>();
+
+function flashMapNodeActivity(
+  map: MapLibreMap,
+  nodeId: string | undefined,
+  role: LiveNodeMarkerRole,
+  durationMs = LIVE_NODE_ACTIVITY_MS,
+): void {
+  if (!nodeId || nodeId.includes(":") || !map.getSource(NODES_SOURCE_ID)) return;
+  let timers = liveNodeActivityTimers.get(map);
+  if (!timers) {
+    timers = new Map();
+    liveNodeActivityTimers.set(map, timers);
+  }
+  const priorTimer = timers.get(nodeId);
+  if (priorTimer !== undefined) window.clearTimeout(priorTimer);
+
+  try {
+    map.setFeatureState({ source: NODES_SOURCE_ID, id: nodeId }, { active: true, activityRole: role });
+  } catch {
+    return;
+  }
+
+  const timer = window.setTimeout(() => {
+    timers?.delete(nodeId);
+    if (!map.getSource(NODES_SOURCE_ID)) return;
+    try {
+      map.setFeatureState({ source: NODES_SOURCE_ID, id: nodeId }, { active: false, activityRole: "" });
+    } catch {
+      /* source/style may have been replaced while the marker was fading */
+    }
+  }, durationMs);
+  timers.set(nodeId, timer);
 }
 
 function drawHexPath(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number): void {
@@ -2450,6 +2488,7 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
       const originHeading = pulsePath[1]?.coord;
       const destinationHeading = pulsePath.length > 1 ? pulsePath.at(-2)?.coord : undefined;
       if (originPoint) {
+        flashMapNodeActivity(map, originPoint.nodeId, pulsePath.length >= 2 ? "tx" : "rx");
         activityPulses.push({
           id: `${event.id}:origin:${originPoint.nodeId}`,
           coord: originPoint.coord,
@@ -2466,6 +2505,7 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
       relayPulses.forEach((point, index) => {
         const hopIndex = pulsePath.indexOf(point);
         const routeFraction = pulsePath.length > 1 && hopIndex > 0 ? hopIndex / (pulsePath.length - 1) : (index + 1) / Math.max(2, relayPulses.length + 1);
+        flashMapNodeActivity(map, point.nodeId, "relay", LIVE_NODE_ACTIVITY_MS * 0.85);
         activityPulses.push({
           id: `${event.id}:relay:${point.nodeId}:${index}`,
           coord: point.coord,
@@ -2482,6 +2522,7 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
         destinationPoint &&
         (!originPoint || pulsePath.length < 2 || !sameRouteCoord(originPoint.coord, destinationPoint.coord))
       ) {
+        flashMapNodeActivity(map, destinationPoint.nodeId, "rx", LIVE_NODE_ACTIVITY_MS * 1.15);
         activityPulses.push({
           id: `${event.id}:destination:${destinationPoint.nodeId}`,
           coord: destinationPoint.coord,

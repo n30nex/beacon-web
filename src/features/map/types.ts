@@ -87,6 +87,7 @@ export const IATA_PITCH = 45;
 // --- Nodes data layer ---
 export const NODES_SOURCE_ID = "nodes";
 export const NODES_CLUSTER_LAYER_ID = "nodes-clusters"; // symbol layer (bubble icon + count)
+export const NODES_ACTIVITY_LAYER_ID = "nodes-activity"; // transient live tx/rx/relay glow ring
 export const NODES_POINT_LAYER_ID = "nodes-unclustered";
 export const NODES_SELECTED_LAYER_ID = "nodes-selected"; // circle ring under the selected node's icon
 // Same ring for a node shown as a spiderfied leaf (it's inside a cluster, so the id-filtered

@@ -4,6 +4,7 @@ import type {
   GeoJSONSource,
   ExpressionSpecification,
   SymbolLayerSpecification,
+  CircleLayerSpecification,
   MapLayerMouseEvent,
 } from "maplibre-gl";
 import Spiderfy from "@nazka/map-gl-js-spiderfy";
@@ -13,6 +14,7 @@ import type { NodeFeatureProps } from "./node-geojson";
 import {
   NODES_SOURCE_ID,
   NODES_CLUSTER_LAYER_ID,
+  NODES_ACTIVITY_LAYER_ID,
   NODES_POINT_LAYER_ID,
   NODES_SELECTED_LAYER_ID,
   NODES_SELECTED_LEAF_LAYER_ID,
@@ -88,6 +90,26 @@ const SPIDER_LEAVES_LAYOUT: SymbolLayerSpecification["layout"] = {
   "icon-allow-overlap": true,
 };
 
+const NODE_ICON_OPACITY: ExpressionSpecification = [
+  "case",
+  ["boolean", ["feature-state", "active"], false],
+  1,
+  0.46,
+] as unknown as ExpressionSpecification;
+
+function activityColorExpression(tx: string, rx: string, relay: string): ExpressionSpecification {
+  return [
+    "case",
+    ["==", ["feature-state", "activityRole"], "tx"],
+    tx,
+    ["==", ["feature-state", "activityRole"], "rx"],
+    rx,
+    ["==", ["feature-state", "activityRole"], "relay"],
+    relay,
+    tx,
+  ] as unknown as ExpressionSpecification;
+}
+
 // Renders nodes as a clustered GeoJSON layer (per-type icons, spiderfy for co-located nodes, name
 // labels at high zoom). Like useMapLibre, the imperative work re-adds itself after every style switch.
 export function useMapNodes(
@@ -145,11 +167,15 @@ export function useMapNodes(
 
     const textColor = mapCssVar(map, "--map-node-label", isDark ? "#ffe9a8" : "#120900");
     const halo = mapCssVar(map, "--map-node-label-halo", isDark ? "rgba(0,0,0,0.9)" : "rgba(255,255,255,0.86)");
+    const txColor = mapCssVar(map, "--map-route-primary", "#ffb000");
+    const rxColor = mapCssVar(map, "--map-route-green", "#42ff7c");
+    const relayColor = mapCssVar(map, "--map-route-secondary", "#7cffec");
+    const activityColor = activityColorExpression(txColor, rxColor, relayColor);
 
     // maplibre fixes `cluster` at source creation, so toggling clustering means recreating the
     // source. The spiderfy effect below also keys on `clustered` and re-applies itself around this.
     if (appliedClusteredRef.current !== clustered && map.getSource(NODES_SOURCE_ID)) {
-      for (const id of [NODES_SELECTED_LAYER_ID, NODES_CLUSTER_LAYER_ID, NODES_POINT_LAYER_ID]) {
+      for (const id of [NODES_SELECTED_LEAF_LAYER_ID, NODES_SELECTED_LAYER_ID, NODES_ACTIVITY_LAYER_ID, NODES_CLUSTER_LAYER_ID, NODES_POINT_LAYER_ID]) {
         if (map.getLayer(id)) map.removeLayer(id);
       }
       map.removeSource(NODES_SOURCE_ID);
@@ -162,6 +188,7 @@ export function useMapNodes(
       map.addSource(NODES_SOURCE_ID, {
         type: "geojson",
         data: geojsonRef.current,
+        promoteId: "id",
         // maxzoom > clusterMaxZoom keeps co-located nodes spiderfy-able at every zoom (past
         // clusterMaxZoom they'd otherwise render as stacked, un-spiderfy-able points).
         maxzoom: NODES_SOURCE_MAXZOOM,
@@ -197,6 +224,35 @@ export function useMapNodes(
       } as SymbolLayerSpecification);
     }
 
+    if (!map.getLayer(NODES_ACTIVITY_LAYER_ID)) {
+      map.addLayer(
+        {
+          id: NODES_ACTIVITY_LAYER_ID,
+          type: "circle",
+          source: NODES_SOURCE_ID,
+          filter: ["!", ["has", "point_count"]],
+          paint: {
+            "circle-radius": [
+              "case",
+              ["boolean", ["feature-state", "active"], false],
+              ["case", ["==", ["feature-state", "activityRole"], "relay"], 11, 15],
+              3,
+            ],
+            "circle-color": activityColor,
+            "circle-opacity": ["case", ["boolean", ["feature-state", "active"], false], 0.22, 0],
+            "circle-blur": 0.55,
+            "circle-stroke-color": activityColor,
+            "circle-stroke-width": ["case", ["boolean", ["feature-state", "active"], false], 2.2, 0],
+            "circle-stroke-opacity": ["case", ["boolean", ["feature-state", "active"], false], 0.88, 0],
+            "circle-opacity-transition": { duration: 1_400, delay: 0 },
+            "circle-stroke-opacity-transition": { duration: 1_400, delay: 0 },
+            "circle-radius-transition": { duration: 900, delay: 0 },
+          },
+        } as CircleLayerSpecification,
+        NODES_CLUSTER_LAYER_ID,
+      );
+    }
+
     if (!map.getLayer(NODES_POINT_LAYER_ID)) {
       map.addLayer({
         id: NODES_POINT_LAYER_ID,
@@ -215,6 +271,8 @@ export function useMapNodes(
           "text-optional": true,
         },
         paint: {
+          "icon-opacity": NODE_ICON_OPACITY,
+          "icon-opacity-transition": { duration: 1_200, delay: 0 },
           "text-color": textColor,
           "text-halo-color": halo,
           "text-halo-width": 1.3,
@@ -273,6 +331,11 @@ export function useMapNodes(
     // node-label colors track the basemap dark/light flag (cluster count is white on the hexagon)
     map.setPaintProperty(NODES_POINT_LAYER_ID, "text-color", textColor);
     map.setPaintProperty(NODES_POINT_LAYER_ID, "text-halo-color", halo);
+    map.setPaintProperty(NODES_POINT_LAYER_ID, "icon-opacity", NODE_ICON_OPACITY);
+    if (map.getLayer(NODES_ACTIVITY_LAYER_ID)) {
+      map.setPaintProperty(NODES_ACTIVITY_LAYER_ID, "circle-color", activityColor);
+      map.setPaintProperty(NODES_ACTIVITY_LAYER_ID, "circle-stroke-color", activityColor);
+    }
     map.setPaintProperty(NODES_CLUSTER_LAYER_ID, "text-color", mapCssVar(map, "--map-cluster-text", "#fff7cc"));
     map.setPaintProperty(NODES_CLUSTER_LAYER_ID, "text-halo-color", primary);
 
