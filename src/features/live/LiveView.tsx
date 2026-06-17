@@ -168,6 +168,7 @@ const LIVE_DRAW_PRESSURE_RECOVERY_FRAMES = 180;
 const LIVE_STATE_FLUSH_MS = 250;
 const LIVE_PACKET_WAIT_PROGRESS_MS = 30_000;
 const LIVE_INITIAL_SEED_LIMIT = 72;
+const LIVE_VIEWPORT_PADDING_PX = 96;
 const AUDIO_MIN_INTERVAL_MS = 85;
 const AUDIO_SCALE = [220, 247, 277, 330, 370, 415, 494, 554, 659, 740, 831, 988];
 const LIVE_DESKTOP_LAYOUT_WIDTH = 1024;
@@ -421,6 +422,18 @@ function samplePropagationEvents(events: LivePacketEvent[], cap = MAX_PROPAGATIO
 
 function tailWindow<T>(items: T[], count: number): T[] {
   return items.length > count ? items.slice(-count) : items;
+}
+
+function coordInMapViewport(map: MapLibreMap, coord: Coord, paddingPx = LIVE_VIEWPORT_PADDING_PX): boolean {
+  const container = map.getContainer();
+  const width = container.clientWidth || container.getBoundingClientRect().width || 1;
+  const height = container.clientHeight || container.getBoundingClientRect().height || 1;
+  const point = map.project([coord.lng, coord.lat]);
+  return point.x >= -paddingPx && point.x <= width + paddingPx && point.y >= -paddingPx && point.y <= height + paddingPx;
+}
+
+function pathHasVisibleNode(map: MapLibreMap, path: Array<{ coord: Coord }>, paddingPx = LIVE_VIEWPORT_PADDING_PX): boolean {
+  return path.some((point) => coordInMapViewport(map, point.coord, paddingPx));
 }
 
 function drawHexPath(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number): void {
@@ -686,6 +699,10 @@ function useLiveAnimationCanvas(
       }
       return current;
     };
+    const pointInViewport = (point: ProjectedPoint, paddingPx = LIVE_VIEWPORT_PADDING_PX) =>
+      point.x >= -paddingPx && point.x <= cssWidth + paddingPx && point.y >= -paddingPx && point.y <= cssHeight + paddingPx;
+    const projectedPathHasVisibleNode = (path: ProjectedLivePath, paddingPx = LIVE_VIEWPORT_PADDING_PX) =>
+      path.points.some((point) => pointInViewport(point, paddingPx));
 
     const hasFrameWork = () =>
       animationsRef.current.length > 0 ||
@@ -788,10 +805,11 @@ function useLiveAnimationCanvas(
         for (const heat of heatRef.current) {
           const age = now - heat.createdAt;
           if (age > heat.lifetimeMs) continue;
-          nextHeat.push(heat);
 
           const progress = Math.max(0, Math.min(1, age / heat.lifetimeMs));
           const point = projectCoord(heat.coord);
+          if (!pointInViewport(point)) continue;
+          nextHeat.push(heat);
           const radius = 28 + Math.min(36, heat.intensity * 8) + 24 * (1 - progress);
           const alpha = (1 - progress) * Math.min(0.24, (0.055 + heat.intensity * 0.026) * glowFactor);
 
@@ -810,7 +828,6 @@ function useLiveAnimationCanvas(
         for (const trail of trailsRef.current) {
           const age = now - trail.createdAt;
           if (age > trail.lifetimeMs) continue;
-          nextTrails.push(trail);
 
           const progress = Math.max(0, Math.min(1, age / trail.lifetimeMs));
           const trailPath = trail.path.length >= 2 ? trail.path : [
@@ -818,6 +835,8 @@ function useLiveAnimationCanvas(
             { coord: trail.to, label: "observer", nodeId: `${trail.id}:observer` },
           ];
           const projectedTrail = projectPath(trailPath);
+          if (!projectedPathHasVisibleNode(projectedTrail)) continue;
+          nextTrails.push(trail);
           const color = matrixMode ? matrixColor : trail.color;
 
           ctx.save();
@@ -845,6 +864,8 @@ function useLiveAnimationCanvas(
       const nextPulses: LivePulse[] = [];
       for (const pulse of pulsesRef.current) {
         const age = now - pulse.createdAt;
+        const point = projectCoord(pulse.coord);
+        if (!pointInViewport(point)) continue;
         if (age < 0) {
           nextPulses.push(pulse);
           continue;
@@ -853,7 +874,6 @@ function useLiveAnimationCanvas(
         nextPulses.push(pulse);
 
         const progress = Math.max(0, Math.min(1, age / pulse.lifetimeMs));
-        const point = projectCoord(pulse.coord);
         const headingPoint = pulse.headingTo ? projectCoord(pulse.headingTo) : null;
         const role = pulse.role ?? "activity";
         const color = matrixMode
@@ -1088,6 +1108,12 @@ function useLiveAnimationCanvas(
       for (let animationIndex = animationStartIndex; animationIndex < animations.length; animationIndex += 1) {
         const anim = animations[animationIndex]!;
         const age = now - anim.startedAt;
+        const animPath = anim.path.length >= 2 ? anim.path : [
+          { coord: anim.from, label: "source", nodeId: `${anim.id}:source` },
+          { coord: anim.to, label: "observer", nodeId: `${anim.id}:observer` },
+        ];
+        const projectedPath = projectPath(animPath);
+        if (!projectedPathHasVisibleNode(projectedPath)) continue;
         if (age < 0) {
           next.push(anim);
           continue;
@@ -1106,15 +1132,10 @@ function useLiveAnimationCanvas(
           }
           continue;
         }
-        next.push(anim);
 
         const progress = Math.min(1, Math.max(0, age / anim.durationMs));
         const eased = 1 - (1 - progress) ** 3;
-        const animPath = anim.path.length >= 2 ? anim.path : [
-          { coord: anim.from, label: "source", nodeId: `${anim.id}:source` },
-          { coord: anim.to, label: "observer", nodeId: `${anim.id}:observer` },
-        ];
-        const projectedPath = projectPath(animPath);
+        next.push(anim);
         const current = pointAlongPath(projectedPath, eased);
         const from = projectedPath.points[0]!;
         const to = projectedPath.points[projectedPath.points.length - 1]!;
@@ -2407,6 +2428,8 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
 
   const playAnimation = useCallback(
     (event: LivePacketEvent, waveIndex = 0, waveCount = 1) => {
+      const map = mapRef.current;
+      if (!map) return false;
       const caps = liveVisualCaps(undefined, visualPressureRef.current);
       const color = colorByHash ? hashColor(event.packetHash) : payloadColor(event.payloadTypeName);
       const startedAt = performance.now();
@@ -2419,6 +2442,7 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
       if (!targetCoord && !hasRoute) return false;
 
       const pulsePath = path && path.length > 0 ? path : targetCoord ? [{ coord: targetCoord, label: observerTarget?.label ?? event.iata, nodeId: `${event.id}:target` }] : [];
+      if (!pathHasVisibleNode(map, pulsePath)) return false;
       const flightDurationMs = hasRoute && path ? 1_850 + Math.min(1_000, Math.max(0, path.length - 2) * 280) : 0;
       const activityPulses: LivePulse[] = [];
       const originPoint = pulsePath[0];
@@ -2533,7 +2557,7 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
       requestCanvasFrameRef.current?.();
       return true;
     },
-    [byPathPrefix, colorByHash, iataCoords, matrixMode, matrixRain, nodeCoords, playPacketAudio],
+    [byPathPrefix, colorByHash, iataCoords, mapRef, matrixMode, matrixRain, nodeCoords, playPacketAudio],
   );
 
   const queueAnimation = useCallback(
@@ -2559,10 +2583,21 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
       if (queued > 0 && active < caps.activeAnimations) {
         const batchSize = active < caps.activeAnimations / 2 ? 2 : 1;
         const slots = Math.min(batchSize, caps.activeAnimations - active, queued);
-        for (let i = 0; i < slots; i += 1) {
+        const maxAttempts = Math.min(queued, Math.max(slots, slots * 5));
+        let played = 0;
+        let skipped = 0;
+        for (let attempts = 0; attempts < maxAttempts && played < slots; attempts += 1) {
           const next = visualQueueRef.current.shift();
           if (!next) break;
-          playAnimation(next.event, next.waveIndex, next.waveCount);
+          if (playAnimation(next.event, next.waveIndex, next.waveCount)) {
+            played += 1;
+          } else {
+            skipped += 1;
+          }
+        }
+        if (skipped > 0) {
+          pendingVisualDroppedRef.current += skipped;
+          scheduleLiveStateFlush();
         }
       }
       if (publishedVisualQueueSizeRef.current !== visualQueueRef.current.length) {
@@ -2576,7 +2611,7 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
     }, VISUAL_DRAIN_INTERVAL_MS);
 
     return () => clearInterval(id);
-  }, [playAnimation]);
+  }, [playAnimation, scheduleLiveStateFlush]);
 
   const flushPropagationGroup = useCallback(
     (packetHash: string) => {
