@@ -170,6 +170,7 @@ const LIVE_PACKET_WAIT_PROGRESS_MS = 30_000;
 const LIVE_INITIAL_SEED_LIMIT = 72;
 const LIVE_VIEWPORT_PADDING_PX = 96;
 const LIVE_NODE_ACTIVITY_MS = 4_600;
+const LIVE_NODE_ACTIVITY_THROTTLE_MS = 700;
 const AUDIO_MIN_INTERVAL_MS = 85;
 const AUDIO_SCALE = [220, 247, 277, 330, 370, 415, 494, 554, 659, 740, 831, 988];
 const LIVE_DESKTOP_LAYOUT_WIDTH = 1024;
@@ -292,26 +293,26 @@ function liveVisualCaps(width?: number, pressure = 0): LiveVisualCaps {
       pulseRings: 1,
       quality,
       rainDrops: compact ? COMPACT_RAIN_DROPS : 3,
-      shadows: true,
-      sparkCount: compact ? 1 : 1,
+      shadows: false,
+      sparkCount: 0,
       targetFrameMs: compact ? 1000 / 45 : LIVE_FRAME_TARGET_MS,
       trails: compact ? COMPACT_TRAILS : 8,
     };
   }
 
   return {
-    activeAnimations: MAX_ACTIVE_ANIMATIONS,
+    activeAnimations: Math.min(MAX_ACTIVE_ANIMATIONS, 7),
     dprLimit: 1,
-    heatPoints: MAX_HEAT_POINTS,
+    heatPoints: Math.min(MAX_HEAT_POINTS, 40),
     labels: true,
-    pulses: MAX_PULSES,
+    pulses: Math.min(MAX_PULSES, 14),
     pulseRings: 1,
     quality,
     rainDrops: MAX_RAIN_DROPS,
-    shadows: true,
-    sparkCount: 2,
+    shadows: false,
+    sparkCount: 0,
     targetFrameMs: LIVE_FRAME_TARGET_MS,
-    trails: MAX_TRAILS,
+    trails: Math.min(MAX_TRAILS, 14),
   };
 }
 
@@ -440,6 +441,7 @@ function pathHasVisibleNode(map: MapLibreMap, path: Array<{ coord: Coord }>, pad
 type LiveNodeMarkerRole = "tx" | "relay" | "rx";
 
 const liveNodeActivityTimers = new WeakMap<MapLibreMap, Map<string, number>>();
+const liveNodeActivityState = new WeakMap<MapLibreMap, Map<string, { role: LiveNodeMarkerRole; updatedAt: number }>>();
 
 function flashMapNodeActivity(
   map: MapLibreMap,
@@ -453,17 +455,28 @@ function flashMapNodeActivity(
     timers = new Map();
     liveNodeActivityTimers.set(map, timers);
   }
+  let states = liveNodeActivityState.get(map);
+  if (!states) {
+    states = new Map();
+    liveNodeActivityState.set(map, states);
+  }
   const priorTimer = timers.get(nodeId);
   if (priorTimer !== undefined) window.clearTimeout(priorTimer);
 
-  try {
-    map.setFeatureState({ source: NODES_SOURCE_ID, id: nodeId }, { active: true, activityRole: role });
-  } catch {
-    return;
+  const now = performance.now();
+  const priorState = states.get(nodeId);
+  if (!priorState || priorState.role !== role || now - priorState.updatedAt > LIVE_NODE_ACTIVITY_THROTTLE_MS) {
+    try {
+      map.setFeatureState({ source: NODES_SOURCE_ID, id: nodeId }, { active: true, activityRole: role });
+      states.set(nodeId, { role, updatedAt: now });
+    } catch {
+      return;
+    }
   }
 
   const timer = window.setTimeout(() => {
     timers?.delete(nodeId);
+    states?.delete(nodeId);
     if (!map.getSource(NODES_SOURCE_ID)) return;
     try {
       map.setFeatureState({ source: NODES_SOURCE_ID, id: nodeId }, { active: false, activityRole: "" });
@@ -2505,7 +2518,6 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
       relayPulses.forEach((point, index) => {
         const hopIndex = pulsePath.indexOf(point);
         const routeFraction = pulsePath.length > 1 && hopIndex > 0 ? hopIndex / (pulsePath.length - 1) : (index + 1) / Math.max(2, relayPulses.length + 1);
-        flashMapNodeActivity(map, point.nodeId, "relay", LIVE_NODE_ACTIVITY_MS * 0.85);
         activityPulses.push({
           id: `${event.id}:relay:${point.nodeId}:${index}`,
           coord: point.coord,

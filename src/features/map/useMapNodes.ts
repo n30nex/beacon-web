@@ -93,8 +93,8 @@ const SPIDER_LEAVES_LAYOUT: SymbolLayerSpecification["layout"] = {
 const NODE_ICON_OPACITY: ExpressionSpecification = [
   "case",
   ["boolean", ["feature-state", "active"], false],
-  1,
-  0.46,
+  0.96,
+  0.42,
 ] as unknown as ExpressionSpecification;
 
 function activityColorExpression(tx: string, rx: string, relay: string): ExpressionSpecification {
@@ -235,18 +235,17 @@ export function useMapNodes(
             "circle-radius": [
               "case",
               ["boolean", ["feature-state", "active"], false],
-              ["case", ["==", ["feature-state", "activityRole"], "relay"], 11, 15],
-              3,
+              11,
+              0,
             ],
             "circle-color": activityColor,
-            "circle-opacity": ["case", ["boolean", ["feature-state", "active"], false], 0.22, 0],
-            "circle-blur": 0.55,
+            "circle-opacity": ["case", ["boolean", ["feature-state", "active"], false], 0.14, 0],
+            "circle-blur": 0.35,
             "circle-stroke-color": activityColor,
-            "circle-stroke-width": ["case", ["boolean", ["feature-state", "active"], false], 2.2, 0],
-            "circle-stroke-opacity": ["case", ["boolean", ["feature-state", "active"], false], 0.88, 0],
-            "circle-opacity-transition": { duration: 1_400, delay: 0 },
-            "circle-stroke-opacity-transition": { duration: 1_400, delay: 0 },
-            "circle-radius-transition": { duration: 900, delay: 0 },
+            "circle-stroke-width": ["case", ["boolean", ["feature-state", "active"], false], 1.3, 0],
+            "circle-stroke-opacity": ["case", ["boolean", ["feature-state", "active"], false], 0.52, 0],
+            "circle-opacity-transition": { duration: 900, delay: 0 },
+            "circle-stroke-opacity-transition": { duration: 900, delay: 0 },
           },
         } as CircleLayerSpecification,
         NODES_CLUSTER_LAYER_ID,
