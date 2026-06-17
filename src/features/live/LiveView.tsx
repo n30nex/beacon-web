@@ -169,8 +169,11 @@ const LIVE_STATE_FLUSH_MS = 250;
 const LIVE_PACKET_WAIT_PROGRESS_MS = 30_000;
 const LIVE_INITIAL_SEED_LIMIT = 72;
 const LIVE_VIEWPORT_PADDING_PX = 96;
-const LIVE_NODE_ACTIVITY_MS = 4_600;
+const LIVE_NODE_ACTIVITY_MS = 5_800;
 const LIVE_NODE_ACTIVITY_THROTTLE_MS = 700;
+const LIVE_PACKET_FLIGHT_BASE_MS = 2_550;
+const LIVE_PACKET_FLIGHT_HOP_MS = 380;
+const LIVE_PACKET_FLIGHT_EXTRA_MAX_MS = 1_450;
 const AUDIO_MIN_INTERVAL_MS = 85;
 const AUDIO_SCALE = [220, 247, 277, 330, 370, 415, 494, 554, 659, 740, 831, 988];
 const LIVE_DESKTOP_LAYOUT_WIDTH = 1024;
@@ -424,6 +427,11 @@ function samplePropagationEvents(events: LivePacketEvent[], cap = MAX_PROPAGATIO
 
 function tailWindow<T>(items: T[], count: number): T[] {
   return items.length > count ? items.slice(-count) : items;
+}
+
+function easeInOutSmooth(progress: number): number {
+  const p = Math.max(0, Math.min(1, progress));
+  return p * p * (3 - 2 * p);
 }
 
 function coordInMapViewport(map: MapLibreMap, coord: Coord, paddingPx = LIVE_VIEWPORT_PADDING_PX): boolean {
@@ -1185,7 +1193,7 @@ function useLiveAnimationCanvas(
         }
 
         const progress = Math.min(1, Math.max(0, age / anim.durationMs));
-        const eased = 1 - (1 - progress) ** 3;
+        const eased = easeInOutSmooth(progress);
         next.push(anim);
         const current = pointAlongPath(projectedPath, eased);
         const from = projectedPath.points[0]!;
@@ -2494,7 +2502,9 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
 
       const pulsePath = path && path.length > 0 ? path : targetCoord ? [{ coord: targetCoord, label: observerTarget?.label ?? event.iata, nodeId: `${event.id}:target` }] : [];
       if (!pathHasVisibleNode(map, pulsePath)) return false;
-      const flightDurationMs = hasRoute && path ? 1_850 + Math.min(1_000, Math.max(0, path.length - 2) * 280) : 0;
+      const flightDurationMs = hasRoute && path
+        ? LIVE_PACKET_FLIGHT_BASE_MS + Math.min(LIVE_PACKET_FLIGHT_EXTRA_MAX_MS, Math.max(0, path.length - 2) * LIVE_PACKET_FLIGHT_HOP_MS)
+        : 0;
       const activityPulses: LivePulse[] = [];
       const originPoint = pulsePath[0];
       const destinationPoint = pulsePath.at(-1);

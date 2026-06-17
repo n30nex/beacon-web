@@ -21,8 +21,8 @@ import type { WsNodeUpdate, WsPacketObservation } from "../../types/ws";
 const NODE_GRID_PAGE_SIZE = 500;
 const NODE_LIVE_ACTIVITY_MS = 10_000;
 const NODE_LIVE_ACTIVITY_MAX = 600;
-const NODE_ROUTE_COMET_MS = 2_900;
-const NODE_ROUTE_COMET_MAX = 18;
+const NODE_ROUTE_COMET_MS = 4_800;
+const NODE_ROUTE_COMET_MAX = 14;
 const nodeId = (n: NodeSummary) => n.id;
 const nodeUpdateKey = (d: WsNodeUpdate["data"]) => d.nodeId;
 
