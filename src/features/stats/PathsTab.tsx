@@ -140,14 +140,14 @@ export function PathsTab({ range }: { range: StatsRange }) {
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5 px-3 py-3 sm:px-4 sm:py-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
         <StatCard label="Routes" sublabel={range} accent="var(--color-primary)" value={subpaths.isLoading ? "--" : formatCount(data?.routeCount)} />
         <StatCard label="Subpaths" sublabel="verified segments" accent="var(--color-secondary)" value={subpaths.isLoading ? "--" : formatCount(data?.subpathCount)} />
         <StatCard label="Unique" sublabel="route patterns" accent="var(--color-green)" value={subpaths.isLoading ? "--" : formatCount(data?.uniqueSubpathCount)} />
         <StatCard label="Avg span" sublabel="nodes/segment" accent="var(--color-warn)" value={subpaths.isLoading ? "--" : (data?.averageNodeCount ?? 0).toFixed(1)} />
       </div>
 
-      <div className="grid grid-cols-1 gap-3.5 xl:grid-cols-3">
+      <div className="stats-chart-rail grid grid-cols-1 gap-3.5 xl:grid-cols-3">
         <ChartCard title={<>Segment length / {range}</>} height={230} option={lengthOption} isLoading={subpaths.isLoading} isError={subpaths.isError} isEmpty={lengthRows.length === 0} />
         <ChartCard title={<>Subpath pressure / {data?.window.bucket ?? ""}</>} height={230} option={timelineOption} isLoading={subpaths.isLoading} isError={subpaths.isError} isEmpty={timelineRows.length === 0} />
         <ChartCard title="Endpoint pressure" height={230} option={endpointOption} isLoading={subpaths.isLoading} isError={subpaths.isError} isEmpty={endpointRows.length === 0} />

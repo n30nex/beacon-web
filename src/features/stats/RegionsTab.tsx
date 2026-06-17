@@ -69,7 +69,7 @@ export function RegionsTab({ range, onDrill }: RegionsTabProps) {
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5 px-3 py-3 sm:px-4 sm:py-4">
-      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+      <div className="stats-chart-rail grid grid-cols-1 gap-3.5 lg:grid-cols-2">
         <ChartCard title={<>Regional observations · {range}</>} height={230} option={timelineOption} isLoading={regions.isLoading} isError={regions.isError} isEmpty={timelineRows.length === 0} />
         <ChartCard title="Top IATAs" height={230} option={topIataOption} isLoading={regions.isLoading} isError={regions.isError} isEmpty={topIataRows.length === 0} />
       </div>
@@ -100,7 +100,33 @@ export function RegionsTab({ range, onDrill }: RegionsTabProps) {
         ) : rows.length === 0 ? (
           <div className="py-6 text-center font-mono text-[11px] text-text-dim">No regional activity in this window</div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="grid gap-2 md:hidden">
+            {rows.map((r) => (
+              <div key={r.iata} className="rounded-sm border border-border-subtle bg-bg-base/45 p-2 font-mono">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-semibold text-text-bright">{r.iata}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-text-muted">{r.lastHeard ? formatAbsolute(r.lastHeard) : "--"}</div>
+                </div>
+                <div className="mt-2 grid grid-cols-4 gap-1.5 text-[10px]">
+                  <div><div className="text-text-dim">Obs</div><div className="text-text-bright">{formatCount(r.observationCount)}</div></div>
+                  <div><div className="text-text-dim">Pkts</div><div className="text-text-normal">{formatCount(r.packetCount)}</div></div>
+                  <div><div className="text-text-dim">Obsrs</div><div className="text-text-normal">{formatCount(r.activeObservers)}</div></div>
+                  <div><div className="text-text-dim">Nodes</div><div className="text-text-normal">{formatCount(r.activeNodes)}</div></div>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-1.5 text-[10px] text-text-muted">
+                  <div className="truncate">Payload: <span className="text-text-normal">{r.topPayloadTypeName || "--"}</span></div>
+                  <div className="truncate">Route: <span className="text-text-normal">{r.topRouteTypeName || "--"}</span></div>
+                </div>
+                <div className="mt-2 flex justify-end gap-1.5">
+                  <DrillButton onClick={() => onDrill("Live", r.iata)}>Live</DrillButton>
+                  <DrillButton onClick={() => onDrill("Map", r.iata)}>Map</DrillButton>
+                  <DrillButton onClick={() => onDrill("Nodes", r.iata)}>Nodes</DrillButton>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="min-w-[880px] w-full font-mono text-[11px]">
               <thead>
                 <tr className="text-text-muted">
@@ -138,6 +164,7 @@ export function RegionsTab({ range, onDrill }: RegionsTabProps) {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </Card>
     </div>

@@ -343,14 +343,14 @@ export function HashTab({ range }: { range: StatsRange }) {
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5 px-3 py-3 sm:px-4 sm:py-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
         <StatCard label="Hash obs" sublabel={range} accent="var(--color-primary)" value={hashes.isLoading ? "--" : formatCount(data?.totalObservations)} />
         <StatCard label="Multibyte" sublabel={hashes.isLoading ? "observations" : pct(data?.multibyteObservations ?? 0, data?.totalObservations ?? 0)} accent="var(--color-green)" value={hashes.isLoading ? "--" : formatCount(data?.multibyteObservations)} />
         <StatCard label="Risk prefixes" sublabel="short-id" accent="var(--color-warn)" value={hashes.isLoading ? "--" : formatCount(data?.collisionPrefixCount)} />
         <StatCard label="Inconsistent" sublabel="packet sizes" accent="var(--color-danger)" value={hashes.isLoading ? "--" : formatCount(data?.inconsistentPacketCount)} />
       </div>
 
-      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+      <div className="stats-chart-rail grid grid-cols-1 gap-3.5 lg:grid-cols-2">
         <ChartCard title={<>Hash size mix / {range}</>} height={230} option={sizeOption} isLoading={hashes.isLoading} isError={hashes.isError} isEmpty={sizeRows.length === 0} />
         <ChartCard title={<>Hash size timeline / {data?.window.bucket ?? ""}</>} height={230} option={timelineOption} isLoading={hashes.isLoading} isError={hashes.isError} isEmpty={timelineRows.length === 0} />
       </div>

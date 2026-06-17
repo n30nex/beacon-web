@@ -260,8 +260,8 @@ function NodeGridCard({
           </Tooltip>
         )}
       </div>
-      <div className="mt-1 truncate text-[9px] uppercase leading-tight tracking-wide text-text-muted">{node.nodeTypeName}</div>
-      <div className="mt-1 flex items-center justify-between gap-1 text-[9px] leading-tight text-text-dim">
+      <div className="node-card-type mt-1 truncate text-[9px] uppercase leading-tight tracking-wide text-text-muted">{node.nodeTypeName}</div>
+      <div className="node-card-secondary mt-1 flex items-center justify-between gap-1 text-[9px] leading-tight text-text-dim">
         <span className="truncate">{formatRadio(node.radio) ?? "no radio"}</span>
         <span className="shrink-0">{lastHeard > 0 ? timeAgoMs(lastHeard) : "never"}</span>
       </div>
@@ -473,7 +473,7 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
           ) : (
             <div ref={gridWrapRef} className="relative">
               <NodeRouteCometOverlay segments={cometSegments} />
-              <div className="relative z-10 grid grid-cols-2 gap-1.5 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-10 2xl:grid-cols-[repeat(20,minmax(0,1fr))]">
+              <div className="node-grid-dense relative z-10 grid">
                 {displayNodes.map((node) => (
                   <NodeGridCard key={node.id} activity={liveActivity[node.id]} node={node} selected={selectedNodeId === node.id} onSelect={onSelectNode} />
                 ))}

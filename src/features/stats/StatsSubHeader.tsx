@@ -102,7 +102,7 @@ export function StatsSubHeader({ tab, onTabChange, range, onRangeChange, wsManag
   const labelColor = live ? "text-green" : connecting ? "text-warn" : "text-text-dim";
 
   return (
-    <div className="flex shrink-0 flex-col gap-2 border-b border-border bg-bg-surface px-4 py-2.5 lg:flex-row lg:items-center lg:justify-between">
+    <div className="sticky top-0 z-20 flex shrink-0 flex-col gap-1.5 border-b border-border bg-bg-surface px-2 py-1.5 md:static md:gap-2 md:px-4 md:py-2.5 lg:flex-row lg:items-center lg:justify-between">
       <Segmented
         options={TAB_OPTIONS}
         value={tab}
@@ -111,7 +111,7 @@ export function StatsSubHeader({ tab, onTabChange, range, onRangeChange, wsManag
         size="md"
         className="max-w-full overflow-x-auto"
       />
-      <div className="flex items-center justify-between gap-3 lg:justify-end">
+      <div className="flex items-center justify-between gap-2 lg:justify-end">
         <Segmented
           options={RANGE_OPTIONS}
           value={range}

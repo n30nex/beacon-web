@@ -21,6 +21,7 @@ import {
 import { LoadingPill } from "../../components/LoadingPill";
 import { TerminalCursor, TerminalProgress, TerminalSpinner } from "../../components/TerminalLoader";
 import { EmptyState } from "../../components/EmptyState";
+import { BottomSheet } from "../../components/BottomSheet";
 import { useRegion } from "../../hooks/useRegion";
 import { useTheme } from "../../hooks/useTheme";
 import { useWsLaggedHandler, useWsNodeUpdateHandler, useWsPacketHandler } from "../../hooks/useWsHandlers";
@@ -174,6 +175,7 @@ const LIVE_NODE_ACTIVITY_THROTTLE_MS = 700;
 const LIVE_PACKET_FLIGHT_BASE_MS = 2_550;
 const LIVE_PACKET_FLIGHT_HOP_MS = 380;
 const LIVE_PACKET_FLIGHT_EXTRA_MAX_MS = 1_450;
+const LIVE_DESKTOP_PANEL_STORAGE_KEY = "beacon-live-desktop-panel";
 const AUDIO_MIN_INTERVAL_MS = 85;
 const AUDIO_SCALE = [220, 247, 277, 330, 370, 415, 494, 554, 659, 740, 831, 988];
 const LIVE_DESKTOP_LAYOUT_WIDTH = 1024;
@@ -1543,9 +1545,11 @@ const LiveControlDock = memo(function LiveControlDock({
   activeAnimations,
   colorByHash,
   compact,
+  consoleOpen,
   heatVisible,
   laggedCount,
   onToggleColorByHash,
+  onToggleConsole,
   onToggleHeat,
   onTogglePaused,
   onTogglePropagation,
@@ -1566,9 +1570,11 @@ const LiveControlDock = memo(function LiveControlDock({
   activeAnimations: number;
   colorByHash: boolean;
   compact: boolean;
+  consoleOpen: boolean;
   heatVisible: boolean;
   laggedCount: number;
   onToggleColorByHash: () => void;
+  onToggleConsole: () => void;
   onToggleHeat: () => void;
   onTogglePaused: () => void;
   onTogglePropagation: () => void;
@@ -1602,6 +1608,7 @@ const LiveControlDock = memo(function LiveControlDock({
         <LiveControlButton compact icon="pace" label="Pace" active={realisticPropagation} onClick={onTogglePropagation} title="Pace repeated observations before rendering" />
         <LiveControlButton compact icon="heat" label="Heat" active={heatVisible} onClick={onToggleHeat} title="Toggle live activity heat overlay" />
         <LiveControlButton compact icon="color" label="Color" active={colorByHash} onClick={onToggleColorByHash} title="Color packet paths by hash" />
+        <LiveControlButton compact icon="feed" label="Console" active={consoleOpen} onClick={onToggleConsole} title="Open Live console" />
         <LiveControlButton compact icon="settings" label="Settings" active={settingsOpen} onClick={onToggleSettings} title="Open Live settings" />
       </div>
     );
@@ -1635,6 +1642,7 @@ const LiveControlDock = memo(function LiveControlDock({
       <LiveControlButton icon="pace" label="Pace" active={realisticPropagation} onClick={onTogglePropagation} title="Pace repeated observations before rendering" />
       <LiveControlButton icon="heat" className="hidden sm:inline-flex" label="Heat" active={heatVisible} onClick={onToggleHeat} title="Toggle live activity heat overlay" />
       <LiveControlButton icon="color" className="hidden sm:inline-flex" label="Color" active={colorByHash} onClick={onToggleColorByHash} title="Color packet paths by hash" />
+      <LiveControlButton icon="feed" label="Console" active={consoleOpen} onClick={onToggleConsole} title="Toggle Live console rail" />
       <LiveControlButton icon="settings" label="Settings" active={settingsOpen} onClick={onToggleSettings} title="Open Live settings" />
     </div>
   );
@@ -2165,6 +2173,168 @@ function LiveInspectorRail({
   );
 }
 
+function LiveMobileConsoleSheet({
+  activeAnimations,
+  backfillStatus,
+  clockTick,
+  events,
+  laggedCount,
+  now,
+  onAnalyze,
+  onClose,
+  onSelect,
+  ratePerMin,
+  selectedEvent,
+  summary,
+  totalPackets,
+  waitStartedAt,
+}: {
+  activeAnimations: number;
+  backfillStatus: string;
+  clockTick: number;
+  events: LivePacketEvent[];
+  laggedCount: number;
+  now: number;
+  onAnalyze: (hash: string) => void;
+  onClose: () => void;
+  onSelect: (event: LivePacketEvent) => void;
+  ratePerMin: number;
+  selectedEvent?: LivePacketEvent;
+  summary?: LiveSummary;
+  totalPackets: number;
+  waitStartedAt: number;
+}) {
+  const event = selectedEvent ?? events[0];
+  const payloadItems =
+    summary?.payloadMix.map((item) => ({ label: payloadLabel(item.payloadTypeName), count: item.count, color: payloadColor(item.payloadTypeName) })) ??
+    topPayloads(events).map((item) => ({ label: item.typeName, count: item.count, color: item.color }));
+  const routeItems =
+    summary?.routeMix.map((item) => ({ label: item.routeTypeName, count: item.count })) ??
+    Array.from(events.reduce((map, item) => map.set(item.routeTypeName, (map.get(item.routeTypeName) ?? 0) + 1), new Map<string, number>()), ([label, count]) => ({ label, count }));
+
+  return (
+    <BottomSheet label="Live console" onClose={onClose}>
+      <div className="flex min-h-0 flex-col">
+        <div className="flex shrink-0 items-center justify-between border-b border-border-subtle px-4 py-2">
+          <div className="font-mono text-[11px] uppercase tracking-wider text-text-muted">Live Console</div>
+          <button type="button" className="font-mono text-[10px] uppercase text-text-muted" onClick={onClose}>Close</button>
+        </div>
+        <div className="grid shrink-0 grid-cols-4 gap-1.5 border-b border-border-subtle p-2">
+          <LiveKV label="Pkts" value={formatCount(summary?.packetCount ?? totalPackets)} tone="green" />
+          <LiveKV label="Rate" value={`${ratePerMin}/m`} tone="primary" />
+          <LiveKV label="Act" value={activeAnimations} tone={activeAnimations > 0 ? "warn" : "normal"} />
+          <LiveKV label="Lag" value={laggedCount > 0 ? laggedCount : backfillStatus} tone={laggedCount > 0 ? "warn" : "normal"} />
+        </div>
+        <div className="shrink-0 border-b border-border-subtle p-3">
+          {event ? (
+            <button type="button" className="w-full rounded border border-border-subtle bg-bg-base/35 px-2 py-1.5 text-left" onClick={() => onAnalyze(event.packetHash)}>
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="crt-glow-dot h-2 w-2 shrink-0 rounded-full" style={{ color: payloadColor(event.payloadTypeName), backgroundColor: payloadColor(event.payloadTypeName) }} />
+                <span className="min-w-0 flex-1 truncate font-mono text-xs font-semibold text-text-bright">{payloadLabel(event.payloadTypeName)}</span>
+                <span className="font-mono text-[10px] text-primary">{event.iata}</span>
+                <span className="font-mono text-[10px] text-text-dim">{timeAgoMs(event.receivedAt)}</span>
+              </div>
+              <div className="mt-1 truncate font-mono text-[10px] text-text-muted">
+                {event.routeTypeName} / {event.rssi} dBm / {event.snr.toFixed(1)} dB / {formatHex(event.packetHash)}
+              </div>
+            </button>
+          ) : (
+            <LivePacketWaitState compact backfillStatus={backfillStatus} now={now} summary={summary} waitStartedAt={waitStartedAt} />
+          )}
+        </div>
+        <div className="grid shrink-0 grid-cols-2 gap-3 border-b border-border-subtle p-3">
+          <LiveMixList title="Payload Mix" items={payloadItems} />
+          <LiveMixList title="Route Mix" items={routeItems} />
+        </div>
+        <LiveFeedPanel
+          backfillStatus={backfillStatus}
+          clockTick={clockTick}
+          events={events}
+          now={now}
+          onAnalyze={onAnalyze}
+          onSelect={onSelect}
+          selectedId={selectedEvent?.id}
+          summary={summary}
+          waitStartedAt={waitStartedAt}
+        />
+      </div>
+    </BottomSheet>
+  );
+}
+
+function LiveMobileSettingsSheet({
+  audioBpm,
+  audioEnabled,
+  audioVolume,
+  appearanceSettings,
+  clustered,
+  matrixMode,
+  matrixRain,
+  onAppearanceChange,
+  onAudioBpmChange,
+  onAudioVolumeChange,
+  onClose,
+  onClusteredChange,
+  onStyleChange,
+  onToggleAudio,
+  onToggleMatrix,
+  onToggleRain,
+  onTypeChange,
+  styleId,
+  typeFilter,
+}: {
+  audioBpm: number;
+  audioEnabled: boolean;
+  audioVolume: number;
+  appearanceSettings: MapAppearanceSettings;
+  clustered: boolean;
+  matrixMode: boolean;
+  matrixRain: boolean;
+  onAppearanceChange: (patch: Partial<MapAppearanceSettings>) => void;
+  onAudioBpmChange: (value: number) => void;
+  onAudioVolumeChange: (value: number) => void;
+  onClose: () => void;
+  onClusteredChange: (value: boolean) => void;
+  onStyleChange: (id: string) => void;
+  onToggleAudio: () => void;
+  onToggleMatrix: () => void;
+  onToggleRain: () => void;
+  onTypeChange: (value: string) => void;
+  styleId: string;
+  typeFilter: string;
+}) {
+  return (
+    <BottomSheet label="Live settings" onClose={onClose}>
+      <div className="flex items-center justify-between border-b border-border-subtle px-4 py-2">
+        <div className="font-mono text-[11px] uppercase tracking-wider text-text-muted">Live Settings</div>
+        <button type="button" className="font-mono text-[10px] uppercase text-text-muted" onClick={onClose}>Close</button>
+      </div>
+      <div className="min-h-0 overflow-y-auto">
+        <LiveSettingsPanel
+          audioBpm={audioBpm}
+          audioEnabled={audioEnabled}
+          audioVolume={audioVolume}
+          appearanceSettings={appearanceSettings}
+          clustered={clustered}
+          matrixMode={matrixMode}
+          matrixRain={matrixRain}
+          onAppearanceChange={onAppearanceChange}
+          onAudioBpmChange={onAudioBpmChange}
+          onAudioVolumeChange={onAudioVolumeChange}
+          onClusteredChange={onClusteredChange}
+          onStyleChange={onStyleChange}
+          onToggleAudio={onToggleAudio}
+          onToggleMatrix={onToggleMatrix}
+          onToggleRain={onToggleRain}
+          onTypeChange={onTypeChange}
+          styleId={styleId}
+          typeFilter={typeFilter}
+        />
+      </div>
+    </BottomSheet>
+  );
+}
+
 export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, nodePanelOpen }: LiveViewProps) {
   const { iatas: selectedIatas, regionKey } = useRegion();
   const { themeId, themes, paletteRev } = useTheme();
@@ -2232,6 +2402,8 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
   const [activeAnimations, setActiveAnimations] = useState(0);
   const [selectedEvent, setSelectedEvent] = useState<LivePacketEvent | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [mobileConsoleOpen, setMobileConsoleOpen] = useState(false);
+  const [desktopRailOpen, setDesktopRailOpen] = useState(() => localStorage.getItem(LIVE_DESKTOP_PANEL_STORAGE_KEY) !== "collapsed");
   const [backfillStatus, setBackfillStatus] = useState("ok");
   const [backfillCount, setBackfillCount] = useState(0);
   const [visualQuality, setVisualQuality] = useState<LiveVisualQuality>("high");
@@ -2887,15 +3059,34 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
   const toggleColorByHash = useCallback(() => setColorByHash((v) => !v), []);
   const toggleHeat = useCallback(() => setHeatVisible((v) => !v), []);
   const togglePropagation = useCallback(() => setRealisticPropagation((v) => !v), []);
-  const toggleSettings = useCallback(() => setSettingsOpen((v) => !v), []);
+  const toggleSettings = useCallback(() => {
+    setMobileConsoleOpen(false);
+    setSettingsOpen((v) => !v);
+  }, []);
   const toggleTrails = useCallback(() => setTrails((v) => !v), []);
 
   const feedClock = Math.floor(now / 5_000);
   const ratePerMin = useMemo(() => countRecent(events, now, 60_000), [events, now]);
   const desktopLiveLayout = viewportWidth >= LIVE_DESKTOP_LAYOUT_WIDTH;
   const compactLiveLayout = viewportWidth < 768;
-  const feedVisible = !compactLiveLayout;
-  const mobileConsoleExpanded = compactLiveLayout && (feedVisible || settingsOpen);
+  const feedVisible = desktopLiveLayout && desktopRailOpen;
+  const mobileConsoleExpanded = false;
+  const toggleConsole = useCallback(() => {
+    if (compactLiveLayout) {
+      setSettingsOpen(false);
+      setMobileConsoleOpen((value) => !value);
+      return;
+    }
+    setDesktopRailOpen((value) => {
+      const next = !value;
+      try {
+        localStorage.setItem(LIVE_DESKTOP_PANEL_STORAGE_KEY, next ? "rail" : "collapsed");
+      } catch {
+        // private mode / quota: the toggle remains live for this session
+      }
+      return next;
+    });
+  }, [compactLiveLayout]);
   const commandDockStyle = useMemo(() => liveCommandDockStyle(desktopLiveLayout), [desktopLiveLayout]);
   const inspectorRailStyle = useMemo(() => liveInspectorRailStyle(desktopLiveLayout, mobileConsoleExpanded), [desktopLiveLayout, mobileConsoleExpanded]);
 
@@ -2929,7 +3120,7 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
       </div>
 
       <LoadingPill loading={isPaging} error={nodesError} count={loadedCount} noun="nodes" />
-      {!nodePanelOpen && (
+      {!nodePanelOpen && !compactLiveLayout && (desktopRailOpen || settingsOpen) && (
         <LiveInspectorRail
           activeAnimations={activeAnimations}
           audioBpm={audioBpm}
@@ -2975,9 +3166,11 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
         activeAnimations={activeAnimations}
         colorByHash={colorByHash}
         compact={compactLiveLayout}
+        consoleOpen={compactLiveLayout ? mobileConsoleOpen : desktopRailOpen}
         heatVisible={heatVisible}
         laggedCount={laggedCount}
         onToggleColorByHash={toggleColorByHash}
+        onToggleConsole={toggleConsole}
         onToggleHeat={toggleHeat}
         onTogglePaused={togglePaused}
         onTogglePropagation={togglePropagation}
@@ -2995,6 +3188,49 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
         visualDroppedCount={visualDroppedCount}
         visualQueueSize={visualQueueSize}
       />
+
+      {compactLiveLayout && settingsOpen && (
+        <LiveMobileSettingsSheet
+          audioBpm={audioBpm}
+          audioEnabled={audioEnabled}
+          audioVolume={audioVolume}
+          appearanceSettings={appearanceSettings}
+          clustered={clustered}
+          matrixMode={matrixMode}
+          matrixRain={matrixRain}
+          onAppearanceChange={handleAppearanceChange}
+          onAudioBpmChange={setAudioBpm}
+          onAudioVolumeChange={setAudioVolume}
+          onClose={() => setSettingsOpen(false)}
+          onClusteredChange={setClustered}
+          onStyleChange={handleStyleChange}
+          onToggleAudio={() => setAudioEnabled((value) => !value)}
+          onToggleMatrix={() => setMatrixMode((v) => !v)}
+          onToggleRain={() => setMatrixRain((v) => !v)}
+          onTypeChange={setTypeFilter}
+          styleId={styleId}
+          typeFilter={typeFilter}
+        />
+      )}
+
+      {compactLiveLayout && mobileConsoleOpen && (
+        <LiveMobileConsoleSheet
+          activeAnimations={activeAnimations}
+          backfillStatus={backfillStatus}
+          clockTick={feedClock}
+          events={events}
+          laggedCount={laggedCount}
+          now={now}
+          onAnalyze={onAnalyze}
+          onClose={() => setMobileConsoleOpen(false)}
+          onSelect={setSelectedEvent}
+          ratePerMin={ratePerMin}
+          selectedEvent={selectedEvent ?? undefined}
+          summary={liveSummary}
+          totalPackets={totalPackets}
+          waitStartedAt={packetWaitStartedAt}
+        />
+      )}
 
       {error && (
         <div className="absolute inset-0 z-20 bg-bg-base">

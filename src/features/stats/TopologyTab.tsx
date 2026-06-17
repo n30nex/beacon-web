@@ -60,14 +60,14 @@ export function TopologyTab({ range }: { range: StatsRange }) {
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5 px-3 py-3 sm:px-4 sm:py-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
         <StatCard label="Routes" sublabel={range} accent="var(--color-primary)" value={topology.isLoading ? "--" : formatCount(data?.routeCount)} />
         <StatCard label="Route obs" sublabel="verified" accent="var(--color-secondary)" value={topology.isLoading ? "--" : formatCount(data?.observationCount)} />
         <StatCard label="IATAs" sublabel="with routes" accent="var(--color-green)" value={topology.isLoading ? "--" : formatCount(data?.activeIatas)} />
         <StatCard label="Avg hops" sublabel="known routes" accent="var(--color-warn)" value={topology.isLoading ? "--" : (data?.averageHopCount ?? 0).toFixed(1)} />
       </div>
 
-      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+      <div className="stats-chart-rail grid grid-cols-1 gap-3.5 lg:grid-cols-2">
         <ChartCard title={<>Hop distribution / {range}</>} height={230} option={hopOption} isLoading={topology.isLoading} isError={topology.isError} isEmpty={hopRows.length === 0} />
         <ChartCard title="Top verified-route nodes" height={230} option={repeaterOption} isLoading={topology.isLoading} isError={topology.isError} isEmpty={repeaterRows.length === 0} />
       </div>
@@ -80,7 +80,25 @@ export function TopologyTab({ range }: { range: StatsRange }) {
         ) : (data?.topPairs ?? []).length === 0 ? (
           <div className="py-6 text-center font-mono text-[11px] text-text-dim">No verified route pairs in this window</div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="grid gap-2 md:hidden">
+            {(data?.topPairs ?? []).map((row) => (
+              <div key={`${row.iata}:${row.fromNodeId}:${row.toNodeId}`} className="rounded-sm border border-border-subtle bg-bg-base/45 p-2 font-mono">
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-[11px]">
+                  <div className="truncate text-primary">{nodeLabel(row.fromNodeName, row.fromNodeId)}</div>
+                  <div className="text-text-dim">-&gt;</div>
+                  <div className="truncate text-text-bright">{nodeLabel(row.toNodeName, row.toNodeId)}</div>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-text-muted">
+                  <span>{row.iata && <IataChip>{row.iata}</IataChip>}</span>
+                  <span>{formatCount(row.routeCount)} routes</span>
+                  <span className="text-text-bright">{formatCount(row.observationCount)} obs</span>
+                </div>
+                <div className="mt-1 text-[10px] text-text-dim">{formatAbsolute(row.lastSeen)}</div>
+              </div>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="min-w-[760px] w-full font-mono text-[11px]">
               <thead>
                 <tr className="text-text-muted">
@@ -106,6 +124,7 @@ export function TopologyTab({ range }: { range: StatsRange }) {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </Card>
 

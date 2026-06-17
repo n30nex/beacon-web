@@ -347,6 +347,7 @@ interface AppShellProps {
 }
 
 export function AppShell({ activeTab, onTabChange, wsManager, onOpenSearch, children }: AppShellProps) {
+  const mapFirstMobile = activeTab === "Atlas" || activeTab === "Live" || activeTab === "Map";
   return (
     <div className="crt-shell flex flex-col h-dvh" data-active-tab={activeTab.toLowerCase()}>
       <ThemeAmbientLayer activeTab={activeTab} />
@@ -393,7 +394,11 @@ export function AppShell({ activeTab, onTabChange, wsManager, onOpenSearch, chil
         <ErrorBoundary>{children}</ErrorBoundary>
       </main>
 
-      <footer className="crt-panel flex items-center gap-2 px-2 py-1 bg-bg-surface border-t border-border font-mono text-[10px] text-text-dim shrink-0 md:px-4 md:text-[11px]">
+      <footer
+        className={`crt-panel items-center gap-2 px-2 py-1 bg-bg-surface border-t border-border font-mono text-[10px] text-text-dim shrink-0 md:px-4 md:text-[11px] ${
+          mapFirstMobile ? "hidden md:flex" : "flex"
+        }`}
+      >
         <span className="shrink-0">
           BEACON v<span className="animate-pulse font-bold text-green">{DISPLAY_VERSION}</span>
         </span>

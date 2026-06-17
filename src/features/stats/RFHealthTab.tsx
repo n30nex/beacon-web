@@ -80,7 +80,7 @@ export function RFHealthTab({ range, onSelectObserver }: { range: StatsRange; on
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5 px-3 py-3 sm:px-4 sm:py-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
         <StatCard label="Observers" sublabel={range} accent="var(--color-primary)" value={rf.isLoading ? "--" : formatCount(summary?.totalObservers)} />
         <StatCard label="Stale" sublabel="offline/freshness" accent="var(--color-warn)" value={rf.isLoading ? "--" : formatCount(summary?.staleObservers)} />
         <StatCard label="RF degraded" sublabel="noise/air/queue" accent="var(--color-danger)" value={rf.isLoading ? "--" : formatCount((summary?.highNoise ?? 0) + (summary?.highAirtime ?? 0) + (summary?.queueBacklog ?? 0))} />
@@ -90,7 +90,7 @@ export function RFHealthTab({ range, onSelectObserver }: { range: StatsRange; on
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col gap-3.5">
           <ChartCard title="IATA degradation score" height={220} option={iataOption} isLoading={rf.isLoading} isError={rf.isError} isEmpty={iataRows.length === 0} />
-          <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+          <div className="stats-chart-rail grid grid-cols-1 gap-3.5 lg:grid-cols-2">
             <ChartCard title="Noise floor" height={190} option={noiseOption} isLoading={rf.isLoading} isError={rf.isError} isEmpty={(rf.data?.series ?? []).length === 0} />
             <ChartCard title="Airtime pressure" height={190} option={airtimeOption} isLoading={rf.isLoading} isError={rf.isError} isEmpty={(rf.data?.series ?? []).length === 0} />
             <ChartCard title="Queue backlog" height={190} option={queueOption} isLoading={rf.isLoading} isError={rf.isError} isEmpty={(rf.data?.series ?? []).length === 0} />

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
 import { TraceList } from "../../../src/features/traces/TraceList";
 import { RegionProvider } from "../../../src/hooks/useRegion";
@@ -35,7 +36,9 @@ function renderTraces(onAnalyze = vi.fn()) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>
-      <RegionProvider defaultSelection={ALL_REGIONS}>{children}</RegionProvider>
+      <MemoryRouter>
+        <RegionProvider defaultSelection={ALL_REGIONS}>{children}</RegionProvider>
+      </MemoryRouter>
     </QueryClientProvider>
   );
   render(<TraceList onAnalyze={onAnalyze} />, { wrapper });

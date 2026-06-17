@@ -66,7 +66,32 @@ function TopChannelsTable({ data }: { data?: StatsChannels }) {
   if (!data) return <TerminalLoadingState label="QUERYING CHANNELS" detail="PLEASE WAIT" />;
   if (rows.length === 0) return <div className="py-6 text-center font-mono text-[11px] text-text-dim">No channel packets in this window</div>;
   return (
-    <div className="overflow-x-auto">
+    <>
+    <div className="grid gap-2 md:hidden">
+      {rows.map((row) => (
+        <div key={`${row.channelHash}:${row.channelId ?? "hash"}`} className="rounded-sm border border-border-subtle bg-bg-base/45 p-2 font-mono">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="truncate text-xs font-semibold text-primary">{channelName(row)}</div>
+              <div className="text-[9px] uppercase tracking-wider text-text-dim">hash {row.channelHash.toUpperCase()}</div>
+            </div>
+            <span className={`shrink-0 text-[10px] font-semibold uppercase ${keyStateClass(row.keyState)}`}>{keyStateLabel(row.keyState)}</span>
+          </div>
+          <div className="mt-2 grid grid-cols-4 gap-1.5 text-[10px]">
+            <div><div className="text-text-dim">Msgs</div><div className="text-text-bright">{formatCount(row.messageCount)}</div></div>
+            <div><div className="text-text-dim">Pkts</div><div className="text-text-normal">{formatCount(row.packetCount)}</div></div>
+            <div><div className="text-text-dim">Obs</div><div className="text-text-bright">{formatCount(row.observationCount)}</div></div>
+            <div><div className="text-text-dim">Obsrs</div><div className="text-text-normal">{formatCount(row.activeObservers)}</div></div>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-text-muted">
+            <span>{row.latestIata ? <IataChip>{row.latestIata}</IataChip> : "--"}</span>
+            <span>{formatAbsolute(row.lastSeen)}</span>
+            <ChannelLinkButton channelId={row.channelId} />
+          </div>
+        </div>
+      ))}
+    </div>
+    <div className="hidden overflow-x-auto md:block">
       <table className="min-w-[860px] w-full font-mono text-[11px]">
         <thead>
           <tr className="text-text-muted">
@@ -101,6 +126,7 @@ function TopChannelsTable({ data }: { data?: StatsChannels }) {
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 
@@ -109,7 +135,23 @@ function TopSendersTable({ data }: { data?: StatsChannels }) {
   if (!data) return <TerminalLoadingState label="QUERYING SENDERS" detail="PLEASE WAIT" />;
   if (rows.length === 0) return <div className="py-6 text-center font-mono text-[11px] text-text-dim">No decoded senders in this window</div>;
   return (
-    <div className="overflow-x-auto">
+    <>
+    <div className="grid gap-2 md:hidden">
+      {rows.map((row) => (
+        <div key={`${row.channelId}:${row.senderName}:${row.senderPubkey ?? ""}`} className="rounded-sm border border-border-subtle bg-bg-base/45 p-2 font-mono">
+          <div className="truncate text-xs font-semibold text-text-bright">{sanitizeDisplayLabel(row.senderName, "UNKNOWN")}</div>
+          {row.senderPubkey && <div className="text-[9px] text-text-dim">{row.senderPubkey.slice(0, 12)}...</div>}
+          <div className="mt-2 truncate text-[10px] text-primary">{sanitizeDisplayLabel(row.channelName, row.channelHash.toUpperCase())}</div>
+          <div className="mt-2 grid grid-cols-3 gap-2 text-[10px]">
+            <div><div className="text-text-dim">Msgs</div><div className="text-text-bright">{formatCount(row.messageCount)}</div></div>
+            <div><div className="text-text-dim">Obs</div><div className="text-text-normal">{formatCount(row.observationCount)}</div></div>
+            <div><div className="text-text-dim">Last</div><div className="truncate text-text-muted">{formatAbsolute(row.lastSeen)}</div></div>
+          </div>
+          <div className="mt-2 flex justify-end"><ChannelLinkButton channelId={row.channelId} /></div>
+        </div>
+      ))}
+    </div>
+    <div className="hidden overflow-x-auto md:block">
       <table className="min-w-[720px] w-full font-mono text-[11px]">
         <thead>
           <tr className="text-text-muted">
@@ -141,6 +183,7 @@ function TopSendersTable({ data }: { data?: StatsChannels }) {
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 
@@ -167,14 +210,14 @@ export function ChannelsTab({ range }: { range: StatsRange }) {
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5 px-3 py-3 sm:px-4 sm:py-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
         <StatCard label="Channels" sublabel={range} accent="var(--color-primary)" value={channels.isLoading ? "--" : formatCount(data?.totalChannels)} />
         <StatCard label="Decoded msgs" sublabel="known keys" accent="var(--color-green)" value={channels.isLoading ? "--" : formatCount(data?.messageCount)} />
         <StatCard label="Channel obs" sublabel="all keys" accent="var(--color-secondary)" value={channels.isLoading ? "--" : formatCount(data?.observationCount)} />
         <StatCard label="Unknown keys" sublabel={`${data?.knownChannels ?? 0} known`} accent="var(--color-warn)" value={channels.isLoading ? "--" : formatCount(data?.unknownChannels)} />
       </div>
 
-      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-3">
+      <div className="stats-chart-rail grid grid-cols-1 gap-3.5 lg:grid-cols-3">
         <ChartCard title={<>Key-state mix / {range}</>} height={230} option={keyOption} isLoading={channels.isLoading} isError={channels.isError} isEmpty={keyRows.length === 0} />
         <ChartCard title={<>IATA channel load / {range}</>} height={230} option={iataOption} isLoading={channels.isLoading} isError={channels.isError} isEmpty={iataRows.length === 0} />
         <Card title="Channel key state" right={<span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">active hashes</span>}>

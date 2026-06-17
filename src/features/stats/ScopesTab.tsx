@@ -44,14 +44,14 @@ export function ScopesTab({ range }: { range: StatsRange }) {
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5 px-3 py-3 sm:px-4 sm:py-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
         <StatCard label="Scopes" sublabel="configured" accent="var(--color-primary)" value={summary.isLoading ? "--" : formatCount(scopeRows.length)} />
         <StatCard label="Scope packets" sublabel="all time" accent="var(--color-green)" value={summary.isLoading ? "--" : formatCount(scopeTotals.packets)} />
         <StatCard label="Scope observers" sublabel="all time" accent="var(--color-secondary)" value={summary.isLoading ? "--" : formatCount(scopeTotals.observers)} />
         <StatCard label="Radio presets" sublabel="current" accent="var(--color-warn)" value={summary.isLoading ? "--" : formatCount(presetRows.length)} />
       </div>
 
-      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+      <div className="stats-chart-rail grid grid-cols-1 gap-3.5 lg:grid-cols-2">
         <ChartCard title="Scope packet distribution" height={230} option={scopeOption} isLoading={summary.isLoading} isError={summary.isError} isEmpty={scopeChartRows.length === 0} />
         <ChartCard title="Radio preset distribution" height={230} option={presetOption} isLoading={summary.isLoading} isError={summary.isError} isEmpty={presetRows.length === 0} />
         <ChartCard title="Preset sources" height={210} option={presetSourceOption} isLoading={summary.isLoading} isError={summary.isError} isEmpty={presetSourceRows.length === 0} />
@@ -64,7 +64,20 @@ export function ScopesTab({ range }: { range: StatsRange }) {
           ) : scopeRows.length === 0 ? (
             <div className="py-6 text-center font-mono text-[11px] text-text-dim">No scope activity</div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <div className="grid gap-2 md:hidden">
+              {scopeRows.map((s) => (
+                <div key={s.name} className="rounded-sm border border-border-subtle bg-bg-base/45 p-2 font-mono">
+                  <div className="truncate text-xs font-semibold text-text-bright">{s.name}</div>
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-[10px]">
+                    <div><div className="text-text-dim">Packets</div><div className={s.packetCount === 0 ? "text-text-dim" : "text-text-bright"}>{formatCount(s.packetCount)}</div></div>
+                    <div><div className="text-text-dim">Observers</div><div className={s.observerCount === 0 ? "text-text-dim" : "text-text-normal"}>{formatCount(s.observerCount)}</div></div>
+                    <div><div className="text-text-dim">Nodes</div><div className={s.nodeCount === 0 ? "text-text-dim" : "text-text-normal"}>{formatCount(s.nodeCount)}</div></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
               <table className="min-w-[460px] w-full font-mono text-[11px]">
                 <thead>
                   <tr className="text-text-muted">
@@ -86,6 +99,7 @@ export function ScopesTab({ range }: { range: StatsRange }) {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </Card>
       </div>

@@ -19,12 +19,12 @@ const wsManager = {
   getLastEventTimestamp: () => Date.now(),
 } as unknown as WsManager;
 
-function renderShell() {
+function renderShell(activeTab = "Packets") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <RegionProvider defaultSelection={ALL_REGIONS}>
-        <AppShell activeTab="Packets" onTabChange={() => {}} wsManager={wsManager}>
+        <AppShell activeTab={activeTab} onTabChange={() => {}} wsManager={wsManager}>
           <div />
         </AppShell>
       </RegionProvider>
@@ -48,6 +48,13 @@ describe("AppShell", () => {
     const version = screen.getByText("133.7");
     expect(version).toHaveClass("animate-pulse");
     expect(version).toHaveClass("text-green");
+  });
+
+  it("hides the footer on mobile-first map pages", () => {
+    vi.mocked(getIatas).mockResolvedValue([]);
+    renderShell("Live");
+    expect(screen.getByText("BEACON v", { exact: false }).closest("footer")).toHaveClass("hidden");
+    expect(screen.getByText("BEACON v", { exact: false }).closest("footer")).toHaveClass("md:flex");
   });
 
   it("region picker shows an error state when the IATA list fails to load", async () => {

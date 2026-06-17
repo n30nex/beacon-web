@@ -41,14 +41,14 @@ export function PayloadsTab({ range }: { range: StatsRange }) {
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5 px-3 py-3 sm:px-4 sm:py-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
         <StatCard label="Payload obs" sublabel={range} accent="var(--color-primary)" value={payloads.isLoading ? "--" : formatCount(payloadTotalCount)} />
         <StatCard label="Route obs" sublabel={range} accent="var(--color-secondary)" value={payloads.isLoading ? "--" : formatCount(routeTotalCount)} />
         <StatCard label="Live payload" sublabel="15m leader" accent="var(--color-green)" value={summary.isLoading ? "--" : (livePayload?.payloadTypeName ?? "--")} />
         <StatCard label="Live route" sublabel="15m leader" accent="var(--color-warn)" value={summary.isLoading ? "--" : (liveRoute?.routeTypeName ?? "--")} />
       </div>
 
-      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+      <div className="stats-chart-rail grid grid-cols-1 gap-3.5 lg:grid-cols-2">
         <ChartCard title={<>Payload mix · {range}</>} height={230} option={payloadOption} isLoading={payloads.isLoading} isError={payloads.isError} isEmpty={payloadTotals.length === 0} />
         <ChartCard title={<>Route mix · {range}</>} height={230} option={routeOption} isLoading={payloads.isLoading} isError={payloads.isError} isEmpty={routeTotals.length === 0} />
       </div>

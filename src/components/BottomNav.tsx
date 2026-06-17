@@ -117,7 +117,7 @@ export function BottomNav({ activeTab, onTabChange }: { activeTab: string; onTab
 
   return (
     <>
-      <nav className="crt-panel flex md:hidden shrink-0 bg-bg-surface border-t border-border" role="tablist" aria-label="Primary">
+      <nav className="crt-panel flex md:hidden shrink-0 bg-bg-surface border-t border-border pb-[env(safe-area-inset-bottom)]" role="tablist" aria-label="Primary">
         {PRIMARY_TABS.map((tab) => (
           <NavButton
             key={tab}

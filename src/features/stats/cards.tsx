@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { TerminalLoadingState } from "../../components/TerminalLoader";
+import { useIsMobile } from "../../hooks/useMediaQuery";
 import { EChart } from "./EChart";
 import type { EChartsOption } from "./echarts-setup";
 
@@ -16,8 +17,8 @@ export function Card({
   className?: string;
 }) {
   return (
-    <div className={`rounded-lg border border-border bg-bg-surface p-3.5 ${className ?? ""}`}>
-      <div className="mb-2.5 flex items-center justify-between gap-2">
+    <div className={`rounded-sm border border-border bg-bg-surface p-2.5 md:p-3.5 ${className ?? ""}`}>
+      <div className="mb-2 flex items-center justify-between gap-2 md:mb-2.5">
         <div className="font-mono text-[11px] font-semibold uppercase tracking-wider text-text-normal">{title}</div>
         {right}
       </div>
@@ -58,13 +59,13 @@ export function StatCard({
   sublabel?: ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-bg-surface px-3.5 py-3">
+    <div className="rounded-sm border border-border bg-bg-surface px-2.5 py-2 md:px-3.5 md:py-3">
       <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-text-muted">{label}</span>
+        <span className="font-mono text-[9px] font-semibold uppercase tracking-wider text-text-muted md:text-[10px]">{label}</span>
         {sublabel && <span className="font-mono text-[9px] text-text-dim">{sublabel}</span>}
       </div>
-      <div className="mt-0.5 font-mono text-2xl font-bold tabular-nums text-text-bright">{value}</div>
-      {spark ? <Sparkline values={spark} color={accent} /> : <div className="mt-1.5 h-[20px]" />}
+      <div className="mt-0.5 font-mono text-lg font-bold tabular-nums text-text-bright md:text-2xl">{value}</div>
+      {spark ? <Sparkline values={spark} color={accent} /> : <div className="mt-1 h-[14px] md:mt-1.5 md:h-[20px]" />}
     </div>
   );
 }
@@ -97,9 +98,11 @@ export function ChartCard({
   onEvents?: Record<string, (params: unknown) => void>;
   className?: string;
 }) {
+  const isMobile = useIsMobile();
+  const resolvedHeight = isMobile ? Math.min(220, Math.max(180, height)) : height;
   return (
     <Card title={title} right={right} className={className}>
-      <div style={{ height }}>
+      <div style={{ height: resolvedHeight }}>
         {isError ? (
           <Centered>Failed to load</Centered>
         ) : isLoading ? (

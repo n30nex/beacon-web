@@ -135,14 +135,14 @@ export function OverviewTab({ range, onSelectObserver, wsManager }: OverviewTabP
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5 px-3 py-3 sm:px-4 sm:py-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
         <StatCard label="Packets" sublabel={range} accent="var(--color-primary)" value={summary.isLoading ? "--" : formatCount(ov?.totalPackets)} />
         <StatCard label="Observations" sublabel={range} accent="var(--color-green)" value={summary.isLoading ? "--" : formatCount(ov?.totalObservations)} spark={obsSpark} />
         <StatCard label="Observers" sublabel={range} accent="var(--color-secondary)" value={summary.isLoading ? "--" : formatCount(ov?.activeObservers)} spark={observerSpark} />
         <StatCard label="Live now" sublabel="15m" accent="var(--color-warn)" value={summary.isLoading ? "--" : formatCount(live?.observationCount)} />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
         <StatCard label="Active IATAs" sublabel={range} accent="var(--color-primary)" value={summary.isLoading ? "--" : formatCount(ov?.activeIatas)} />
         <StatCard label="Stale" sublabel="observers" accent="var(--color-warn)" value={summary.isLoading ? "--" : formatCount(health?.staleObservers)} />
         <StatCard label="RF flags" sublabel="noise/air" accent="var(--color-danger)" value={summary.isLoading ? "--" : formatCount((health?.highNoise ?? 0) + (health?.highAirtime ?? 0))} />
@@ -158,7 +158,7 @@ export function OverviewTab({ range, onSelectObserver, wsManager }: OverviewTabP
         isEmpty={obs.length === 0}
       />
 
-      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+      <div className="stats-chart-rail grid grid-cols-1 gap-3.5 lg:grid-cols-2">
         <ChartCard title="Top IATAs" height={210} option={iataOption} isLoading={summary.isLoading} isError={summary.isError} isEmpty={topIatas.length === 0} />
         <ChartCard title="Node types" height={210} option={nodeTypesOption} isLoading={summary.isLoading} isError={summary.isError} isEmpty={nodeTypes.length === 0} />
         <ChartCard title="Top observers" height={210} option={observersOption} isLoading={summary.isLoading} isError={summary.isError} isEmpty={observers.length === 0} onEvents={observerEvents} />
