@@ -28,7 +28,7 @@ export function Card({
 }
 
 function Sparkline({ values, color }: { values: number[]; color: string }) {
-  if (values.length < 2) return <div className="mt-1.5 h-[20px]" />;
+  if (values.length < 2) return <div className="stats-kpi-spacer mt-1.5 h-[20px]" />;
   const w = 120;
   const h = 20;
   const max = Math.max(...values);
@@ -38,7 +38,7 @@ function Sparkline({ values, color }: { values: number[]; color: string }) {
     .map((v, i) => `${(i / (values.length - 1)) * w},${h - 1 - ((v - min) / range) * (h - 2)}`)
     .join(" ");
   return (
-    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="mt-1.5" aria-hidden>
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="stats-kpi-spark mt-1.5" aria-hidden>
       <polyline fill="none" stroke={color} strokeWidth="1.5" points={pts} />
     </svg>
   );
@@ -59,13 +59,13 @@ export function StatCard({
   sublabel?: ReactNode;
 }) {
   return (
-    <div className="rounded-sm border border-border bg-bg-surface px-2.5 py-2 md:px-3.5 md:py-3">
+    <div className="stats-kpi-card rounded-sm border border-border bg-bg-surface px-2.5 py-2 md:px-3.5 md:py-3">
       <div className="flex items-center justify-between">
-        <span className="font-mono text-[9px] font-semibold uppercase tracking-wider text-text-muted md:text-[10px]">{label}</span>
-        {sublabel && <span className="font-mono text-[9px] text-text-dim">{sublabel}</span>}
+        <span className="stats-kpi-label font-mono text-[9px] font-semibold uppercase tracking-wider text-text-muted md:text-[10px]">{label}</span>
+        {sublabel && <span className="stats-kpi-sublabel font-mono text-[9px] text-text-dim">{sublabel}</span>}
       </div>
-      <div className="mt-0.5 font-mono text-lg font-bold tabular-nums text-text-bright md:text-2xl">{value}</div>
-      {spark ? <Sparkline values={spark} color={accent} /> : <div className="mt-1 h-[14px] md:mt-1.5 md:h-[20px]" />}
+      <div className="stats-kpi-value mt-0.5 font-mono text-lg font-bold tabular-nums text-text-bright md:text-2xl">{value}</div>
+      {spark ? <Sparkline values={spark} color={accent} /> : <div className="stats-kpi-spacer mt-1 h-[14px] md:mt-1.5 md:h-[20px]" />}
     </div>
   );
 }

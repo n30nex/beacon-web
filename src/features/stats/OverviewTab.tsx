@@ -140,9 +140,6 @@ export function OverviewTab({ range, onSelectObserver, wsManager }: OverviewTabP
         <StatCard label="Observations" sublabel={range} accent="var(--color-green)" value={summary.isLoading ? "--" : formatCount(ov?.totalObservations)} spark={obsSpark} />
         <StatCard label="Observers" sublabel={range} accent="var(--color-secondary)" value={summary.isLoading ? "--" : formatCount(ov?.activeObservers)} spark={observerSpark} />
         <StatCard label="Live now" sublabel="15m" accent="var(--color-warn)" value={summary.isLoading ? "--" : formatCount(live?.observationCount)} />
-      </div>
-
-      <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
         <StatCard label="Active IATAs" sublabel={range} accent="var(--color-primary)" value={summary.isLoading ? "--" : formatCount(ov?.activeIatas)} />
         <StatCard label="Stale" sublabel="observers" accent="var(--color-warn)" value={summary.isLoading ? "--" : formatCount(health?.staleObservers)} />
         <StatCard label="RF flags" sublabel="noise/air" accent="var(--color-danger)" value={summary.isLoading ? "--" : formatCount((health?.highNoise ?? 0) + (health?.highAirtime ?? 0))} />

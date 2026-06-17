@@ -54,7 +54,28 @@ function RiskTable({ data, onLookup }: { data?: StatsHashAnalytics; onLookup: (p
   if (!data) return <TerminalLoadingState label="QUERYING HASH PREFIXES" detail="PLEASE WAIT" />;
   if (rows.length === 0) return <div className="py-6 text-center font-mono text-[11px] text-text-dim">No risky prefixes in this window</div>;
   return (
-    <div className="overflow-x-auto">
+    <>
+      <div className="space-y-2 md:hidden">
+        {rows.map((row) => (
+          <button
+            key={`${row.iata}:${row.hashSize}:${row.prefix}:mobile`}
+            type="button"
+            className="w-full rounded border border-border-subtle bg-bg-base/55 p-2 text-left font-mono transition-colors hover:border-primary/60 hover:bg-primary/8"
+            onClick={() => onLookup(row.prefix, row.hashSize)}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-primary">{row.prefix}</span>
+              <span className="text-[10px] uppercase tracking-wider text-text-dim">{row.hashSize}b / {row.iata}</span>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-[10px]">
+              <span><span className="text-text-dim">Nodes </span><span className="text-warn">{formatCount(row.nodeCount ?? row.packetCount)}</span></span>
+              <span><span className="text-text-dim">Obs </span><span className="text-text-bright">{formatCount(row.observationCount)}</span></span>
+              <span className="truncate text-text-muted">{formatAbsolute(row.lastHeard)}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto md:block">
       <table className="min-w-[720px] w-full font-mono text-[11px]">
         <thead>
           <tr className="text-text-muted">
@@ -89,7 +110,8 @@ function RiskTable({ data, onLookup }: { data?: StatsHashAnalytics; onLookup: (p
           ))}
         </tbody>
       </table>
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -118,8 +140,32 @@ function CollisionMatrix({ data, onLookup }: { data?: StatsHashAnalytics; onLook
     }
   }
 
+  const mobileRows = [...(data.riskyPrefixes ?? [])]
+    .sort((a, b) => b.observationCount - a.observationCount || b.packetCount - a.packetCount)
+    .slice(0, 12);
+
   return (
-    <div className="overflow-x-auto">
+    <>
+      <div className="grid grid-cols-1 gap-2 md:hidden">
+        {mobileRows.map((row) => (
+          <button
+            key={`${row.iata}:${row.hashSize}:${row.prefix}:matrix-mobile`}
+            type="button"
+            className="rounded border border-border-subtle bg-bg-base/55 p-2 text-left font-mono transition-colors hover:border-primary/60 hover:bg-primary/8"
+            onClick={() => onLookup(row.prefix, row.hashSize)}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-warn">{row.prefix}</span>
+              <span className="text-[10px] uppercase tracking-wider text-text-dim">{row.iata} / {row.hashSize} byte</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-wider">
+              <span className="text-text-muted">{formatCount(row.packetCount)} prefix hits</span>
+              <span className="text-text-bright">{formatCount(row.observationCount)} obs</span>
+            </div>
+          </button>
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto md:block">
       <div
         className="grid min-w-[640px] gap-1 font-mono text-[10px]"
         style={{ gridTemplateColumns: `84px repeat(${iatas.length}, minmax(70px, 1fr))` }}
@@ -182,7 +228,8 @@ function CollisionMatrix({ data, onLookup }: { data?: StatsHashAnalytics; onLook
           </div>
         ))}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -213,7 +260,7 @@ function PrefixLookupPanel({
   }
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div className="rounded border border-border-subtle bg-bg-base/50 p-2">
           <div className="font-mono text-[9px] uppercase tracking-wider text-text-dim">Packets</div>
           <div className="font-mono text-lg font-semibold text-text-bright">{formatCount(data.packetCount)}</div>
@@ -232,7 +279,29 @@ function PrefixLookupPanel({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="space-y-2 md:hidden">
+        {data.items.map((row) => (
+          <div key={`${row.packetHash}:${row.pathHash}:${row.hopIndex}:mobile`} className="rounded border border-border-subtle bg-bg-base/55 p-2 font-mono">
+            <div className="flex items-center justify-between gap-2">
+              <PacketButton packetHash={row.packetHash} onOpen={onOpenPacket} />
+              <span className="text-[10px] uppercase tracking-wider text-text-dim">hop {row.hopIndex + 1}</span>
+            </div>
+            <div className="mt-1 truncate text-[11px] text-primary">{row.pathHash}</div>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] uppercase tracking-wider text-text-muted">
+              <span>{row.payloadTypeName}</span>
+              <span>{row.routeTypeName}</span>
+              <span>{formatCount(row.observationCount)} obs</span>
+              <span>{formatCount(row.observerCount)} observers</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              {iataChips(row.iatas)}
+              <span className="shrink-0 text-[10px] text-text-dim">{formatAbsolute(row.lastHeard)}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto md:block">
         <table className="min-w-[980px] w-full font-mono text-[11px]">
           <thead>
             <tr className="text-text-muted">
@@ -275,7 +344,23 @@ function InconsistentTable({ data }: { data?: StatsHashAnalytics }) {
   if (!data) return <TerminalLoadingState label="QUERYING INCONSISTENT HASHES" detail="PLEASE WAIT" />;
   if (rows.length === 0) return <div className="py-6 text-center font-mono text-[11px] text-text-dim">No inconsistent packet hash sizes in this window</div>;
   return (
-    <div className="overflow-x-auto">
+    <>
+      <div className="space-y-2 md:hidden">
+        {rows.map((row) => (
+          <div key={`${row.packetHash}:mobile`} className="rounded border border-border-subtle bg-bg-base/55 p-2 font-mono">
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate text-primary" title={row.packetHash}>{shortHash(row.packetHash)}</span>
+              <span className="text-[10px] text-text-dim">{formatAbsolute(row.lastHeard)}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-wider">
+              <span className="text-text-normal">{row.hashSizes.map((size) => `${size}b`).join(" / ")}</span>
+              <span className="text-text-bright">{formatCount(row.observationCount)} obs</span>
+            </div>
+            <div className="mt-2">{iataChips(row.iatas)}</div>
+          </div>
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto md:block">
       <table className="min-w-[760px] w-full font-mono text-[11px]">
         <thead>
           <tr className="text-text-muted">
@@ -298,7 +383,8 @@ function InconsistentTable({ data }: { data?: StatsHashAnalytics }) {
           ))}
         </tbody>
       </table>
-    </div>
+      </div>
+    </>
   );
 }
 

@@ -46,7 +46,22 @@ function TopSubpathsTable({ data }: { data?: StatsSubpaths }) {
   if (!data) return <TerminalLoadingState label="QUERYING SUBPATHS" detail="PLEASE WAIT" />;
   if (rows.length === 0) return <div className="py-6 text-center font-mono text-[11px] text-text-dim">No repeated verified subpaths in this window</div>;
   return (
-    <div className="overflow-x-auto">
+    <>
+      <div className="space-y-2 md:hidden">
+        {rows.map((row) => (
+          <div key={`${row.nodeIds.join(":")}:${row.lastSeen}:mobile`} className="rounded border border-border-subtle bg-bg-base/55 p-2 font-mono">
+            <div className="max-h-[2.6em] overflow-hidden text-[11px] leading-snug text-primary" title={pathLabel(row)}>{pathLabel(row)}</div>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">{iataList(row.iatas)}</div>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] uppercase tracking-wider">
+              <span><span className="text-text-dim">Len </span><span className="text-text-normal">{hopText(row.nodeCount)}</span></span>
+              <span><span className="text-text-dim">Routes </span><span className="text-text-normal">{formatCount(row.routeCount)}</span></span>
+              <span><span className="text-text-dim">Obs </span><span className="text-text-bright">{formatCount(row.observationCount)}</span></span>
+            </div>
+            <div className="mt-1 text-[10px] text-text-dim">{formatAbsolute(row.lastSeen)}</div>
+          </div>
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto md:block">
       <table className="min-w-[860px] w-full font-mono text-[11px]">
         <thead>
           <tr className="text-text-muted">
@@ -73,7 +88,8 @@ function TopSubpathsTable({ data }: { data?: StatsSubpaths }) {
           ))}
         </tbody>
       </table>
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -82,7 +98,26 @@ function EndpointPairsTable({ data }: { data?: StatsSubpaths }) {
   if (!data) return <TerminalLoadingState label="QUERYING ENDPOINT PAIRS" detail="PLEASE WAIT" />;
   if (rows.length === 0) return <div className="py-6 text-center font-mono text-[11px] text-text-dim">No endpoint-pair pressure in this window</div>;
   return (
-    <div className="overflow-x-auto">
+    <>
+      <div className="space-y-2 md:hidden">
+        {rows.map((row) => (
+          <div key={`${row.fromNodeId}:${row.toNodeId}:mobile`} className="rounded border border-border-subtle bg-bg-base/55 p-2 font-mono">
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-[11px]">
+              <span className="truncate text-primary">{nodeLabel(row.fromNodeName, row.fromNodeId)}</span>
+              <span className="text-text-dim">-&gt;</span>
+              <span className="truncate text-text-bright">{nodeLabel(row.toNodeName, row.toNodeId)}</span>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">{iataList(row.iatas)}</div>
+            <div className="mt-2 grid grid-cols-4 gap-1.5 text-[10px] uppercase tracking-wider">
+              <span><span className="text-text-dim">Span </span><span className="text-text-normal">{endpointRange(row)}</span></span>
+              <span><span className="text-text-dim">Routes </span><span className="text-text-normal">{formatCount(row.routeCount)}</span></span>
+              <span><span className="text-text-dim">Obs </span><span className="text-text-bright">{formatCount(row.observationCount)}</span></span>
+              <span className="truncate text-text-dim">{formatAbsolute(row.lastSeen)}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto md:block">
       <table className="min-w-[820px] w-full font-mono text-[11px]">
         <thead>
           <tr className="text-text-muted">
@@ -109,7 +144,8 @@ function EndpointPairsTable({ data }: { data?: StatsSubpaths }) {
           ))}
         </tbody>
       </table>
-    </div>
+      </div>
+    </>
   );
 }
 

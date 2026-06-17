@@ -605,7 +605,56 @@
   }
 
   .stats-kpi-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex !important;
+    width: calc(100vw - 1.5rem);
+    max-width: calc(100vw - 1.5rem);
+    margin-inline: -0.75rem;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    padding-inline: 0.75rem;
+    scroll-padding-inline: 0.75rem;
+    scroll-snap-type: x proximity;
+  }
+
+  .stats-kpi-grid > .stats-kpi-card {
+    flex: 0 0 8.15rem;
+    min-width: 8.15rem;
+    min-height: 3.85rem;
+    padding: 0.45rem 0.55rem !important;
+    scroll-snap-align: start;
+  }
+
+  .stats-kpi-card .stats-kpi-label,
+  .stats-kpi-card .stats-kpi-sublabel {
+    font-size: 0.48rem !important;
+    letter-spacing: 0.055em !important;
+  }
+
+  .stats-kpi-card .stats-kpi-label {
+    max-width: 6.2rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .stats-kpi-card .stats-kpi-value {
+    margin-top: 0.1rem !important;
+    font-size: 1rem !important;
+    line-height: 1.05rem !important;
+  }
+
+  .stats-kpi-card .stats-kpi-spark,
+  .stats-kpi-card .stats-kpi-spacer {
+    height: 0.55rem !important;
+    margin-top: 0.25rem !important;
+  }
+
+  .stats-kpi-card .stats-kpi-spacer {
+    opacity: 0.5;
+  }
+
+  .stats-kpi-card .stats-kpi-spark polyline {
+    stroke-width: 2;
   }
 }
 

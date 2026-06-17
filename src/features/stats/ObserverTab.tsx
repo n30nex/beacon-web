@@ -424,8 +424,8 @@ export function ObserverTab({ compareIds, compareMode, onCompareChange, range, s
     ready && !points.some((p) => accessors.some((a) => a(p) != null));
 
   return (
-    <div className="mx-auto flex max-w-[1100px] flex-col gap-3.5 px-4 py-4 lg:flex-row">
-      <div className="w-full shrink-0 lg:w-[260px]">
+    <div className="mx-auto flex max-w-[1100px] flex-col gap-3 px-2 py-2 sm:gap-3.5 sm:px-4 sm:py-4 lg:flex-row">
+      <div className="order-2 w-full shrink-0 lg:order-1 lg:w-[260px]">
         <ObserverList
           range={range}
           selectedId={selectedObserverId}
@@ -437,7 +437,7 @@ export function ObserverTab({ compareIds, compareMode, onCompareChange, range, s
         />
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-3.5">
+      <div className="order-1 flex min-w-0 flex-1 flex-col gap-3 lg:order-2 lg:gap-3.5">
         {compareMode ? (
           <ObserverComparePanel range={range} observerIds={activeCompareIds} onSelectObserver={onSelectObserver} />
         ) : !selectedObserverId ? (
@@ -461,7 +461,7 @@ export function ObserverTab({ compareIds, compareMode, onCompareChange, range, s
                   isError={telemetry.isError}
                   isEmpty={missing((p) => p.airtimeTxPct, (p) => p.airtimeRxPct)}
                 />
-                <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+                <div className="stats-chart-rail grid grid-cols-1 gap-3.5 lg:grid-cols-2">
                   <ChartCard title="Battery" height={168} option={battery} isLoading={telemetry.isLoading} isError={telemetry.isError} isEmpty={missing((p) => p.batteryMv)} />
                   <ChartCard title="Noise floor" height={168} option={noise} isLoading={telemetry.isLoading} isError={telemetry.isError} isEmpty={missing((p) => p.noiseFloorDb)} />
                   <ChartCard title="Queue length" height={168} option={queue} isLoading={telemetry.isLoading} isError={telemetry.isError} isEmpty={missing((p) => p.queueLength)} />
