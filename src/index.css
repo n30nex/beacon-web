@@ -778,6 +778,7 @@
 .node-grid-card-live {
   --node-live-color: var(--node-accent, var(--color-primary));
   animation: node-live-pulse-a 820ms ease-out both;
+  border-color: color-mix(in srgb, var(--node-live-color, var(--color-primary)) 48%, var(--color-border));
 }
 
 .node-grid-card-live[data-pulse-phase="1"] {
@@ -785,9 +786,9 @@
 }
 
 .node-grid-card-live::before {
-  opacity: 0.22;
+  opacity: 0.16;
   transform: scale(1);
-  transition: opacity 420ms ease-out, transform 780ms ease-out;
+  transition: opacity 9.4s ease-out, transform 780ms ease-out;
 }
 
 .node-grid-card-live[data-live-role="tx"] {
@@ -814,6 +815,130 @@
   box-shadow:
     0 0 8px color-mix(in srgb, var(--node-live-color, var(--color-primary)) 32%, transparent),
     inset 0 0 8px color-mix(in srgb, var(--node-live-color, var(--color-primary)) 12%, transparent);
+}
+
+.node-route-comets {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.node-route-comet {
+  --route-color: var(--color-primary);
+  --route-duration: 2900ms;
+}
+
+.node-route-comet-beam,
+.node-route-comet-tail,
+.node-route-comet-head {
+  stroke: var(--route-color);
+  vector-effect: non-scaling-stroke;
+}
+
+.node-route-comet-beam {
+  stroke-width: 1;
+  stroke-linecap: round;
+  opacity: 0;
+  animation: node-route-beam-fade var(--route-duration) ease-out forwards;
+}
+
+.node-route-comet-tail {
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-dasharray: 0.24 0.76;
+  stroke-dashoffset: 1;
+  opacity: 0.72;
+  filter: url("#node-route-comet-glow");
+  animation: node-route-tail-travel var(--route-duration) cubic-bezier(0.18, 0.72, 0.22, 1) forwards;
+}
+
+.node-route-comet-head {
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 0.045 0.955;
+  stroke-dashoffset: 1;
+  opacity: 0.95;
+  filter: url("#node-route-comet-glow");
+  animation: node-route-head-travel var(--route-duration) cubic-bezier(0.16, 0.78, 0.2, 1) forwards;
+}
+
+.node-route-comet-origin,
+.node-route-comet-dest {
+  fill: var(--route-color);
+  opacity: 0;
+  filter: url("#node-route-comet-glow");
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.node-route-comet-origin {
+  animation: node-route-endpoint-pop var(--route-duration) ease-out forwards;
+}
+
+.node-route-comet-dest {
+  animation: node-route-endpoint-arrive var(--route-duration) ease-out forwards;
+}
+
+@keyframes node-route-beam-fade {
+  0% { opacity: 0; }
+  10% { opacity: 0.24; }
+  58% { opacity: 0.16; }
+  100% { opacity: 0; }
+}
+
+@keyframes node-route-tail-travel {
+  0% {
+    opacity: 0;
+    stroke-dashoffset: 1;
+  }
+  12% { opacity: 0.6; }
+  82% { opacity: 0.5; }
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes node-route-head-travel {
+  0% {
+    opacity: 0;
+    stroke-dashoffset: 1;
+  }
+  9% { opacity: 0.98; }
+  76% { opacity: 0.92; }
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes node-route-endpoint-pop {
+  0% {
+    opacity: 0.85;
+    transform: scale(1.4);
+  }
+  22% {
+    opacity: 0.42;
+    transform: scale(0.85);
+  }
+  100% { opacity: 0; }
+}
+
+@keyframes node-route-endpoint-arrive {
+  0%, 58% { opacity: 0; }
+  72% {
+    opacity: 0.88;
+    transform: scale(1.55);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
 }
 
 .terminal-skeleton-rows {

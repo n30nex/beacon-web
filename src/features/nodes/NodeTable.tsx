@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, type CSSProperties } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getNodesPage } from "../../api/client";
 import { useRegion } from "../../hooks/useRegion";
@@ -19,8 +19,10 @@ import type { WsManager } from "../../api/ws-manager";
 import type { WsNodeUpdate, WsPacketObservation } from "../../types/ws";
 
 const NODE_GRID_PAGE_SIZE = 500;
-const NODE_LIVE_ACTIVITY_MS = 8_500;
+const NODE_LIVE_ACTIVITY_MS = 10_000;
 const NODE_LIVE_ACTIVITY_MAX = 600;
+const NODE_ROUTE_COMET_MS = 2_900;
+const NODE_ROUTE_COMET_MAX = 18;
 const nodeId = (n: NodeSummary) => n.id;
 const nodeUpdateKey = (d: WsNodeUpdate["data"]) => d.nodeId;
 
@@ -38,6 +40,25 @@ interface NodeTrafficLookup {
   byId: Map<string, NodeSummary>;
   byObserver: Map<string, NodeSummary>;
   byPathPrefix: Map<string, NodeSummary[]>;
+}
+
+interface NodeRouteComet {
+  color: string;
+  durationMs: number;
+  fromId: string;
+  id: string;
+  packetHash: string;
+  startedAt: number;
+  toId: string;
+}
+
+interface NodeRouteCometSegment extends NodeRouteComet {
+  height: number;
+  width: number;
+  x1: number;
+  x2: number;
+  y1: number;
+  y2: number;
 }
 
 interface NodeTableProps {
@@ -107,6 +128,23 @@ function nodesFromPacketPath(data: WsPacketObservation["data"], lookup: NodeTraf
     .filter((node): node is NodeSummary => Boolean(node));
 }
 
+function uniqueRouteNodes(nodes: NodeSummary[]): NodeSummary[] {
+  const route: NodeSummary[] = [];
+  for (const node of nodes) {
+    if (route.at(-1)?.id !== node.id) route.push(node);
+  }
+  return route;
+}
+
+function packetRouteNodes(data: WsPacketObservation["data"], lookup: NodeTrafficLookup): NodeSummary[] {
+  const route = uniqueRouteNodes(nodesFromPacketPath(data, lookup));
+  const observerNode = lookup.byObserver.get(data.observation.observerId);
+  if (observerNode && route.length > 0 && route.at(-1)?.id !== observerNode.id) {
+    route.push(observerNode);
+  }
+  return route;
+}
+
 function resolvePacketNodeRoles(data: WsPacketObservation["data"], lookup: NodeTrafficLookup): Map<string, NodeLiveRole> {
   const roles = new Map<string, NodeLiveRole>();
   const pathNodes = nodesFromPacketPath(data, lookup);
@@ -127,6 +165,45 @@ function resolvePacketNodeRoles(data: WsPacketObservation["data"], lookup: NodeT
   return roles;
 }
 
+function NodeRouteCometOverlay({ segments }: { segments: NodeRouteCometSegment[] }) {
+  if (segments.length === 0) return null;
+  const width = Math.max(1, ...segments.map((segment) => segment.width));
+  const height = Math.max(1, ...segments.map((segment) => segment.height));
+  return (
+    <svg
+      className="node-route-comets"
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <defs>
+        <filter id="node-route-comet-glow" x="-35%" y="-35%" width="170%" height="170%">
+          <feGaussianBlur stdDeviation="2.4" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      {segments.map((segment) => {
+        const style = {
+          "--route-color": segment.color,
+          "--route-duration": `${segment.durationMs}ms`,
+        } as CSSProperties;
+        return (
+          <g key={segment.id} className="node-route-comet" style={style}>
+            <line className="node-route-comet-beam" x1={segment.x1} y1={segment.y1} x2={segment.x2} y2={segment.y2} pathLength={1} />
+            <line className="node-route-comet-tail" x1={segment.x1} y1={segment.y1} x2={segment.x2} y2={segment.y2} pathLength={1} />
+            <line className="node-route-comet-head" x1={segment.x1} y1={segment.y1} x2={segment.x2} y2={segment.y2} pathLength={1} />
+            <circle className="node-route-comet-origin" cx={segment.x1} cy={segment.y1} r="3.2" />
+            <circle className="node-route-comet-dest" cx={segment.x2} cy={segment.y2} r="4.2" />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 function NodeGridCard({
   activity,
   node,
@@ -141,11 +218,12 @@ function NodeGridCard({
   const label = sanitizeDisplayLabel(node.name, formatHex(node.id));
   const hasName = Boolean(node.name && label !== formatHex(node.id));
   const accent = nodeAccent(node);
+  const liveColor = "var(--node-live-color, var(--node-accent, var(--color-primary)))";
   const lastHeard = nodeLastHeard(node);
   const style = {
     "--node-accent": accent,
     boxShadow: activity
-      ? `0 0 18px ${accent}cc, inset 0 0 18px ${accent}2e, inset 2px 0 0 ${accent}`
+      ? `0 0 18px color-mix(in srgb, ${liveColor} 66%, transparent), inset 0 0 18px color-mix(in srgb, ${liveColor} 18%, transparent), inset 2px 0 0 ${liveColor}`
       : selected
         ? `0 0 14px ${accent}66`
         : `inset 2px 0 0 ${accent}`,
@@ -160,6 +238,7 @@ function NodeGridCard({
       } ${
         selected ? "border-primary text-text-bright" : "border-border-subtle text-text-normal"
       }`}
+      data-node-id={node.id}
       data-live-role={activity?.role}
       data-pulse-phase={activity ? activity.count % 2 : undefined}
       style={style}
@@ -200,6 +279,9 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
   const [search, setSearch] = useState("");
   const [searchField, setSearchField] = useState("name");
   const [liveActivity, setLiveActivity] = useState<Record<string, NodeLiveActivity>>({});
+  const [routeComets, setRouteComets] = useState<NodeRouteComet[]>([]);
+  const [cometSegments, setCometSegments] = useState<NodeRouteCometSegment[]>([]);
+  const gridWrapRef = useRef<HTMLDivElement | null>(null);
 
   const queryKey = useMemo(
     () => ["nodes", regionKey, typeFilter, pathsFilter, tracesFilter, search, searchField],
@@ -231,6 +313,41 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
     [nodes, scopeFilter],
   );
 
+  const syncCometSegments = useCallback(() => {
+    const root = gridWrapRef.current;
+    if (!root || routeComets.length === 0) {
+      setCometSegments((current) => (current.length === 0 ? current : []));
+      return;
+    }
+    const rootRect = root.getBoundingClientRect();
+    const cards = new Map<string, HTMLElement>();
+    root.querySelectorAll<HTMLElement>("[data-node-id]").forEach((element) => {
+      const id = element.dataset.nodeId;
+      if (id) cards.set(id, element);
+    });
+
+    const width = Math.max(1, root.offsetWidth);
+    const height = Math.max(1, root.offsetHeight);
+    const next: NodeRouteCometSegment[] = [];
+    for (const comet of routeComets) {
+      const from = cards.get(comet.fromId);
+      const to = cards.get(comet.toId);
+      if (!from || !to) continue;
+      const fromRect = from.getBoundingClientRect();
+      const toRect = to.getBoundingClientRect();
+      next.push({
+        ...comet,
+        width,
+        height,
+        x1: fromRect.left - rootRect.left + fromRect.width / 2,
+        y1: fromRect.top - rootRect.top + fromRect.height / 2,
+        x2: toRect.left - rootRect.left + toRect.width / 2,
+        y2: toRect.top - rootRect.top + toRect.height / 2,
+      });
+    }
+    setCometSegments(next);
+  }, [routeComets]);
+
   const onNodeUpdate = useCallback(
     (data: WsNodeUpdate["data"]) => {
       if (selectedNodeId === data.nodeId) {
@@ -250,6 +367,7 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
       const roles = resolvePacketNodeRoles(data, trafficLookup);
       if (roles.size === 0) return;
       const now = Date.now();
+      const routeNodes = packetRouteNodes(data, trafficLookup);
       setLiveActivity((current) => {
         const cutoff = now - NODE_LIVE_ACTIVITY_MS;
         const next: Record<string, NodeLiveActivity> = {};
@@ -271,6 +389,26 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
         if (entries.length <= NODE_LIVE_ACTIVITY_MAX) return next;
         return Object.fromEntries(entries.sort((a, b) => b[1].lastAt - a[1].lastAt).slice(0, NODE_LIVE_ACTIVITY_MAX));
       });
+      if (routeNodes.length >= 2) {
+        const from = routeNodes[0]!;
+        const to = routeNodes.at(-1)!;
+        if (from.id !== to.id) {
+          setRouteComets((current) => {
+            const cutoff = now - NODE_ROUTE_COMET_MS;
+            const next = current.filter((comet) => comet.startedAt >= cutoff);
+            next.push({
+              color: nodeAccent(from),
+              durationMs: NODE_ROUTE_COMET_MS,
+              fromId: from.id,
+              id: `${data.packetHash}:${data.observation.id ?? now}:${now}`,
+              packetHash: data.packetHash,
+              startedAt: now,
+              toId: to.id,
+            });
+            return next.slice(-NODE_ROUTE_COMET_MAX);
+          });
+        }
+      }
     },
     [trafficLookup],
   );
@@ -289,9 +427,24 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
         }
         return changed ? next : current;
       });
+      setRouteComets((current) => {
+        const cutoff = Date.now() - NODE_ROUTE_COMET_MS;
+        const next = current.filter((comet) => comet.startedAt >= cutoff);
+        return next.length === current.length ? current : next;
+      });
     }, 1_500);
     return () => window.clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    syncCometSegments();
+  }, [displayNodes, syncCometSegments]);
+
+  useEffect(() => {
+    const onResize = () => syncCometSegments();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [syncCometSegments]);
 
   return (
     <div className="flex flex-1 min-h-0">
@@ -318,10 +471,13 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
           ) : displayNodes.length === 0 ? (
             <div className="py-10 text-center font-mono text-sm text-text-dim">No nodes</div>
           ) : (
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-10 2xl:grid-cols-[repeat(20,minmax(0,1fr))]">
-              {displayNodes.map((node) => (
-                <NodeGridCard key={node.id} activity={liveActivity[node.id]} node={node} selected={selectedNodeId === node.id} onSelect={onSelectNode} />
-              ))}
+            <div ref={gridWrapRef} className="relative">
+              <NodeRouteCometOverlay segments={cometSegments} />
+              <div className="relative z-10 grid grid-cols-2 gap-1.5 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-10 2xl:grid-cols-[repeat(20,minmax(0,1fr))]">
+                {displayNodes.map((node) => (
+                  <NodeGridCard key={node.id} activity={liveActivity[node.id]} node={node} selected={selectedNodeId === node.id} onSelect={onSelectNode} />
+                ))}
+              </div>
             </div>
           )}
         </div>
