@@ -885,46 +885,41 @@
 
 @keyframes node-live-pulse-a {
   0% {
-    transform: translateY(-0.5px) scale(1.01);
+    transform: translateY(-0.5px) scale(1.006);
     border-color: color-mix(in srgb, var(--node-live-color, var(--node-accent, var(--color-primary))) 80%, white 4%);
-    filter: brightness(1.16);
   }
   34% {
-    transform: translateY(0) scale(1.004);
-    filter: brightness(1.1);
+    transform: translateY(0) scale(1.003);
   }
   68% {
     transform: translateY(0) scale(1.001);
-    filter: brightness(1.06);
   }
   100% {
     transform: translateY(0) scale(1);
-    filter: brightness(1);
   }
 }
 
 @keyframes node-live-pulse-b {
   0% {
-    transform: translateY(-0.5px) scale(1.01);
+    transform: translateY(-0.5px) scale(1.006);
     border-color: color-mix(in srgb, var(--node-live-color, var(--node-accent, var(--color-primary))) 80%, white 4%);
-    filter: brightness(1.16);
   }
   34% {
-    transform: translateY(0) scale(1.004);
-    filter: brightness(1.1);
+    transform: translateY(0) scale(1.003);
   }
   68% {
     transform: translateY(0) scale(1.001);
-    filter: brightness(1.06);
   }
   100% {
     transform: translateY(0) scale(1);
-    filter: brightness(1);
   }
 }
 
 .node-grid-card {
   position: relative;
+  contain: layout paint style;
+  content-visibility: auto;
+  contain-intrinsic-size: 72px 54px;
   overflow: hidden;
 }
 
@@ -942,8 +937,12 @@
 
 .node-grid-card-live {
   --node-live-color: var(--node-accent, var(--color-primary));
-  animation: node-live-pulse-a 1.55s cubic-bezier(0.16, 0.86, 0.28, 1) both;
+  animation: node-live-pulse-a 1.35s cubic-bezier(0.16, 0.86, 0.28, 1) both;
   border-color: color-mix(in srgb, var(--node-live-color, var(--color-primary)) 48%, var(--color-border));
+  box-shadow:
+    0 0 12px color-mix(in srgb, var(--node-live-color, var(--color-primary)) 42%, transparent),
+    inset 0 0 14px color-mix(in srgb, var(--node-live-color, var(--color-primary)) 14%, transparent),
+    inset 2px 0 0 var(--node-live-color, var(--color-primary));
 }
 
 .node-grid-card-live[data-pulse-phase="1"] {
@@ -951,7 +950,7 @@
 }
 
 .node-grid-card-live::before {
-  opacity: 0.16;
+  opacity: 0.1;
   transform: scale(1);
   transition:
     opacity 10s cubic-bezier(0.16, 0.86, 0.28, 1),
@@ -980,7 +979,7 @@
   letter-spacing: 0.08em;
   text-shadow: 0 0 7px currentColor;
   box-shadow:
-    0 0 8px color-mix(in srgb, var(--node-live-color, var(--color-primary)) 32%, transparent),
+    0 0 5px color-mix(in srgb, var(--node-live-color, var(--color-primary)) 24%, transparent),
     inset 0 0 8px color-mix(in srgb, var(--node-live-color, var(--color-primary)) 12%, transparent);
 }
 
@@ -1019,8 +1018,7 @@
   stroke-linecap: round;
   stroke-dasharray: 0.3 0.7;
   stroke-dashoffset: 1;
-  opacity: 0.72;
-  filter: url("#node-route-comet-glow");
+  opacity: 0.62;
   animation: node-route-tail-travel var(--route-duration) cubic-bezier(0.22, 0.72, 0.18, 1) forwards;
 }
 
@@ -1030,7 +1028,6 @@
   stroke-dasharray: 0.035 0.965;
   stroke-dashoffset: 1;
   opacity: 0.95;
-  filter: url("#node-route-comet-glow");
   animation: node-route-head-travel var(--route-duration) cubic-bezier(0.2, 0.72, 0.2, 1) forwards;
 }
 
@@ -1038,7 +1035,6 @@
 .node-route-comet-dest {
   fill: var(--route-color);
   opacity: 0;
-  filter: url("#node-route-comet-glow");
   transform-box: fill-box;
   transform-origin: center;
 }

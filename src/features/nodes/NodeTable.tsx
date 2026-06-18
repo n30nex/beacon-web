@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef, type CSSProperties } from "react";
+import { memo, useState, useCallback, useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getNodesPage } from "../../api/client";
 import { useRegion } from "../../hooks/useRegion";
@@ -20,9 +20,14 @@ import type { WsNodeUpdate, WsPacketObservation } from "../../types/ws";
 
 const NODE_GRID_PAGE_SIZE = 500;
 const NODE_LIVE_ACTIVITY_MS = 10_000;
-const NODE_LIVE_ACTIVITY_MAX = 600;
+const NODE_LIVE_ACTIVITY_MAX_DESKTOP = 320;
+const NODE_LIVE_ACTIVITY_MAX_MOBILE = 140;
+const NODE_LIVE_ACTIVITY_REFRESH_MS = 700;
+const NODE_PACKET_BATCH_MAX = 96;
 const NODE_ROUTE_COMET_MS = 4_800;
-const NODE_ROUTE_COMET_MAX = 14;
+const NODE_ROUTE_COMET_MAX_DESKTOP = 8;
+const NODE_ROUTE_COMET_MAX_MOBILE = 4;
+const NODE_ROUTE_COMET_BATCH_MAX = 3;
 const nodeId = (n: NodeSummary) => n.id;
 const nodeUpdateKey = (d: WsNodeUpdate["data"]) => d.nodeId;
 
@@ -69,6 +74,19 @@ interface NodeTableProps {
 
 function nodeLastHeard(node: NodeSummary): number {
   return Math.max(0, ...node.iatas.map((entry) => entry.lastHeard));
+}
+
+function desktopViewport(): boolean {
+  if (typeof window === "undefined") return true;
+  return window.innerWidth >= 1024;
+}
+
+function liveActivityCap(): number {
+  return desktopViewport() ? NODE_LIVE_ACTIVITY_MAX_DESKTOP : NODE_LIVE_ACTIVITY_MAX_MOBILE;
+}
+
+function routeCometCap(): number {
+  return desktopViewport() ? NODE_ROUTE_COMET_MAX_DESKTOP : NODE_ROUTE_COMET_MAX_MOBILE;
 }
 
 function nodeAccent(node: NodeSummary): string {
@@ -176,15 +194,6 @@ function NodeRouteCometOverlay({ segments }: { segments: NodeRouteCometSegment[]
       preserveAspectRatio="none"
       aria-hidden="true"
     >
-      <defs>
-        <filter id="node-route-comet-glow" x="-35%" y="-35%" width="170%" height="170%">
-          <feGaussianBlur stdDeviation="2.4" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
       {segments.map((segment) => {
         const style = {
           "--route-color": segment.color,
@@ -204,33 +213,37 @@ function NodeRouteCometOverlay({ segments }: { segments: NodeRouteCometSegment[]
   );
 }
 
-function NodeGridCard({
+const NodeGridCard = memo(function NodeGridCard({
   activity,
   node,
   onSelect,
+  onRegister,
   selected,
 }: {
   activity?: NodeLiveActivity;
   node: NodeSummary;
   onSelect: (id: string) => void;
+  onRegister: (id: string, element: HTMLButtonElement | null) => void;
   selected: boolean;
 }) {
   const label = sanitizeDisplayLabel(node.name, formatHex(node.id));
   const hasName = Boolean(node.name && label !== formatHex(node.id));
   const accent = nodeAccent(node);
-  const liveColor = "var(--node-live-color, var(--node-accent, var(--color-primary)))";
   const lastHeard = nodeLastHeard(node);
   const style = {
     "--node-accent": accent,
-    boxShadow: activity
-      ? `0 0 18px color-mix(in srgb, ${liveColor} 66%, transparent), inset 0 0 18px color-mix(in srgb, ${liveColor} 18%, transparent), inset 2px 0 0 ${liveColor}`
-      : selected
+    boxShadow: !activity
+      ? selected
         ? `0 0 14px ${accent}66`
-        : `inset 2px 0 0 ${accent}`,
+        : `inset 2px 0 0 ${accent}`
+      : undefined,
   } as CSSProperties;
+
+  const setRef = useCallback((element: HTMLButtonElement | null) => onRegister(node.id, element), [node.id, onRegister]);
 
   return (
     <button
+      ref={setRef}
       type="button"
       onClick={() => onSelect(node.id)}
       className={`node-grid-card group min-w-0 rounded-sm border bg-bg-surface/80 p-1.5 text-left font-mono transition-colors hover:bg-primary/8 ${
@@ -267,7 +280,13 @@ function NodeGridCard({
       </div>
     </button>
   );
-}
+}, (prev, next) =>
+  prev.node === next.node &&
+  prev.activity === next.activity &&
+  prev.selected === next.selected &&
+  prev.onSelect === next.onSelect &&
+  prev.onRegister === next.onRegister
+);
 
 export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTableProps) {
   const { iatas, regionKey } = useRegion();
@@ -282,6 +301,12 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
   const [routeComets, setRouteComets] = useState<NodeRouteComet[]>([]);
   const [cometSegments, setCometSegments] = useState<NodeRouteCometSegment[]>([]);
   const gridWrapRef = useRef<HTMLDivElement | null>(null);
+  const cardElementsRef = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const displayNodeIdsRef = useRef<Set<string>>(new Set());
+  const trafficLookupRef = useRef<NodeTrafficLookup>({ byId: new Map(), byObserver: new Map(), byPathPrefix: new Map() });
+  const pendingPacketsRef = useRef<WsPacketObservation["data"][]>([]);
+  const packetFlushRafRef = useRef<number | null>(null);
+  const cometSyncRafRef = useRef<number | null>(null);
 
   const queryKey = useMemo(
     () => ["nodes", regionKey, typeFilter, pathsFilter, tracesFilter, search, searchField],
@@ -313,6 +338,21 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
     [nodes, scopeFilter],
   );
 
+  useEffect(() => {
+    trafficLookupRef.current = trafficLookup;
+  }, [trafficLookup]);
+
+  useEffect(() => {
+    displayNodeIdsRef.current = new Set(displayNodes.map((node) => node.id));
+  }, [displayNodes]);
+
+  const registerCard = useCallback((id: string, element: HTMLButtonElement | null) => {
+    if (element) cardElementsRef.current.set(id, element);
+    else cardElementsRef.current.delete(id);
+  }, []);
+
+  const handleSelectNode = useCallback((id: string) => onSelectNode(id), [onSelectNode]);
+
   const syncCometSegments = useCallback(() => {
     const root = gridWrapRef.current;
     if (!root || routeComets.length === 0) {
@@ -320,19 +360,13 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
       return;
     }
     const rootRect = root.getBoundingClientRect();
-    const cards = new Map<string, HTMLElement>();
-    root.querySelectorAll<HTMLElement>("[data-node-id]").forEach((element) => {
-      const id = element.dataset.nodeId;
-      if (id) cards.set(id, element);
-    });
-
     const width = Math.max(1, root.offsetWidth);
     const height = Math.max(1, root.offsetHeight);
     const next: NodeRouteCometSegment[] = [];
     for (const comet of routeComets) {
-      const from = cards.get(comet.fromId);
-      const to = cards.get(comet.toId);
-      if (!from || !to) continue;
+      const from = cardElementsRef.current.get(comet.fromId);
+      const to = cardElementsRef.current.get(comet.toId);
+      if (!from || !to || !root.contains(from) || !root.contains(to)) continue;
       const fromRect = from.getBoundingClientRect();
       const toRect = to.getBoundingClientRect();
       next.push({
@@ -345,8 +379,27 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
         y2: toRect.top - rootRect.top + toRect.height / 2,
       });
     }
-    setCometSegments(next);
+    setCometSegments((current) => {
+      if (
+        current.length === next.length &&
+        current.every((segment, index) => {
+          const other = next[index];
+          return other && segment.id === other.id && segment.x1 === other.x1 && segment.y1 === other.y1 && segment.x2 === other.x2 && segment.y2 === other.y2;
+        })
+      ) {
+        return current;
+      }
+      return next;
+    });
   }, [routeComets]);
+
+  const scheduleCometSync = useCallback(() => {
+    if (cometSyncRafRef.current != null) return;
+    cometSyncRafRef.current = window.requestAnimationFrame(() => {
+      cometSyncRafRef.current = null;
+      syncCometSegments();
+    });
+  }, [syncCometSegments]);
 
   const onNodeUpdate = useCallback(
     (data: WsNodeUpdate["data"]) => {
@@ -362,55 +415,95 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
     useCoalescedInfinitePatch<NodeSummary, WsNodeUpdate["data"]>(queryKey, nodeUpdateKey, patchNodeSummary, onNodeUpdate),
   );
 
-  const handlePacketActivity = useCallback(
-    (data: WsPacketObservation["data"]) => {
-      const roles = resolvePacketNodeRoles(data, trafficLookup);
-      if (roles.size === 0) return;
-      const now = Date.now();
-      const routeNodes = packetRouteNodes(data, trafficLookup);
+  const flushPacketActivity = useCallback(() => {
+    packetFlushRafRef.current = null;
+    const queued = pendingPacketsRef.current;
+    if (queued.length === 0) return;
+    pendingPacketsRef.current = [];
+
+    const batch = queued.length > NODE_PACKET_BATCH_MAX ? queued.slice(-NODE_PACKET_BATCH_MAX) : queued;
+    const lookup = trafficLookupRef.current;
+    const displayIds = displayNodeIdsRef.current;
+    const now = Date.now();
+    const roleHits = new Map<string, NodeLiveActivity>();
+    const nextComets: NodeRouteComet[] = [];
+
+    for (const data of batch) {
+      const roles = resolvePacketNodeRoles(data, lookup);
+      roles.forEach((role, id) => {
+        if (!displayIds.has(id)) return;
+        const previous = roleHits.get(id);
+        roleHits.set(id, {
+          role: previous?.role === "tx" || previous?.role === "rx" ? previous.role : role,
+          lastAt: now,
+          count: (previous?.count ?? 0) + 1,
+          packetHash: data.packetHash,
+          iata: data.observation.iata,
+        });
+      });
+
+      if (nextComets.length < NODE_ROUTE_COMET_BATCH_MAX) {
+        const routeNodes = packetRouteNodes(data, lookup);
+        const from = routeNodes[0];
+        const to = routeNodes.at(-1);
+        if (from && to && from.id !== to.id && displayIds.has(from.id) && displayIds.has(to.id)) {
+          nextComets.push({
+            color: nodeAccent(from),
+            durationMs: NODE_ROUTE_COMET_MS,
+            fromId: from.id,
+            id: `${data.packetHash}:${data.observation.id ?? now}:${now}:${nextComets.length}`,
+            packetHash: data.packetHash,
+            startedAt: now,
+            toId: to.id,
+          });
+        }
+      }
+    }
+
+    if (roleHits.size > 0) {
       setLiveActivity((current) => {
         const cutoff = now - NODE_LIVE_ACTIVITY_MS;
         const next: Record<string, NodeLiveActivity> = {};
         for (const [id, activity] of Object.entries(current)) {
-          if (activity.lastAt >= cutoff) next[id] = activity;
+          if (activity.lastAt >= cutoff && displayIds.has(id)) next[id] = activity;
         }
-        roles.forEach((role, id) => {
+        roleHits.forEach((hit, id) => {
           const previous = next[id];
+          if (previous && previous.role === hit.role && now - previous.lastAt < NODE_LIVE_ACTIVITY_REFRESH_MS) {
+            return;
+          }
           next[id] = {
-            role,
-            lastAt: now,
-            count: (previous?.count ?? 0) + 1,
-            packetHash: data.packetHash,
-            iata: data.observation.iata,
+            ...hit,
+            count: (previous?.count ?? 0) + hit.count,
           };
         });
 
         const entries = Object.entries(next);
-        if (entries.length <= NODE_LIVE_ACTIVITY_MAX) return next;
-        return Object.fromEntries(entries.sort((a, b) => b[1].lastAt - a[1].lastAt).slice(0, NODE_LIVE_ACTIVITY_MAX));
+        if (entries.length <= liveActivityCap()) return next;
+        return Object.fromEntries(entries.sort((a, b) => b[1].lastAt - a[1].lastAt).slice(0, liveActivityCap()));
       });
-      if (routeNodes.length >= 2) {
-        const from = routeNodes[0]!;
-        const to = routeNodes.at(-1)!;
-        if (from.id !== to.id) {
-          setRouteComets((current) => {
-            const cutoff = now - NODE_ROUTE_COMET_MS;
-            const next = current.filter((comet) => comet.startedAt >= cutoff);
-            next.push({
-              color: nodeAccent(from),
-              durationMs: NODE_ROUTE_COMET_MS,
-              fromId: from.id,
-              id: `${data.packetHash}:${data.observation.id ?? now}:${now}`,
-              packetHash: data.packetHash,
-              startedAt: now,
-              toId: to.id,
-            });
-            return next.slice(-NODE_ROUTE_COMET_MAX);
-          });
-        }
+    }
+
+    if (nextComets.length > 0) {
+      setRouteComets((current) => {
+        const cutoff = now - NODE_ROUTE_COMET_MS;
+        return [...current.filter((comet) => comet.startedAt >= cutoff), ...nextComets].slice(-routeCometCap());
+      });
+    }
+  }, []);
+
+  const handlePacketActivity = useCallback(
+    (data: WsPacketObservation["data"]) => {
+      if (document.visibilityState === "hidden") return;
+      pendingPacketsRef.current.push(data);
+      if (pendingPacketsRef.current.length > NODE_PACKET_BATCH_MAX * 2) {
+        pendingPacketsRef.current = pendingPacketsRef.current.slice(-NODE_PACKET_BATCH_MAX);
+      }
+      if (packetFlushRafRef.current == null) {
+        packetFlushRafRef.current = window.requestAnimationFrame(flushPacketActivity);
       }
     },
-    [trafficLookup],
+    [flushPacketActivity],
   );
 
   useWsPacketHandler(wsManager, handlePacketActivity);
@@ -433,18 +526,26 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
         return next.length === current.length ? current : next;
       });
     }, 1_500);
-    return () => window.clearInterval(id);
+    return () => {
+      window.clearInterval(id);
+      if (packetFlushRafRef.current != null) window.cancelAnimationFrame(packetFlushRafRef.current);
+      if (cometSyncRafRef.current != null) window.cancelAnimationFrame(cometSyncRafRef.current);
+    };
   }, []);
 
   useEffect(() => {
-    syncCometSegments();
-  }, [displayNodes, syncCometSegments]);
+    scheduleCometSync();
+  }, [displayNodes, scheduleCometSync]);
 
   useEffect(() => {
-    const onResize = () => syncCometSegments();
+    scheduleCometSync();
+  }, [routeComets, scheduleCometSync]);
+
+  useEffect(() => {
+    const onResize = () => scheduleCometSync();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [syncCometSegments]);
+  }, [scheduleCometSync]);
 
   return (
     <div className="flex flex-1 min-h-0">
@@ -475,7 +576,14 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
               <NodeRouteCometOverlay segments={cometSegments} />
               <div className="node-grid-dense relative z-10 grid">
                 {displayNodes.map((node) => (
-                  <NodeGridCard key={node.id} activity={liveActivity[node.id]} node={node} selected={selectedNodeId === node.id} onSelect={onSelectNode} />
+                  <NodeGridCard
+                    key={node.id}
+                    activity={liveActivity[node.id]}
+                    node={node}
+                    selected={selectedNodeId === node.id}
+                    onRegister={registerCard}
+                    onSelect={handleSelectNode}
+                  />
                 ))}
               </div>
             </div>
