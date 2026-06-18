@@ -1,4 +1,4 @@
-import { memo, useState, useCallback, useEffect, useMemo, useRef, type CSSProperties } from "react";
+import { memo, useState, useCallback, useEffect, useMemo, useRef, type CSSProperties, type RefObject } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getNodesPage } from "../../api/client";
 import { useRegion } from "../../hooks/useRegion";
@@ -24,10 +24,10 @@ const NODE_LIVE_ACTIVITY_MAX_DESKTOP = 320;
 const NODE_LIVE_ACTIVITY_MAX_MOBILE = 140;
 const NODE_LIVE_ACTIVITY_REFRESH_MS = 700;
 const NODE_PACKET_BATCH_MAX = 96;
-const NODE_ROUTE_COMET_MS = 4_800;
-const NODE_ROUTE_COMET_MAX_DESKTOP = 8;
-const NODE_ROUTE_COMET_MAX_MOBILE = 4;
-const NODE_ROUTE_COMET_BATCH_MAX = 3;
+const NODE_ROUTE_COMET_MS = 5_600;
+const NODE_ROUTE_COMET_MAX_DESKTOP = 12;
+const NODE_ROUTE_COMET_MAX_MOBILE = 5;
+const NODE_ROUTE_COMET_BATCH_MAX = 4;
 const nodeId = (n: NodeSummary) => n.id;
 const nodeUpdateKey = (d: WsNodeUpdate["data"]) => d.nodeId;
 
@@ -55,15 +55,6 @@ interface NodeRouteComet {
   packetHash: string;
   startedAt: number;
   toId: string;
-}
-
-interface NodeRouteCometSegment extends NodeRouteComet {
-  height: number;
-  width: number;
-  x1: number;
-  x2: number;
-  y1: number;
-  y2: number;
 }
 
 interface NodeTableProps {
@@ -183,33 +174,143 @@ function resolvePacketNodeRoles(data: WsPacketObservation["data"], lookup: NodeT
   return roles;
 }
 
-function NodeRouteCometOverlay({ segments }: { segments: NodeRouteCometSegment[] }) {
-  if (segments.length === 0) return null;
-  const width = Math.max(1, ...segments.map((segment) => segment.width));
-  const height = Math.max(1, ...segments.map((segment) => segment.height));
+function rectIntersects(a: DOMRect, b: DOMRect): boolean {
+  return a.right >= b.left && a.left <= b.right && a.bottom >= b.top && a.top <= b.bottom;
+}
+
+function drawCanvasLine(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number) {
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+}
+
+function NodeRouteCometOverlay({
+  cardElementsRef,
+  comets,
+  scrollRef,
+}: {
+  cardElementsRef: RefObject<Map<string, HTMLButtonElement>>;
+  comets: NodeRouteComet[];
+  scrollRef: RefObject<HTMLDivElement | null>;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const cometsRef = useRef<NodeRouteComet[]>(comets);
+
+  useEffect(() => {
+    cometsRef.current = comets;
+  }, [comets]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d", { alpha: true });
+    if (!canvas || !ctx || comets.length === 0) {
+      if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
+
+    let raf = 0;
+    const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+
+    const sizeCanvas = (viewport: HTMLDivElement) => {
+      const parentRect = canvas.parentElement?.getBoundingClientRect();
+      const viewportRect = viewport.getBoundingClientRect();
+      if (parentRect) {
+        canvas.style.left = `${viewportRect.left - parentRect.left}px`;
+        canvas.style.top = `${viewportRect.top - parentRect.top}px`;
+      }
+      canvas.style.width = `${viewport.clientWidth}px`;
+      canvas.style.height = `${viewport.clientHeight}px`;
+      const width = Math.max(1, Math.floor(viewport.clientWidth * dpr));
+      const height = Math.max(1, Math.floor(viewport.clientHeight * dpr));
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return viewportRect;
+    };
+
+    const draw = () => {
+      const viewport = scrollRef.current;
+      if (!viewport) return;
+      const viewportRect = sizeCanvas(viewport);
+      const width = viewport.clientWidth;
+      const height = viewport.clientHeight;
+      ctx.clearRect(0, 0, width, height);
+      const now = Date.now();
+
+      for (const comet of cometsRef.current) {
+        const age = now - comet.startedAt;
+        if (age < 0 || age > comet.durationMs) continue;
+        const from = cardElementsRef.current.get(comet.fromId);
+        const to = cardElementsRef.current.get(comet.toId);
+        if (!from || !to) continue;
+        const fromRect = from.getBoundingClientRect();
+        const toRect = to.getBoundingClientRect();
+        if (!rectIntersects(fromRect, viewportRect) && !rectIntersects(toRect, viewportRect)) continue;
+
+        const x1 = fromRect.left - viewportRect.left + fromRect.width / 2;
+        const y1 = fromRect.top - viewportRect.top + fromRect.height / 2;
+        const x2 = toRect.left - viewportRect.left + toRect.width / 2;
+        const y2 = toRect.top - viewportRect.top + toRect.height / 2;
+        const progress = Math.min(1, Math.max(0, age / comet.durationMs));
+        const fade = progress < 0.82 ? 1 : Math.max(0, (1 - progress) / 0.18);
+        const headX = x1 + (x2 - x1) * progress;
+        const headY = y1 + (y2 - y1) * progress;
+        const tailProgress = Math.max(0, progress - 0.28);
+        const tailX = x1 + (x2 - x1) * tailProgress;
+        const tailY = y1 + (y2 - y1) * tailProgress;
+
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.strokeStyle = comet.color;
+        ctx.fillStyle = comet.color;
+        ctx.lineCap = "round";
+
+        ctx.globalAlpha = 0.16 * fade;
+        ctx.lineWidth = 1;
+        drawCanvasLine(ctx, x1, y1, x2, y2);
+
+        ctx.globalAlpha = 0.72 * fade;
+        ctx.lineWidth = 2.25;
+        drawCanvasLine(ctx, tailX, tailY, headX, headY);
+
+        ctx.globalAlpha = 0.95 * fade;
+        ctx.beginPath();
+        ctx.arc(headX, headY, 3.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.globalAlpha = Math.min(0.45, progress * 1.8) * fade;
+        ctx.beginPath();
+        ctx.arc(x1, y1, 2.6, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (progress > 0.82) {
+          ctx.globalAlpha = ((progress - 0.82) / 0.18) * fade;
+          ctx.beginPath();
+          ctx.arc(x2, y2, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      raf = window.requestAnimationFrame(draw);
+    };
+
+    raf = window.requestAnimationFrame(draw);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+  }, [cardElementsRef, comets.length, scrollRef]);
+
   return (
-    <svg
-      className="node-route-comets"
-      viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="none"
+    <canvas
+      ref={canvasRef}
+      className="node-route-comets-canvas"
       aria-hidden="true"
-    >
-      {segments.map((segment) => {
-        const style = {
-          "--route-color": segment.color,
-          "--route-duration": `${segment.durationMs}ms`,
-        } as CSSProperties;
-        return (
-          <g key={segment.id} className="node-route-comet" style={style}>
-            <line className="node-route-comet-beam" x1={segment.x1} y1={segment.y1} x2={segment.x2} y2={segment.y2} pathLength={1} />
-            <line className="node-route-comet-tail" x1={segment.x1} y1={segment.y1} x2={segment.x2} y2={segment.y2} pathLength={1} />
-            <line className="node-route-comet-head" x1={segment.x1} y1={segment.y1} x2={segment.x2} y2={segment.y2} pathLength={1} />
-            <circle className="node-route-comet-origin" cx={segment.x1} cy={segment.y1} r="3.2" />
-            <circle className="node-route-comet-dest" cx={segment.x2} cy={segment.y2} r="4.2" />
-          </g>
-        );
-      })}
-    </svg>
+    />
   );
 }
 
@@ -299,14 +400,12 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
   const [searchField, setSearchField] = useState("name");
   const [liveActivity, setLiveActivity] = useState<Record<string, NodeLiveActivity>>({});
   const [routeComets, setRouteComets] = useState<NodeRouteComet[]>([]);
-  const [cometSegments, setCometSegments] = useState<NodeRouteCometSegment[]>([]);
-  const gridWrapRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const cardElementsRef = useRef<Map<string, HTMLButtonElement>>(new Map());
   const displayNodeIdsRef = useRef<Set<string>>(new Set());
   const trafficLookupRef = useRef<NodeTrafficLookup>({ byId: new Map(), byObserver: new Map(), byPathPrefix: new Map() });
   const pendingPacketsRef = useRef<WsPacketObservation["data"][]>([]);
   const packetFlushRafRef = useRef<number | null>(null);
-  const cometSyncRafRef = useRef<number | null>(null);
 
   const queryKey = useMemo(
     () => ["nodes", regionKey, typeFilter, pathsFilter, tracesFilter, search, searchField],
@@ -352,54 +451,6 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
   }, []);
 
   const handleSelectNode = useCallback((id: string) => onSelectNode(id), [onSelectNode]);
-
-  const syncCometSegments = useCallback(() => {
-    const root = gridWrapRef.current;
-    if (!root || routeComets.length === 0) {
-      setCometSegments((current) => (current.length === 0 ? current : []));
-      return;
-    }
-    const rootRect = root.getBoundingClientRect();
-    const width = Math.max(1, root.offsetWidth);
-    const height = Math.max(1, root.offsetHeight);
-    const next: NodeRouteCometSegment[] = [];
-    for (const comet of routeComets) {
-      const from = cardElementsRef.current.get(comet.fromId);
-      const to = cardElementsRef.current.get(comet.toId);
-      if (!from || !to || !root.contains(from) || !root.contains(to)) continue;
-      const fromRect = from.getBoundingClientRect();
-      const toRect = to.getBoundingClientRect();
-      next.push({
-        ...comet,
-        width,
-        height,
-        x1: fromRect.left - rootRect.left + fromRect.width / 2,
-        y1: fromRect.top - rootRect.top + fromRect.height / 2,
-        x2: toRect.left - rootRect.left + toRect.width / 2,
-        y2: toRect.top - rootRect.top + toRect.height / 2,
-      });
-    }
-    setCometSegments((current) => {
-      if (
-        current.length === next.length &&
-        current.every((segment, index) => {
-          const other = next[index];
-          return other && segment.id === other.id && segment.x1 === other.x1 && segment.y1 === other.y1 && segment.x2 === other.x2 && segment.y2 === other.y2;
-        })
-      ) {
-        return current;
-      }
-      return next;
-    });
-  }, [routeComets]);
-
-  const scheduleCometSync = useCallback(() => {
-    if (cometSyncRafRef.current != null) return;
-    cometSyncRafRef.current = window.requestAnimationFrame(() => {
-      cometSyncRafRef.current = null;
-      syncCometSegments();
-    });
-  }, [syncCometSegments]);
 
   const onNodeUpdate = useCallback(
     (data: WsNodeUpdate["data"]) => {
@@ -529,23 +580,8 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
     return () => {
       window.clearInterval(id);
       if (packetFlushRafRef.current != null) window.cancelAnimationFrame(packetFlushRafRef.current);
-      if (cometSyncRafRef.current != null) window.cancelAnimationFrame(cometSyncRafRef.current);
     };
   }, []);
-
-  useEffect(() => {
-    scheduleCometSync();
-  }, [displayNodes, scheduleCometSync]);
-
-  useEffect(() => {
-    scheduleCometSync();
-  }, [routeComets, scheduleCometSync]);
-
-  useEffect(() => {
-    const onResize = () => scheduleCometSync();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [scheduleCometSync]);
 
   return (
     <div className="flex flex-1 min-h-0">
@@ -566,14 +602,13 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
           scopeOptions={scopeOptions}
         />
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-2">
           {isLoading ? (
             <div className="py-10 text-center font-mono text-sm text-text-dim">Loading nodes</div>
           ) : displayNodes.length === 0 ? (
             <div className="py-10 text-center font-mono text-sm text-text-dim">No nodes</div>
           ) : (
-            <div ref={gridWrapRef} className="relative">
-              <NodeRouteCometOverlay segments={cometSegments} />
+            <div className="relative">
               <div className="node-grid-dense relative z-10 grid">
                 {displayNodes.map((node) => (
                   <NodeGridCard
@@ -589,6 +624,7 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
             </div>
           )}
         </div>
+        <NodeRouteCometOverlay cardElementsRef={cardElementsRef} comets={routeComets} scrollRef={scrollRef} />
         <LoadingPill loading={isPaging} error={isError} count={loadedCount} noun="nodes" position="bottom-3 right-3" />
       </div>
     </div>
