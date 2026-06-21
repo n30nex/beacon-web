@@ -33,7 +33,7 @@ export function Dropdown({ renderTrigger, align = "right", width = "w-48", fullW
         <div className={
           fullWidth
             ? "crt-panel mt-1 w-full bg-bg-raised border border-border rounded-md py-1 max-h-72 overflow-y-auto"
-            : `crt-panel absolute top-full mt-1 ${align === "left" ? "left-0" : "right-0"} ${width} max-w-[calc(100vw-1.5rem)] bg-bg-raised border border-border rounded-md shadow-lg z-50 py-1 max-h-80 overflow-y-auto`
+            : `crt-panel absolute top-full mt-1 ${align === "left" ? "left-0" : "right-0"} ${width} max-w-[calc(100vw-1.5rem)] bg-bg-raised border border-border rounded-md shadow-lg z-[120] py-1 max-h-80 overflow-y-auto`
         }>
           {children(close)}
         </div>

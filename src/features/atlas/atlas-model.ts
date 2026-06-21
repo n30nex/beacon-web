@@ -1,4 +1,4 @@
-import type { AtlasStoryBeat, RegionAtlasSummary } from "../../types/api";
+import type { AtlasBriefing, AtlasStoryBeat, RegionAtlasSummary } from "../../types/api";
 
 export type AtlasRange = "6h" | "24h" | "7d" | "30d";
 
@@ -25,6 +25,13 @@ export function atlasWindowForRange(range: AtlasRange, now = Date.now()): { sinc
 
 export function atlasFitPoints(summary: RegionAtlasSummary | undefined): [number, number][] | null {
   const points = (summary?.iatas ?? [])
+    .filter((i) => i.lat != null && i.lng != null)
+    .map((i) => [i.lng!, i.lat!] as [number, number]);
+  return points.length > 0 ? points : null;
+}
+
+export function atlasBriefingFitPoints(briefing: AtlasBriefing | undefined): [number, number][] | null {
+  const points = (briefing?.hotspots ?? [])
     .filter((i) => i.lat != null && i.lng != null)
     .map((i) => [i.lng!, i.lat!] as [number, number]);
   return points.length > 0 ? points : null;

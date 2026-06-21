@@ -1,16 +1,19 @@
 import type { Observer, AdvertObservation } from "./types";
 import { useQuery } from "@tanstack/react-query";
-import { getObserver, getObserverAdverts } from "../../api/client";
+import { getObserver, getObserverAdverts, getObserverTopology } from "../../api/client";
 import { Badge } from "../../components/Badge";
 import { DetailPanel, Section, Field } from "../../components/DetailPanel";
-import { formatUptime, formatBattery, formatHex, formatSnr, snrLevel, SIGNAL_LEVEL_CLASSES } from "../../lib/formatters";
+import { formatUptime, formatBattery, formatHex, formatSnr, snrLevel, SIGNAL_LEVEL_CLASSES, formatCount } from "../../lib/formatters";
 import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { Timestamp } from "../../components/Timestamp";
+import { TerminalLoadingState } from "../../components/TerminalLoader";
 import { useTick } from "../../hooks/useTick";
+import { useRegion } from "../../hooks/useRegion";
 import { deriveObserverStatus } from "./observer-status";
 import type { BadgeVariant } from "../../components/badge-utils";
 import { IataChip } from "../../components/IataChip";
 import { ScopeTag } from "../../components/ScopeTag";
+import type { StatsRange } from "../stats/types";
 
 function AdvertRow({ advert, onClick }: { advert: AdvertObservation; onClick?: () => void }) {
   const level = snrLevel(advert.snr);
@@ -101,15 +104,23 @@ function RadioSection({ observer, noiseFloor }: { observer: Observer; noiseFloor
 
 interface ObserverDetailPanelProps {
   observerId: string;
+  range: StatsRange;
   onClose: () => void;
   onAnalyzePacket?: (hash: string) => void;
   onViewStats?: (observerId: string) => void;
 }
 
-export function ObserverDetailPanel({ observerId, onClose, onAnalyzePacket, onViewStats }: ObserverDetailPanelProps) {
+export function ObserverDetailPanel({ observerId, range, onClose, onAnalyzePacket, onViewStats }: ObserverDetailPanelProps) {
+  const { iatas, regionKey } = useRegion();
   const { data: observer, isLoading } = useQuery({
     queryKey: ["observer", observerId],
     queryFn: () => getObserver(observerId),
+    staleTime: 30_000,
+  });
+
+  const { data: topology, isLoading: topologyLoading } = useQuery({
+    queryKey: ["observer-topology", observerId, regionKey, range],
+    queryFn: () => getObserverTopology(observerId, iatas, { range, limit: 12 }),
     staleTime: 30_000,
   });
 
@@ -217,6 +228,66 @@ export function ObserverDetailPanel({ observerId, onClose, onAnalyzePacket, onVi
                 )}
               </Section>
             )}
+
+            <Section title="Topology Window">
+              {topologyLoading ? (
+                <TerminalLoadingState label="QUERYING OBSERVER TOPOLOGY" detail="PLEASE WAIT" />
+              ) : topology ? (
+                <div className="flex flex-col gap-2 font-mono text-[12px]">
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <Field label="Packets" value={formatCount(topology.packetCount)} />
+                    <Field label="Obs" value={formatCount(topology.observationCount)} />
+                    <Field label="IATAs" value={formatCount(topology.activeIatas)} />
+                    <Field label="Avg SNR" value={topology.avgSnr != null ? `${topology.avgSnr.toFixed(1)} dB` : "-"} />
+                  </div>
+                  <div className="rounded-sm border border-border-subtle bg-bg-base/55 p-2">
+                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Payload / route mix</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {topology.payloadMix.slice(0, 4).map((item) => (
+                        <Badge key={`p-${item.payloadType}`} variant="default">{item.payloadTypeName} {formatCount(item.count)}</Badge>
+                      ))}
+                      {topology.routeMix.slice(0, 3).map((item) => (
+                        <Badge key={`r-${item.routeType}`} variant="default">{item.routeTypeName} {formatCount(item.count)}</Badge>
+                      ))}
+                      {topology.payloadMix.length === 0 && topology.routeMix.length === 0 && <span className="text-text-dim">No mix data</span>}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Top heard nodes</div>
+                    <div className="flex flex-col gap-1">
+                      {topology.topNodes.slice(0, 5).map((node) => (
+                        <div key={node.id} className="flex items-center justify-between gap-2 rounded-sm border border-border-subtle bg-bg-base/40 px-2 py-1">
+                          <span className="min-w-0 truncate text-primary">{sanitizeDisplayLabel(node.name, formatHex(node.publicKey))}</span>
+                          <span className="text-text-muted">{formatCount(node.observationCount)} obs</span>
+                        </div>
+                      ))}
+                      {topology.topNodes.length === 0 && <span className="text-text-dim">No resolved origin nodes</span>}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Trace / ping tags</div>
+                    <div className="flex flex-col gap-1">
+                      {topology.topTraceTags.slice(0, 4).map((trace) => (
+                        <div key={trace.traceTag} className="flex items-center justify-between gap-2 rounded-sm border border-border-subtle bg-bg-base/40 px-2 py-1">
+                          <span className="min-w-0 truncate text-secondary">{trace.traceTag.toUpperCase()}</span>
+                          <span className="text-text-muted">{trace.traceType} / {formatCount(trace.observationCount)}</span>
+                        </div>
+                      ))}
+                      {topology.topTraceTags.length === 0 && <span className="text-text-dim">No traces heard</span>}
+                    </div>
+                  </div>
+                  {topology.topScopes.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {topology.topScopes.slice(0, 6).map((scope) => (
+                        <ScopeTag key={scope.scope}>{scope.scope} {formatCount(scope.observationCount)}</ScopeTag>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="font-mono text-[13px] text-text-dim">No topology summary</div>
+              )}
+            </Section>
 
             {observer.brokers.length > 0 && (
               <Section title="Brokers">

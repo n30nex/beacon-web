@@ -6,6 +6,7 @@ import { Timestamp } from "../../components/Timestamp";
 import { ResolvedHopBlock } from "../packets/PathData";
 import { ScopeTag } from "../../components/ScopeTag";
 import { formatSnr, snrLevel, SIGNAL_LEVEL_CLASSES } from "../../lib/formatters";
+import type { StatsRange } from "../stats/types";
 import type { RawHop, ResolvedHop, TracePacket } from "../../types/api";
 
 // A trace packet's path, rendered exactly like the TRACE payload view: the raw path-hash byte as the
@@ -82,6 +83,11 @@ function TracePacketRow({ pkt, onAnalyze, onViewNode }: {
 
 interface TraceDetailPanelProps {
   tag: string;
+  iatas?: string[];
+  scope?: string;
+  range?: StatsRange;
+  since?: number;
+  until?: number;
   onClose: () => void;
   onAnalyze: (hash: string) => void;
   onViewNode?: (nodeId: string) => void;
@@ -90,10 +96,10 @@ interface TraceDetailPanelProps {
 // Right-hand detail panel for a selected trace tag, matching the other entity tabs. The trace's
 // packets stand in for the packet analyzer's "Observations": a "Packets" section listing each packet,
 // any of which opens the packet analyzer.
-export function TraceDetailPanel({ tag, onClose, onAnalyze, onViewNode }: TraceDetailPanelProps) {
+export function TraceDetailPanel({ tag, iatas, scope, range, since, until, onClose, onAnalyze, onViewNode }: TraceDetailPanelProps) {
   const { data: detail, isLoading } = useQuery({
-    queryKey: ["trace", tag],
-    queryFn: () => getTraceDetail(tag),
+    queryKey: ["trace", tag, iatas?.join(",") ?? "", scope ?? "", range ?? "", since ?? 0, until ?? 0],
+    queryFn: () => getTraceDetail(tag, iatas, { scope: scope || undefined, range, since, until }),
     staleTime: 30_000,
   });
 

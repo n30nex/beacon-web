@@ -351,7 +351,7 @@ export function AppShell({ activeTab, onTabChange, wsManager, onOpenSearch, chil
   return (
     <div className="crt-shell flex flex-col h-dvh" data-active-tab={activeTab.toLowerCase()}>
       <ThemeAmbientLayer activeTab={activeTab} />
-      <header className="crt-panel flex items-center justify-between gap-2 px-3 md:px-4 h-[46px] bg-bg-surface border-b border-border shrink-0">
+      <header className="app-shell-topbar crt-panel flex items-center justify-between gap-2 px-3 md:px-4 h-[46px] bg-bg-surface border-b border-border shrink-0">
         <BeaconWordmark iconSize={22} textClassName="text-sm" />
         <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
           {onOpenSearch && (
@@ -371,7 +371,7 @@ export function AppShell({ activeTab, onTabChange, wsManager, onOpenSearch, chil
         </div>
       </header>
 
-      <nav className="crt-panel hidden md:flex bg-bg-surface border-b border-border px-4 shrink-0" role="tablist">
+      <nav className="app-shell-tabs crt-panel hidden md:flex bg-bg-surface border-b border-border px-4 shrink-0" role="tablist">
         {TABS.map((tab) => (
           <button
             key={tab}

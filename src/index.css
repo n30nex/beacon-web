@@ -218,6 +218,44 @@
   animation: packet-pulse 1s ease-out forwards;
 }
 
+@keyframes route-replay-dash {
+  to { stroke-dashoffset: -34; }
+}
+
+@keyframes route-replay-hop-pulse {
+  0%, 100% { opacity: 0.16; transform: scale(1); }
+  50% { opacity: 0.36; transform: scale(1.18); }
+}
+
+.route-replay-screen-overlay {
+  overflow: visible;
+}
+
+.route-replay-screen-glow {
+  opacity: 0.34;
+  filter: drop-shadow(0 0 10px var(--map-route-primary, #ffb000));
+}
+
+.route-replay-screen-line {
+  opacity: 0.96;
+  stroke-dasharray: 16 8;
+  animation: route-replay-dash 2.4s linear infinite;
+  filter: drop-shadow(0 0 5px var(--map-route-primary, #ffb000));
+}
+
+.route-replay-screen-hop-glow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: route-replay-hop-pulse 1.9s ease-in-out infinite;
+}
+
+.route-replay-screen-label {
+  font-family: var(--beacon-ui-font, monospace);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
 .crt-shell {
   position: relative;
   overflow: hidden;
@@ -243,6 +281,14 @@
 .crt-shell > :not(.theme-ambient-layer) {
   position: relative;
   z-index: 1;
+}
+
+.crt-shell > .app-shell-topbar {
+  z-index: 120;
+}
+
+.crt-shell > .app-shell-tabs {
+  z-index: 90;
 }
 
 .theme-ambient-layer {

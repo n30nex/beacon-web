@@ -12,8 +12,11 @@ import { TerminalLoadingState } from "../../components/TerminalLoader";
 import { MultiSelectDropdown } from "../../components/MultiSelectDropdown";
 import { RouteDetailPanel } from "./RouteDetailPanel";
 import { ResolvedHopBlock } from "../packets/PathData";
-import { formatHex } from "../../lib/formatters";
+import { formatCount, formatHex } from "../../lib/formatters";
 import { sanitizeDisplayLabel } from "../../lib/display-label";
+import { Card, StatCard } from "../stats/cards";
+import { useStatsSubpaths, useStatsTopology } from "../stats/useStats";
+import type { StatsRange } from "../stats/types";
 import type { KnownRoute, CrossIATARoute, ResolvedHop, ResolvedNode, RouteHop } from "../../types/api";
 
 const inputClass =
@@ -22,8 +25,32 @@ const inputClass =
 
 // stable id accessor for the paginator's dedup (module-level so the memo isn't rebuilt each render)
 const routeId = (r: KnownRoute) => String(r.id);
+const STATS_RANGES: StatsRange[] = ["24h", "7d", "30d"];
 
 const nodeLabel = (n: ResolvedNode) => sanitizeDisplayLabel(n.name, formatHex(n.publicKey));
+
+function rangeFromParam(value: string | null): StatsRange {
+  return value === "7d" || value === "30d" ? value : "24h";
+}
+
+function RangeToggle({ range, onChange }: { range: StatsRange; onChange: (range: StatsRange) => void }) {
+  return (
+    <div className="flex items-center gap-1 rounded-sm border border-border bg-bg-base p-0.5">
+      {STATS_RANGES.map((value) => (
+        <button
+          key={value}
+          type="button"
+          onClick={() => onChange(value)}
+          className={`px-2 py-1 font-mono text-[10px] uppercase tracking-wider transition-colors ${
+            value === range ? "bg-primary/15 text-primary" : "text-text-muted hover:text-text-normal"
+          }`}
+        >
+          {value}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 // A run of route hops as a hash chain (reusing the packet path renderer); hops are high-confidence.
 function HopChain({ hops }: { hops: RouteHop[] }) {
@@ -129,6 +156,55 @@ function renderRouteCard(r: KnownRoute) {
   );
 }
 
+function RouteOpsHeader({ range, onRangeChange }: { range: StatsRange; onRangeChange: (range: StatsRange) => void }) {
+  const topology = useStatsTopology(range, 20);
+  const subpaths = useStatsSubpaths(range, 20);
+  const topPath = topology.data?.bestPaths?.[0];
+  const topSubpath = subpaths.data?.topSubpaths?.[0];
+
+  return (
+    <div className="border-b border-border-subtle bg-bg-base/80 px-3 py-3">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="font-mono text-[11px] font-semibold uppercase tracking-wider text-text-normal">Verified Route Workbench</div>
+          <div className="font-mono text-[10px] text-text-dim">known routes, repeated subpaths, and endpoint pressure</div>
+        </div>
+        <RangeToggle range={range} onChange={onRangeChange} />
+      </div>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
+        <StatCard label="Routes" sublabel={range} accent="var(--color-primary)" value={topology.isLoading ? "--" : formatCount(topology.data?.routeCount)} />
+        <StatCard label="Route obs" sublabel="verified" accent="var(--color-secondary)" value={topology.isLoading ? "--" : formatCount(topology.data?.observationCount)} />
+        <StatCard label="Avg hops" sublabel="known" accent="var(--color-warn)" value={topology.isLoading ? "--" : (topology.data?.averageHopCount ?? 0).toFixed(1)} />
+        <StatCard label="Subpaths" sublabel="repeated" accent="var(--color-green)" value={subpaths.isLoading ? "--" : formatCount(subpaths.data?.uniqueSubpathCount)} />
+        <Card title="Strongest path" className="col-span-2 md:col-span-2 xl:col-span-1">
+          {topology.isLoading ? (
+            <TerminalLoadingState label="QUERYING ROUTES" detail="PLEASE WAIT" className="py-1" />
+          ) : topPath ? (
+            <div className="font-mono text-[10px]">
+              <div className="truncate text-primary" title={topPath.nodeNames.join(" -> ")}>{topPath.nodeNames.join(" -> ")}</div>
+              <div className="mt-1 text-text-muted">{topPath.iata} / {topPath.hopCount} hops / {formatCount(topPath.observationCount)} obs</div>
+            </div>
+          ) : (
+            <div className="font-mono text-[11px] text-text-dim">No verified path</div>
+          )}
+        </Card>
+        <Card title="Repeated segment" className="col-span-2 md:col-span-2 xl:col-span-1">
+          {subpaths.isLoading ? (
+            <TerminalLoadingState label="QUERYING PATHS" detail="PLEASE WAIT" className="py-1" />
+          ) : topSubpath ? (
+            <div className="font-mono text-[10px]">
+              <div className="truncate text-secondary" title={topSubpath.nodeNames.join(" -> ")}>{topSubpath.nodeNames.join(" -> ")}</div>
+              <div className="mt-1 text-text-muted">{formatCount(topSubpath.routeCount)} routes / {formatCount(topSubpath.observationCount)} obs</div>
+            </div>
+          ) : (
+            <div className="font-mono text-[11px] text-text-dim">No repeated segment</div>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 interface SearchParams {
   from: string;
   to: string;
@@ -145,7 +221,8 @@ function directedPairs(iatas: string[]): [string, string][] {
 
 export function RouteTable() {
   const { iatas, regionKey } = useRegion();
-  const [, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const range = rangeFromParam(searchParams.get("range"));
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
@@ -169,14 +246,12 @@ export function RouteTable() {
   // /routes filters by a single IATA only, so when the region resolves to exactly one IATA push the
   // filter to the server for true server-side paging; otherwise page unfiltered and filter the region
   // client-side below (a region can span several IATAs, which the endpoint can't express).
-  const serverIata = iatas && iatas.length === 1 ? iatas[0] : undefined;
-
   // Page the route set on demand (50 at a time, cursor = last route's lastSeen ms) — the DataTable
   // pulls the next page via loadMore() as you scroll, instead of eagerly loading the whole set.
   const { items: listRoutes, loadedCount, isPaging, isError, isLoading: listLoading, loadMore, hasMore } =
     useInfinitePages<KnownRoute>({
-      queryKey: ["routes", serverIata ?? ""],
-      queryFn: (cursor) => getKnownRoutesPage({ iata: serverIata, cursor }),
+      queryKey: ["routes", regionKey],
+      queryFn: (cursor) => getKnownRoutesPage({ iatas, cursor }),
       getId: routeId,
       keepPrevious: true,
       auto: false,
@@ -220,10 +295,8 @@ export function RouteTable() {
   // region = all). Filtering by IATA stays client-side, consistent with the other tabs.
   const rows = useMemo(() => {
     if (search) return isCross ? [] : searchRoutes;
-    if (!iatas || iatas.length === 0) return listRoutes;
-    const set = new Set(iatas);
-    return listRoutes.filter((r) => set.has(r.iata));
-  }, [search, isCross, searchRoutes, listRoutes, iatas]);
+    return listRoutes;
+  }, [search, isCross, searchRoutes, listRoutes]);
 
   const selectedRoute = useMemo(
     () => rows?.find((r) => String(r.id) === selectedKey),
@@ -234,11 +307,11 @@ export function RouteTable() {
   // short to ever trigger scroll paging — or empty, with the region's routes deeper in the cursor
   // stream. Keep pulling pages until there's a screenful or the cap says the region is just sparse.
   useEffect(() => {
-    if (search || serverIata || !iatas?.length) return;
+    if (search) return;
     if (!hasMore || isPaging) return;
-    if ((rows?.length ?? 0) >= 50 || loadedCount >= 1000) return;
+    if ((rows?.length ?? 0) >= 50 || loadedCount >= 500) return;
     loadMore();
-  }, [search, serverIata, iatas, hasMore, isPaging, rows, loadedCount, loadMore]);
+  }, [search, hasMore, isPaging, rows, loadedCount, loadMore]);
 
   const canSearch = !!(from.trim() && to.trim() && searchIatas.length >= 1);
   // clear any selection when the visible list changes out from under it (search submit/clear)
@@ -264,6 +337,16 @@ export function RouteTable() {
     },
     [setSearchParams],
   );
+  const setRange = useCallback(
+    (nextRange: StatsRange) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("range", nextRange);
+        return next;
+      }, { replace: true });
+    },
+    [setSearchParams],
+  );
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") submitSearch();
@@ -271,6 +354,8 @@ export function RouteTable() {
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
+      <RouteOpsHeader range={range} onRangeChange={setRange} />
+
       {/* stacks into two rows on mobile (the inputs would otherwise wrap around the arrow); one row at md+ */}
       <div className="flex flex-col md:flex-row md:flex-wrap md:items-center gap-1.5 gap-y-1.5 px-4 py-2 border-b border-border-subtle bg-bg-base shrink-0">
         <div className="flex items-center gap-1.5">

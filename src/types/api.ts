@@ -261,6 +261,9 @@ export interface TraceTagSummary {
   lastHeardAt: number; // epoch ms
   packetCount: number;
   iataCount: number; // distinct IATAs the tag was heard in
+  traceType?: string;
+  pathHashes?: string[];
+  snrValues?: number[];
 }
 
 export interface RawHop {
@@ -347,6 +350,127 @@ export interface RegionAtlasSummary {
   radioPresets: RadioPresetShape[];
   scopes: ScopeSummary[];
   storyBeats: AtlasStoryBeat[];
+}
+
+export interface AtlasBriefingHealth {
+  status: string;
+  serverTime: number;
+  staleObservers: number;
+  degradedObservers: number;
+  noTelemetry: number;
+  healthScore: number;
+}
+
+export interface AtlasBriefingRegion {
+  slug: string;
+  name: string;
+  iataCount: number;
+  packetCount: number;
+  observationCount: number;
+  activeObservers: number;
+  activeIatas: number;
+  activeNodes: number;
+  routeCount: number;
+  observationDeltaPct: number;
+  topIata?: string;
+  healthScore: number;
+  url: string;
+}
+
+export type AtlasPriorityKind =
+  | "traffic_spike"
+  | "new_route"
+  | "stale_observers"
+  | "rf_degraded"
+  | "hot_iata"
+  | "top_node"
+  | "top_observer"
+  | "broker_or_cache";
+
+export type AtlasPrioritySeverity = "critical" | "warn" | "info" | "good" | string;
+
+export interface AtlasPriorityItem {
+  id: string;
+  kind: AtlasPriorityKind | string;
+  severity: AtlasPrioritySeverity;
+  title: string;
+  detail: string;
+  region: string;
+  iata?: string;
+  nodeId?: string;
+  observerId?: string;
+  routeId?: number;
+  value?: number;
+  at?: number;
+  url: string;
+}
+
+export interface AtlasHotspot {
+  iata: string;
+  displayName?: string;
+  lat?: number;
+  lng?: number;
+  observationCount: number;
+  uniquePackets: number;
+  activeObservers: number;
+  url: string;
+}
+
+export interface AtlasNotableRoute {
+  routeId: number;
+  iata: string;
+  hopCount: number;
+  nodeNames: string[];
+  observationCount: number;
+  lastSeen: number;
+  url: string;
+}
+
+export interface StatsObserverHealthFlagsShape {
+  stale: boolean;
+  lowBattery: boolean;
+  highNoise: boolean;
+  highAirtime: boolean;
+  queueBacklog: boolean;
+  receiveErrors: boolean;
+  noTelemetry: boolean;
+}
+
+export interface StatsObserverHealthShape {
+  observerId: string;
+  displayName?: string;
+  observerType?: string;
+  iata: string;
+  status: string;
+  lastHeard: number;
+  observationCount: number;
+  telemetryAt?: number;
+  hasTelemetry: boolean;
+  batteryMv?: number;
+  noiseFloorDb?: number;
+  airtimeTxPct?: number;
+  airtimeRxPct?: number;
+  queueLength?: number;
+  receiveErrors?: number;
+  healthScore: number;
+  flags: StatsObserverHealthFlagsShape;
+}
+
+export interface AtlasBriefing {
+  serverTime: number;
+  region: Region;
+  window: AtlasWindow;
+  health: AtlasBriefingHealth;
+  regions: AtlasBriefingRegion[];
+  priorities: AtlasPriorityItem[];
+  hotspots: AtlasHotspot[];
+  degradedObservers: StatsObserverHealthShape[];
+  notableRoutes: AtlasNotableRoute[];
+  topNodes: TopNodeShape[];
+  topObservers: TopObserverShape[];
+  payloadMix: PayloadBreakdownItemShape[];
+  routeMix: LiveRouteMixItem[];
+  scopes: ScopeSummary[];
 }
 
 export interface StatsOverviewShape {

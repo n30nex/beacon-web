@@ -1,3 +1,5 @@
+import type { PayloadBreakdownItem, RouteMixItem, StatsWindow } from "../stats/types";
+
 export interface ObserverSummary {
   id: string;
   displayName?: string;
@@ -48,4 +50,47 @@ export interface AdvertObservation {
   hopCount?: number;
   nodeName?: string;
   nodePublicKey?: string;
+}
+
+export interface ObserverTopologyNode {
+  id: string;
+  name?: string;
+  publicKey: string;
+  iatas: string[];
+  packetCount: number;
+  observationCount: number;
+  lastHeard: number;
+  avgSnr?: number;
+}
+
+export interface ObserverTopologyTraceTag {
+  traceTag: string;
+  traceType: string;
+  iatas: string[];
+  packetCount: number;
+  observationCount: number;
+  lastHeard: number;
+}
+
+export interface ObserverTopologyScope {
+  scope: string;
+  packetCount: number;
+  observationCount: number;
+  lastHeard: number;
+}
+
+export interface ObserverTopologySummary {
+  serverTime: number;
+  window: StatsWindow;
+  observerId: string;
+  packetCount: number;
+  observationCount: number;
+  activeIatas: number;
+  avgSnr?: number;
+  payloadMix: PayloadBreakdownItem[];
+  routeMix: RouteMixItem[];
+  topNodes: ObserverTopologyNode[];
+  topTraceTags: ObserverTopologyTraceTag[];
+  topScopes: ObserverTopologyScope[];
+  recentAdverts: AdvertObservation[];
 }

@@ -12,6 +12,7 @@ import type {
   CrossIATARoute,
   TraceTagSummary,
   TraceDetail,
+  AtlasBriefing,
   RegionAtlasSummary,
   AtlasReplayPacket,
   HealthStatus,
@@ -20,7 +21,7 @@ import type {
 } from "../types/api";
 import type { WsPacketObservation } from "../types/ws";
 import type { ChannelSummary, ChannelMessage } from "../features/channels/types";
-import type { ObserverSummary, Observer, AdvertObservation } from "../features/observers/types";
+import type { ObserverSummary, Observer, AdvertObservation, ObserverTopologySummary } from "../features/observers/types";
 import type { NodeSummary, Node, NodeObservation, NodeNeighbor, NodeAnalytics, NodeReach, NodeAdvertObservation } from "../features/nodes/types";
 import type {
   StatsOverview,
@@ -192,6 +193,10 @@ export function getAtlasRegion(
   return request(`/atlas/regions/${slug}`, params);
 }
 
+export function getAtlasBriefing(params?: { region?: string; since?: number; until?: number }): Promise<AtlasBriefing> {
+  return request("/atlas/briefing", params);
+}
+
 export function getAtlasReplay(
   params?: { region?: string; since?: number; until?: number; cursor?: number; limit?: number },
 ): Promise<CursorPage<AtlasReplayPacket>> {
@@ -216,11 +221,13 @@ function toCursorPage<T>(items: T[], limit: number, cursorOf: (last: T) => numbe
 // it into a CursorPage here so RouteTable can stream pages via useInfinitePages. `iata` is a single code
 // ("" = all), unlike the comma-separated `iatas` used elsewhere.
 export async function getKnownRoutesPage(
-  params?: { iata?: string; hopCount?: number; cursor?: number; limit?: number },
+  params?: { iata?: string; iatas?: string[]; region?: string; hopCount?: number; cursor?: number; limit?: number },
 ): Promise<CursorPage<KnownRoute>> {
   const limit = params?.limit ?? DEFAULT_PAGE_SIZE;
   const items = await request<KnownRoute[]>("/routes", {
     iata: params?.iata,
+    iatas: iatasParam(params?.iatas),
+    region: params?.region,
     hopCount: params?.hopCount,
     cursor: params?.cursor,
     limit,
@@ -275,11 +282,13 @@ export function searchCrossIATARoutes(
 // the last item's lastHeardAt); /traces/{tag} returns the tag's packets with resolved routes.
 export function getTraces(
   iatas: string[] | undefined,
-  params?: { scope?: string; since?: number; until?: number; cursor?: number; limit?: number },
+  params?: { scope?: string; type?: string; range?: string; since?: number; until?: number; cursor?: number; limit?: number },
 ): Promise<TraceTagSummary[]> {
   return request("/traces", {
     iatas: iatasParam(iatas),
     scope: params?.scope,
+    type: params?.type,
+    range: params?.range,
     since: params?.since,
     until: params?.until,
     cursor: params?.cursor,
@@ -287,8 +296,18 @@ export function getTraces(
   });
 }
 
-export function getTraceDetail(tag: string): Promise<TraceDetail> {
-  return request(`/traces/${tag}`);
+export function getTraceDetail(
+  tag: string,
+  iatas?: string[],
+  params?: { scope?: string; range?: string; since?: number; until?: number },
+): Promise<TraceDetail> {
+  return request(`/traces/${tag}`, {
+    iatas: iatasParam(iatas),
+    scope: params?.scope,
+    range: params?.range,
+    since: params?.since,
+    until: params?.until,
+  });
 }
 
 export function getObserver(observerId: string): Promise<Observer> {
@@ -302,6 +321,21 @@ export function getObserverAdverts(
   return request(`/observers/${observerId}/adverts`, {
     cursor: params?.cursor,
     limit: params?.limit ?? DEFAULT_PAGE_SIZE,
+  });
+}
+
+export function getObserverTopology(
+  observerId: string,
+  iatas?: string[],
+  params?: { range?: string; since?: number; until?: number; bucket?: string; limit?: number },
+): Promise<ObserverTopologySummary> {
+  return request(`/observers/${observerId}/topology`, {
+    iatas: iatasParam(iatas),
+    range: params?.range,
+    since: params?.since,
+    until: params?.until,
+    bucket: params?.bucket,
+    limit: params?.limit,
   });
 }
 
