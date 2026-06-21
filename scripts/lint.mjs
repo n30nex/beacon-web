@@ -22,11 +22,20 @@ const chunks = [
 
 let failed = false;
 for (const chunk of chunks) {
-  const result = spawnSync(process.execPath, [eslintBin, ...chunk], {
+  let result = spawnSync(process.execPath, [eslintBin, ...chunk], {
     cwd: root,
     stdio: "inherit",
   });
+  const crashed = () => result.status == null || result.status < 0 || result.status === 3221225477;
+  if (crashed()) {
+    console.warn(`[lint] ESLint crashed while checking ${chunk.join(" ")}; retrying once.`);
+    result = spawnSync(process.execPath, [eslintBin, ...chunk], {
+      cwd: root,
+      stdio: "inherit",
+    });
+  }
   if (result.status !== 0) {
+    console.error(`[lint] ESLint failed for ${chunk.join(" ")} with status ${result.status ?? "null"}${result.signal ? ` signal ${result.signal}` : ""}.`);
     failed = true;
   }
   if (result.error) {

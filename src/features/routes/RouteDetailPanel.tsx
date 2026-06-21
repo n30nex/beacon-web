@@ -1,8 +1,11 @@
+import { useCallback, useState } from "react";
 import { DetailPanel, Section, Field } from "../../components/DetailPanel";
 import { Badge } from "../../components/Badge";
 import { Timestamp } from "../../components/Timestamp";
 import { ResolvedHopBlock } from "../packets/PathData";
 import type { KnownRoute, ResolvedHop } from "../../types/api";
+import { VARIANT_CLASSES } from "../../components/badge-utils";
+import { buildRouteJsonExport, routeJsonFilename } from "./route-export";
 
 // Detail for a selected known route. The /routes list already carries the full hops, so this takes the
 // route object directly — no extra fetch. Hops reuse the packet path renderer's block (high-confidence
@@ -13,9 +16,60 @@ interface RouteDetailPanelProps {
   onViewOnMap: (route: KnownRoute) => void;
 }
 
+function RouteJsonActions({ route }: { route: KnownRoute }) {
+  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
+
+  const routeJson = useCallback(() => JSON.stringify(buildRouteJsonExport(route), null, 2), [route]);
+
+  const flash = useCallback((next: "copied" | "failed") => {
+    setStatus(next);
+    window.setTimeout(() => setStatus("idle"), 1500);
+  }, []);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(routeJson());
+      flash("copied");
+    } catch {
+      flash("failed");
+    }
+  }, [flash, routeJson]);
+
+  const handleDownload = useCallback(() => {
+    const blob = new Blob([routeJson()], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = routeJsonFilename(route);
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }, [route, routeJson]);
+
+  return (
+    <>
+      <button
+        type="button"
+        className={`inline-flex items-center font-mono text-[11px] font-semibold px-2 py-0.5 rounded-sm border tracking-wider uppercase cursor-pointer transition-colors ${status === "copied" ? VARIANT_CLASSES.live : status === "failed" ? VARIANT_CLASSES.stale : VARIANT_CLASSES.text}`}
+        onClick={handleCopy}
+        aria-label="Copy route JSON"
+      >
+        {status === "copied" ? "Copied JSON" : status === "failed" ? "Copy Failed" : "Copy JSON"}
+      </button>
+      <button
+        type="button"
+        className={`inline-flex items-center font-mono text-[11px] font-semibold px-2 py-0.5 rounded-sm border tracking-wider uppercase cursor-pointer transition-colors ${VARIANT_CLASSES.text}`}
+        onClick={handleDownload}
+        aria-label="Download route JSON"
+      >
+        Save JSON
+      </button>
+    </>
+  );
+}
+
 export function RouteDetailPanel({ route, onClose, onViewOnMap }: RouteDetailPanelProps) {
   return (
-    <DetailPanel title="Route Detail" onClose={onClose}>
+    <DetailPanel title="Route Detail" onClose={onClose} actions={<RouteJsonActions route={route} />}>
       <Section title="Summary" first>
         <div className="flex items-center gap-3 font-mono text-[13px]">
           <Badge variant="default">{route.iata}</Badge>
