@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { ObserverDetailPanel } from "../../../src/features/observers/ObserverDetailPanel";
@@ -25,6 +25,7 @@ const observer: Observer = {
   iata: "YVR",
   status: "online",
   publicKey: "aabbccddeeff",
+  statusMetadata: { stats: { noise_floor: -117, queue_len: 2 } },
   firstSeen: 1,
   lastSeen: 2,
   observationCount: 10,
@@ -128,5 +129,49 @@ describe("ObserverDetailPanel adverts", () => {
 
     fireEvent.click(await screen.findByText("Node Alpha"));
     expect(onAnalyzePacket).toHaveBeenCalledWith("hash-1");
+  });
+
+  it("copies an observer JSON health snapshot with topology and advert context", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    mockGetObserverTopology.mockResolvedValue({
+      serverTime: 1_782_043_200_000,
+      window: { since: 1, until: 2, bucket: "1h" },
+      observerId: "obs-1",
+      packetCount: 12,
+      observationCount: 34,
+      activeIatas: 2,
+      avgSnr: 7.2,
+      payloadMix: [{ payloadType: 4, payloadTypeName: "ADVERT", count: 10 }],
+      routeMix: [],
+      topNodes: [],
+      topTraceTags: [],
+      topScopes: [],
+      recentAdverts: [],
+    });
+    mockGetObserverAdverts.mockResolvedValue({
+      items: [advert(1, "Node Alpha")],
+      nextCursor: null,
+      hasMore: false,
+    });
+
+    renderPanel();
+
+    expect(await screen.findByText("34")).toBeInTheDocument();
+    expect(await screen.findByText("Node Alpha")).toBeInTheDocument();
+    fireEvent.click(await screen.findByLabelText("Copy observer JSON"));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledOnce());
+    const exported = JSON.parse(writeText.mock.calls[0]![0] as string);
+    expect(exported.schema).toBe("beacon.observer.v1");
+    expect(exported.observer.id).toBe("obs-1");
+    expect(exported.derivedStatus).toBe("online");
+    expect(exported.healthStats.noise_floor).toBe(-117);
+    expect(exported.topology.observationCount).toBe(34);
+    expect(exported.advertsHeard.items[0].packetHash).toBe("hash-1");
+    expect(screen.getByText("Copied JSON")).toBeInTheDocument();
   });
 });

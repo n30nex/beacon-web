@@ -39,3 +39,4 @@ The web test suite also includes `tests/contracts/openapi-contract.test.ts`, whi
 - Keep keyboard and drilldown flows consistent: global search, escape-to-close overlays, selected row state, packet/node/observer/route links, and copyable identifiers.
 - Packet analyzer handoff now supports copy/download of `beacon.packet.v1` JSON with timing, selected observation, raw frame, decoded payload, and route context.
 - Node detail handoff now supports copy/download of `beacon.node.v1` JSON with node metadata, active region scope, analytics, reach, neighbors, recent observations, and advert timeline.
+- Observer detail handoff now supports copy/download of `beacon.observer.v1` JSON with derived status, health stats, topology, broker/adverts context, active region scope, and range.

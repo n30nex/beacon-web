@@ -1,3 +1,4 @@
+import { useCallback, useState } from "react";
 import type { Observer, AdvertObservation } from "./types";
 import { useQuery } from "@tanstack/react-query";
 import { getObserver, getObserverAdverts, getObserverTopology } from "../../api/client";
@@ -10,10 +11,13 @@ import { TerminalLoadingState } from "../../components/TerminalLoader";
 import { useTick } from "../../hooks/useTick";
 import { useRegion } from "../../hooks/useRegion";
 import { deriveObserverStatus } from "./observer-status";
-import type { BadgeVariant } from "../../components/badge-utils";
+import { VARIANT_CLASSES, type BadgeVariant } from "../../components/badge-utils";
 import { IataChip } from "../../components/IataChip";
 import { ScopeTag } from "../../components/ScopeTag";
 import type { StatsRange } from "../stats/types";
+import type { CursorPage } from "../../types/api";
+import type { ObserverTopologySummary } from "./types";
+import { buildObserverJsonExport, observerJsonFilename, type ObserverHealthStats } from "./observer-export";
 
 function AdvertRow({ advert, onClick }: { advert: AdvertObservation; onClick?: () => void }) {
   const level = snrLevel(advert.snr);
@@ -49,16 +53,6 @@ function AdvertRow({ advert, onClick }: { advert: AdvertObservation; onClick?: (
   );
 }
 
-interface Stats {
-  noise_floor?: number;
-  rx_air_secs?: number;
-  tx_air_secs?: number;
-  queue_len?: number;
-  recv_errors?: number;
-  errors?: number;
-  internal_heap?: number;
-}
-
 // broker freshness badge: <5m = live, <30m = stale
 function brokerStatusVariant(lastPacketAt: number | null): BadgeVariant {
   if (!lastPacketAt) return "offline";
@@ -67,9 +61,9 @@ function brokerStatusVariant(lastPacketAt: number | null): BadgeVariant {
 }
 
 // stats shape depends on the observer's firmware, so we just grab what we recognize
-function getStats(metadata: Record<string, unknown> | undefined): Stats | null {
+function getStats(metadata: Record<string, unknown> | undefined): ObserverHealthStats | null {
   if (!metadata?.stats || typeof metadata.stats !== "object") return null;
-  return metadata.stats as Stats;
+  return metadata.stats as ObserverHealthStats;
 }
 
 function formatAirtime(secs: number): string {
@@ -99,6 +93,78 @@ function RadioSection({ observer, noiseFloor }: { observer: Observer; noiseFloor
         </div>
       )}
     </Section>
+  );
+}
+
+function ObserverJsonActions({
+  observer,
+  derivedStatus,
+  range,
+  regionKey,
+  iatas,
+  healthStats,
+  topology,
+  adverts,
+}: {
+  observer: Observer;
+  derivedStatus: Observer["status"];
+  range: StatsRange;
+  regionKey: string;
+  iatas?: string[];
+  healthStats?: ObserverHealthStats | null;
+  topology?: ObserverTopologySummary;
+  adverts?: CursorPage<AdvertObservation>;
+}) {
+  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
+
+  const observerJson = useCallback(
+    () => JSON.stringify(buildObserverJsonExport({ observer, derivedStatus, range, regionKey, iatas, healthStats, topology, adverts }), null, 2),
+    [adverts, derivedStatus, healthStats, iatas, observer, range, regionKey, topology],
+  );
+
+  const flash = useCallback((next: "copied" | "failed") => {
+    setStatus(next);
+    window.setTimeout(() => setStatus("idle"), 1500);
+  }, []);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(observerJson());
+      flash("copied");
+    } catch {
+      flash("failed");
+    }
+  }, [flash, observerJson]);
+
+  const handleDownload = useCallback(() => {
+    const blob = new Blob([observerJson()], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = observerJsonFilename(observer.id);
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }, [observer.id, observerJson]);
+
+  return (
+    <>
+      <button
+        type="button"
+        className={`inline-flex items-center font-mono text-[11px] font-semibold px-2 py-0.5 rounded-sm border tracking-wider uppercase cursor-pointer transition-colors ${status === "copied" ? VARIANT_CLASSES.live : status === "failed" ? VARIANT_CLASSES.stale : VARIANT_CLASSES.text}`}
+        onClick={handleCopy}
+        aria-label="Copy observer JSON"
+      >
+        {status === "copied" ? "Copied JSON" : status === "failed" ? "Copy Failed" : "Copy JSON"}
+      </button>
+      <button
+        type="button"
+        className={`inline-flex items-center font-mono text-[11px] font-semibold px-2 py-0.5 rounded-sm border tracking-wider uppercase cursor-pointer transition-colors ${VARIANT_CLASSES.text}`}
+        onClick={handleDownload}
+        aria-label="Download observer JSON"
+      >
+        Save JSON
+      </button>
+    </>
   );
 }
 
@@ -142,6 +208,20 @@ export function ObserverDetailPanel({ observerId, range, onClose, onAnalyzePacke
       isLoading={isLoading}
       notFound={!observer}
       notFoundLabel="Observer not found"
+      actions={
+        observer && status ? (
+          <ObserverJsonActions
+            observer={observer}
+            derivedStatus={status}
+            range={range}
+            regionKey={regionKey}
+            iatas={iatas}
+            healthStats={stats}
+            topology={topology}
+            adverts={adverts}
+          />
+        ) : undefined
+      }
       notFoundIcon={
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-border">
           <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.2" />
