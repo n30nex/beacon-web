@@ -36,6 +36,9 @@ const TYPE_LABEL: Record<GlobalSearchResultType, string> = {
   trace: "TRACE",
 };
 
+const RECENT_SEARCHES_KEY = "beacon-global-search-recents";
+const MAX_RECENT_SEARCHES = 6;
+
 function useDebounced(value: string, delay: number) {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -43,6 +46,23 @@ function useDebounced(value: string, delay: number) {
     return () => window.clearTimeout(id);
   }, [value, delay]);
   return debounced;
+}
+
+function readRecentSearches(): string[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string").slice(0, MAX_RECENT_SEARCHES) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeRecentSearches(searches: string[]) {
+  try {
+    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(searches.slice(0, MAX_RECENT_SEARCHES)));
+  } catch {
+    // Private browsing / quota should not block search.
+  }
 }
 
 function localPageResults(query: string): GlobalSearchResult[] {
@@ -55,6 +75,7 @@ export function GlobalSearchPalette({ open, onClose, onSelect }: GlobalSearchPal
   const { iatas, regionKey } = useRegion();
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [recentSearches, setRecentSearches] = useState(readRecentSearches);
   const debounced = useDebounced(query.trim(), 180);
   const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -85,6 +106,12 @@ export function GlobalSearchPalette({ open, onClose, onSelect }: GlobalSearchPal
 
   function choose(result: GlobalSearchResult | undefined) {
     if (!result) return;
+    const trimmedQuery = query.trim();
+    if (trimmedQuery.length >= 2) {
+      const next = [trimmedQuery, ...recentSearches.filter((item) => item.toLowerCase() !== trimmedQuery.toLowerCase())].slice(0, MAX_RECENT_SEARCHES);
+      setRecentSearches(next);
+      writeRecentSearches(next);
+    }
     onSelect(result);
     setQuery("");
     onClose();
@@ -143,6 +170,25 @@ export function GlobalSearchPalette({ open, onClose, onSelect }: GlobalSearchPal
         <div className="border-b border-border-subtle px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-text-dim">
           Ctrl+K / Enter select / Esc close
         </div>
+
+        {query.trim().length === 0 && recentSearches.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-border-subtle px-3 py-2 font-mono text-[10px]">
+            <span className="mr-1 uppercase tracking-wider text-text-dim">Recent</span>
+            {recentSearches.map((term) => (
+              <button
+                key={term}
+                type="button"
+                className="rounded-sm border border-border bg-bg-raised/70 px-2 py-0.5 text-text-muted transition-colors hover:border-primary hover:text-text-normal"
+                onClick={() => {
+                  setQuery(term);
+                  setSelectedIndex(0);
+                }}
+              >
+                {term}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="min-h-0 overflow-y-auto p-2">
           {search.isLoading && debounced.length >= 2 ? (

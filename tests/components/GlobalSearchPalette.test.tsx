@@ -30,6 +30,7 @@ function renderPalette(onSelect = vi.fn()) {
 }
 
 beforeEach(() => {
+  localStorage.clear();
   mockGetGlobalSearch.mockReset();
   mockGetRegions.mockReset().mockResolvedValue([]);
 });
@@ -73,5 +74,36 @@ describe("GlobalSearchPalette", () => {
 
     fireEvent.keyDown(screen.getByRole("dialog", { name: "Global Beacon search" }), { key: "Enter" });
     await waitFor(() => expect(onSelect).toHaveBeenCalledWith(nodeResult));
+  });
+
+  it("persists successful submitted searches as recent chips", async () => {
+    const nodeResult: GlobalSearchResult = {
+      type: "node",
+      id: "node-1",
+      label: "Gateway Alpha",
+      subtitle: "NODE / YOW",
+      url: "/?tab=Nodes&nodeId=node-1",
+      score: 220,
+      matched: "node name",
+    };
+    mockGetGlobalSearch.mockResolvedValue({ query: "gateway alpha", items: [nodeResult] });
+    renderPalette();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Global search" }), { target: { value: "gateway alpha" } });
+    await screen.findByText("Gateway Alpha");
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "Global Beacon search" }), { key: "Enter" });
+
+    expect(JSON.parse(localStorage.getItem("beacon-global-search-recents") ?? "[]")).toEqual(["gateway alpha"]);
+  });
+
+  it("shows saved recent searches and replays one into the query box", async () => {
+    localStorage.setItem("beacon-global-search-recents", JSON.stringify(["gateway alpha"]));
+    mockGetGlobalSearch.mockResolvedValue({ query: "gateway alpha", items: [] });
+    renderPalette();
+
+    fireEvent.click(screen.getByRole("button", { name: "gateway alpha" }));
+
+    expect(screen.getByRole("textbox", { name: "Global search" })).toHaveValue("gateway alpha");
+    await waitFor(() => expect(mockGetGlobalSearch).toHaveBeenCalledWith(undefined, { q: "gateway alpha", limit: 24 }));
   });
 });
