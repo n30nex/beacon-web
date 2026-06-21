@@ -5,19 +5,33 @@ import { AppShell } from "../../src/components/AppShell";
 import { RegionProvider } from "../../src/hooks/useRegion";
 import { ThemeProvider } from "../../src/hooks/useTheme";
 import { ALL_REGIONS } from "../../src/hooks/region-selection";
-import { getIatas, getRegions } from "../../src/api/client";
+import { getBrokers, getHealth, getIatas, getLiveSummary, getRegions } from "../../src/api/client";
 import type { WsManager } from "../../src/api/ws-manager";
 
 vi.mock("../../src/api/client", () => ({
   getIatas: vi.fn(),
   getRegions: vi.fn(),
   getRegion: vi.fn(),
+  getHealth: vi.fn(),
+  getBrokers: vi.fn(),
+  getLiveSummary: vi.fn(),
 }));
+
+const wsDiagnostics = {
+  status: "connected",
+  lastEventTimestamp: Date.now(),
+  reconnectAttempt: 0,
+  parseFailureCount: 0,
+  lastParseFailureAt: null,
+  activeSubscriptionId: "sub-test",
+} as const;
 
 const wsManager = {
   onStatusChange: () => () => {},
+  onDiagnosticsChange: () => () => {},
   getStatus: () => "connected",
   getLastEventTimestamp: () => Date.now(),
+  getDiagnostics: () => wsDiagnostics,
 } as unknown as WsManager;
 
 const testThemes = [
@@ -116,6 +130,33 @@ beforeEach(() => {
   delete document.documentElement.dataset.scanlines;
   vi.mocked(getIatas).mockReset();
   vi.mocked(getRegions).mockReset().mockResolvedValue([]);
+  vi.mocked(getHealth).mockReset().mockResolvedValue({
+    status: "ok",
+    version: "dev",
+    serverTime: Date.now(),
+    dependencies: {
+      database: { status: "ok" },
+      cache: { status: "ok", detail: "redis" },
+    },
+    brokers: [{ name: "broker-a", connected: true }],
+  });
+  vi.mocked(getBrokers).mockReset().mockResolvedValue([
+    { name: "broker-a", connected: true },
+    { name: "broker-b", connected: false },
+  ]);
+  vi.mocked(getLiveSummary).mockReset().mockResolvedValue({
+    serverTime: Date.now(),
+    since: Date.now() - 900_000,
+    until: Date.now(),
+    latestObservationId: 123,
+    packetCount: 42,
+    observationCount: 84,
+    activeObservers: 3,
+    payloadMix: [],
+    routeMix: [],
+    topIatas: [],
+    topObservers: [],
+  });
 });
 
 afterEach(() => {
@@ -146,6 +187,22 @@ describe("AppShell", () => {
 
     await waitFor(() => expect(screen.getByText("Failed to load")).toBeInTheDocument());
     expect(screen.queryByText(/Loading/)).not.toBeInTheDocument();
+  });
+
+  it("opens live runtime diagnostics with API, broker, and live counters", async () => {
+    vi.mocked(getIatas).mockResolvedValue([]);
+    renderShell();
+
+    fireEvent.click(screen.getByRole("button", { name: /Live runtime connected/i }));
+
+    expect(await screen.findByText("Runtime")).toBeInTheDocument();
+    expect(screen.getByText("CONNECTED")).toBeInTheDocument();
+    expect(await screen.findByText("broker-a")).toBeInTheDocument();
+    expect(screen.getByText("broker-b")).toBeInTheDocument();
+    expect(screen.getByText("42")).toBeInTheDocument();
+    expect(getHealth).toHaveBeenCalled();
+    expect(getBrokers).toHaveBeenCalled();
+    expect(getLiveSummary).toHaveBeenCalled();
   });
 
   it("defaults to retro fonts and scanlines, then persists readable display toggles", async () => {

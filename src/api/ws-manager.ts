@@ -25,6 +25,7 @@ type ChannelMessageHandler = (data: WsChannelMessage["data"]) => void;
 type ObserverStatusHandler = (data: WsObserverStatus["data"]) => void;
 type NodeUpdateHandler = (data: WsNodeUpdate["data"]) => void;
 type StatusHandler = (status: WsStatus) => void;
+type DiagnosticsHandler = (diagnostics: WsDiagnostics) => void;
 
 export class WsManager {
   private ws: WebSocket | null = null;
@@ -42,6 +43,7 @@ export class WsManager {
   private lastEventTimestamp: number = Date.now();
   private parseFailureCount = 0;
   private lastParseFailureAt: number | null = null;
+  private diagnosticsSnapshot: WsDiagnostics | null = null;
 
   private packetHandlers: PacketHandler[] = [];
   private laggedHandlers: LaggedHandler[] = [];
@@ -49,6 +51,7 @@ export class WsManager {
   private observerStatusHandlers: ObserverStatusHandler[] = [];
   private nodeUpdateHandlers: NodeUpdateHandler[] = [];
   private statusHandlers: StatusHandler[] = [];
+  private diagnosticsHandlers: DiagnosticsHandler[] = [];
 
   constructor(url: string) {
     this.url = url;
@@ -63,7 +66,8 @@ export class WsManager {
   }
 
   getDiagnostics(): WsDiagnostics {
-    return {
+    if (this.diagnosticsSnapshot) return this.diagnosticsSnapshot;
+    this.diagnosticsSnapshot = {
       status: this.status,
       lastEventTimestamp: this.lastEventTimestamp,
       reconnectAttempt: this.reconnectAttempt,
@@ -71,6 +75,7 @@ export class WsManager {
       lastParseFailureAt: this.lastParseFailureAt,
       activeSubscriptionId: this.subscriptionId,
     };
+    return this.diagnosticsSnapshot;
   }
 
   onPacketObservation(handler: PacketHandler): () => void {
@@ -115,6 +120,13 @@ export class WsManager {
     };
   }
 
+  onDiagnosticsChange(handler: DiagnosticsHandler): () => void {
+    this.diagnosticsHandlers.push(handler);
+    return () => {
+      this.diagnosticsHandlers = this.diagnosticsHandlers.filter((h) => h !== handler);
+    };
+  }
+
   // connection lifecycle
 
   connect(filter: SubscriptionFilter): void {
@@ -130,6 +142,7 @@ export class WsManager {
     if (this.subscriptionId) {
       this.send({ v: 1, type: "unsubscribe", id: `unsub-${this.nextId()}`, subscriptionId: this.subscriptionId });
       this.subscriptionId = null;
+      this.emitDiagnostics();
     }
 
     this.sendSubscribe();
@@ -143,6 +156,7 @@ export class WsManager {
     this.subscriptionId = null;
     this.lastSubscribeId = null;
     this.setStatus("disconnected");
+    this.emitDiagnostics();
   }
 
   // exponential backoff w/ jitter to avoid thundering herd on reconnect
@@ -155,6 +169,7 @@ export class WsManager {
     this.subscriptionId = null; // subscription ids are per-connection
     this.lastSubscribeId = null;
     this.setStatus("connecting");
+    this.emitDiagnostics();
 
     this.ws = new WebSocket(this.url);
 
@@ -175,6 +190,7 @@ export class WsManager {
           sample,
           parseFailureCount: this.parseFailureCount,
         });
+        this.emitDiagnostics();
         return;
       }
       this.handleMessage(msg);
@@ -216,6 +232,7 @@ export class WsManager {
       case "subscribed":
         if (msg.id === this.lastSubscribeId) {
           this.subscriptionId = msg.subscriptionId;
+          this.emitDiagnostics();
         } else {
           // ack for a subscribe we've since replaced — drop the server-side sub it created
           this.send({ v: 1, type: "unsubscribe", id: `unsub-${this.nextId()}`, subscriptionId: msg.subscriptionId });
@@ -225,10 +242,12 @@ export class WsManager {
       case "pong":
         // a pong proves the link is alive, so it counts as recent activity
         this.lastEventTimestamp = Date.now();
+        this.emitDiagnostics();
         break;
 
       case "event":
         this.lastEventTimestamp = Date.now();
+        this.emitDiagnostics();
         if (msg.event === "packetObservation") {
           for (const handler of this.packetHandlers) {
             handler(msg.data);
@@ -251,6 +270,7 @@ export class WsManager {
       case "lagged":
         // a lag notice is still server traffic, so it counts as recent activity
         this.lastEventTimestamp = Date.now();
+        this.emitDiagnostics();
         for (const handler of this.laggedHandlers) {
           handler(msg);
         }
@@ -299,6 +319,7 @@ export class WsManager {
     const jitter = base * WS_RECONNECT_JITTER * (Math.random() * 2 - 1);
     const delay = Math.max(base + jitter, 100);
     this.reconnectAttempt++;
+    this.emitDiagnostics();
 
     this.reconnectTimer = setTimeout(() => {
       this.doConnect();
@@ -322,6 +343,15 @@ export class WsManager {
     this.status = status;
     for (const handler of this.statusHandlers) {
       handler(status);
+    }
+    this.emitDiagnostics();
+  }
+
+  private emitDiagnostics(): void {
+    this.diagnosticsSnapshot = null;
+    const diagnostics = this.getDiagnostics();
+    for (const handler of this.diagnosticsHandlers) {
+      handler(diagnostics);
     }
   }
 

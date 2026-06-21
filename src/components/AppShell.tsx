@@ -1,15 +1,15 @@
 import { type ReactNode, useState, useEffect } from "react";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { useQuery } from "@tanstack/react-query";
-import { useRegionSelection, useRegions } from "../hooks/useRegion";
+import { useRegion, useRegionSelection, useRegions } from "../hooks/useRegion";
 import { ALL_REGIONS, isAllRegions, type RegionSelection } from "../hooks/region-selection";
-import { useWsStatus } from "../hooks/useWsStatus";
+import { useWsDiagnostics } from "../hooks/useWsDiagnostics";
 import { useTheme } from "../hooks/useTheme";
 import { Dropdown } from "./Dropdown";
 import { BottomNav } from "./BottomNav";
 import { BeaconWordmark } from "./BeaconWordmark";
 import { TerminalLoadingState } from "./TerminalLoader";
-import { getIatas } from "../api/client";
+import { getBrokers, getHealth, getIatas, getLiveSummary } from "../api/client";
 import { TABS } from "../lib/constants";
 import { sanitizeDisplayLabel } from "../lib/display-label";
 import type { WsManager } from "../api/ws-manager";
@@ -47,42 +47,134 @@ function writeDisplayPref(key: string, value: string) {
   }
 }
 
-function LiveBadge({ wsManager }: { wsManager: WsManager }) {
-  const { status } = useWsStatus(wsManager);
-  const [staleStr, setStaleStr] = useState("");
+function formatDuration(ms: number): string {
+  const sec = Math.max(0, Math.floor(ms / 1000));
+  if (sec < 60) return `${sec}s`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m`;
+  return `${Math.floor(min / 60)}h`;
+}
 
+function useNow(intervalMs = 1000): number {
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (status !== "connecting") return;
-    function update() {
-      const staleSec = Math.floor((Date.now() - wsManager.getLastEventTimestamp()) / 1000);
-      setStaleStr(staleSec > 60 ? `${Math.floor(staleSec / 60)}m` : `${staleSec}s`);
-    }
-    update();
-    const id = setInterval(update, 1000);
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
     return () => clearInterval(id);
-  }, [status, wsManager]);
+  }, [intervalMs]);
+  return now;
+}
 
-  if (status === "connected") {
-    return (
-      <div className="crt-panel flex items-center gap-1.5 font-mono text-[11px] text-green bg-green/8 border border-green/25 px-2 py-0.5 rounded-sm">
-        <span className="w-1.5 h-1.5 rounded-full bg-green animate-pulse" />
-        LIVE
-      </div>
-    );
-  }
+function RuntimeMetric({ label, value, tone = "normal" }: { label: string; value: ReactNode; tone?: "normal" | "good" | "warn" | "danger" }) {
+  const toneClass = tone === "good" ? "text-green" : tone === "warn" ? "text-warn" : tone === "danger" ? "text-danger" : "text-text-normal";
+  return (
+    <div className="rounded border border-border-subtle bg-bg-base/60 px-2 py-1">
+      <div className="text-[9px] uppercase tracking-wider text-text-dim">{label}</div>
+      <div className={`mt-0.5 truncate text-[11px] font-semibold ${toneClass}`}>{value}</div>
+    </div>
+  );
+}
 
-  if (status === "connecting") {
-    return (
-      <div className="crt-panel flex items-center gap-1.5 font-mono text-[11px] text-warn bg-warn/7 border border-warn/25 px-2 py-0.5 rounded-sm">
-        STALE {staleStr}
-      </div>
-    );
-  }
+function LiveRuntimePanel({ wsManager }: { wsManager: WsManager }) {
+  const diagnostics = useWsDiagnostics(wsManager);
+  const { iatas, regionKey } = useRegion();
+  const now = useNow();
+  const lastEventAge = formatDuration(now - diagnostics.lastEventTimestamp);
+
+  const health = useQuery({
+    queryKey: ["runtime-health"],
+    queryFn: getHealth,
+    refetchInterval: 30_000,
+  });
+  const brokers = useQuery({
+    queryKey: ["runtime-brokers"],
+    queryFn: getBrokers,
+    refetchInterval: 30_000,
+  });
+  const live = useQuery({
+    queryKey: ["runtime-live-summary", regionKey],
+    queryFn: () => getLiveSummary(iatas),
+    refetchInterval: 15_000,
+  });
+
+  const brokerRows = brokers.data ?? health.data?.brokers ?? [];
+  const connectedBrokers = brokerRows.filter((b) => b.connected).length;
+  const brokerTone = brokerRows.length === 0 ? "warn" : connectedBrokers === brokerRows.length ? "good" : "danger";
+  const apiTone = health.data?.status === "ok" ? "good" : health.data?.status === "degraded" ? "warn" : health.isError ? "danger" : "normal";
+  const scopeLabel = iatas ? (iatas.length <= 3 ? iatas.join(", ") : `${iatas.length} IATA`) : "ALL";
 
   return (
-    <div className="crt-panel flex items-center gap-1.5 font-mono text-[11px] text-danger bg-danger/8 border border-danger/25 px-2 py-0.5 rounded-sm">
-      OFFLINE
+    <div className="w-72 space-y-2 px-3 py-2 font-mono">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-text-dim">Runtime</div>
+          <div className="text-sm font-semibold text-text-bright">{diagnostics.status.toUpperCase()}</div>
+        </div>
+        <div className="rounded border border-border-subtle bg-bg-base/60 px-2 py-1 text-right text-[10px] text-text-muted">
+          <div className="text-text-dim">SCOPE</div>
+          <div className="max-w-28 truncate text-text-normal">{scopeLabel}</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1.5">
+        <RuntimeMetric label="Last Event" value={lastEventAge} tone={diagnostics.status === "connected" ? "good" : "warn"} />
+        <RuntimeMetric label="Reconnects" value={diagnostics.reconnectAttempt} tone={diagnostics.reconnectAttempt > 0 ? "warn" : "normal"} />
+        <RuntimeMetric label="Parse Errors" value={diagnostics.parseFailureCount} tone={diagnostics.parseFailureCount > 0 ? "danger" : "normal"} />
+        <RuntimeMetric label="API" value={health.data?.status ?? (health.isError ? "DOWN" : "...")} tone={apiTone} />
+        <RuntimeMetric label="Brokers" value={`${connectedBrokers}/${brokerRows.length || "?"}`} tone={brokerTone} />
+        <RuntimeMetric label="Live Packets" value={live.data?.packetCount ?? "..."} tone={live.isError ? "danger" : "normal"} />
+      </div>
+
+      {diagnostics.activeSubscriptionId && (
+        <div className="truncate border-t border-border-subtle pt-2 text-[10px] text-text-dim">
+          SUB {diagnostics.activeSubscriptionId}
+        </div>
+      )}
+
+      {brokerRows.length > 0 && (
+        <div className="max-h-24 space-y-1 overflow-y-auto border-t border-border-subtle pt-2">
+          {brokerRows.map((broker) => (
+            <div key={broker.name} className="flex items-center justify-between gap-2 text-[10px]">
+              <span className="truncate text-text-muted">{broker.name}</span>
+              <span className={broker.connected ? "text-green" : "text-danger"}>{broker.connected ? "CONNECTED" : "DOWN"}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
+  );
+}
+
+function LiveBadge({ wsManager }: { wsManager: WsManager }) {
+  const diagnostics = useWsDiagnostics(wsManager);
+  const now = useNow();
+  const staleStr = formatDuration(now - diagnostics.lastEventTimestamp);
+  const status = diagnostics.status;
+  const toneClass =
+    status === "connected"
+      ? "text-green bg-green/8 border-green/25"
+      : status === "connecting"
+        ? "text-warn bg-warn/7 border-warn/25"
+        : "text-danger bg-danger/8 border-danger/25";
+  const label = status === "connected" ? "LIVE" : status === "connecting" ? `STALE ${staleStr}` : status === "error" ? "ERROR" : "OFFLINE";
+
+  return (
+    <Dropdown
+      width="w-72"
+      renderTrigger={({ toggle }) => (
+        <button
+          type="button"
+          aria-label={`Live runtime ${status}`}
+          className={`crt-panel flex items-center gap-1.5 rounded-sm border px-2 py-0.5 font-mono text-[11px] transition-colors hover:border-primary ${toneClass}`}
+          onClick={toggle}
+        >
+          {status === "connected" && <span className="h-1.5 w-1.5 rounded-full bg-green animate-pulse" />}
+          {label}
+          {diagnostics.parseFailureCount > 0 && <span className="text-danger">ERR {diagnostics.parseFailureCount}</span>}
+        </button>
+      )}
+    >
+      {() => <LiveRuntimePanel wsManager={wsManager} />}
+    </Dropdown>
   );
 }
 

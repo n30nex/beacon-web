@@ -227,6 +227,25 @@ describe("WsManager", () => {
     expect(mgr.getDiagnostics().lastParseFailureAt).toEqual(expect.any(Number));
   });
 
+  it("notifies diagnostics listeners on subscription and parse changes", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const listener = vi.fn();
+    const mgr = new WsManager("ws://test/ws");
+    mgr.onDiagnosticsChange(listener);
+    mgr.connect({ iatas: ["YOW"] });
+
+    const ws = MockWebSocket.instances[0]!;
+    ws.simulateOpen();
+    ws.simulateMessage({ v: 1, type: "hello", serverTime: 123, connectionId: "abc" });
+    const sub = JSON.parse(ws.sent[0]!);
+    ws.simulateMessage({ v: 1, type: "subscribed", id: sub.id, subscriptionId: "sub-live" });
+    ws.simulateRawMessage("{oops");
+
+    expect(warn).toHaveBeenCalledOnce();
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ activeSubscriptionId: "sub-live" }));
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ parseFailureCount: 1 }));
+  });
+
   it("dispatches channelMessage events to handlers", () => {
     const mgr = new WsManager("ws://test/ws");
     const handler = vi.fn();
