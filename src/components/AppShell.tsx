@@ -229,7 +229,7 @@ function RegionSelector() {
 }
 
 function ThemePicker() {
-  const { themeId, themes, setThemeId } = useTheme();
+  const { themeId, themes, setThemeId, designMode } = useTheme();
   const current = themes.find((t) => t.id === themeId);
 
   return (
@@ -237,6 +237,7 @@ function ThemePicker() {
       renderTrigger={({ toggle }) => (
         <button
           type="button"
+          aria-label="Retro color theme"
           className="crt-panel flex items-center gap-1.5 bg-bg-raised border border-border rounded px-2 py-1 text-text-muted font-mono text-[11px] hover:text-text-normal hover:border-primary transition-colors"
           onClick={toggle}
         >
@@ -255,7 +256,7 @@ function ThemePicker() {
               key={t.id}
               type="button"
               className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs font-mono transition-colors ${
-                t.id === themeId
+                designMode === "retro" && t.id === themeId
                   ? "text-text-bright bg-primary/10"
                   : "text-text-muted hover:text-text-normal hover:bg-primary/8"
               }`}
@@ -277,7 +278,89 @@ function ThemePicker() {
   );
 }
 
+function DesignPicker() {
+  const { designMode, modernStyleId, modernStyles, setDesignMode, setModernStyleId } = useTheme();
+  const current = modernStyles.find((style) => style.id === modernStyleId);
+  const label = designMode === "modern" ? current?.name ?? "Modern Glass" : "Retro CRT";
+
+  return (
+    <Dropdown
+      width="w-72"
+      renderTrigger={({ toggle }) => (
+        <button
+          type="button"
+          aria-label={`Design mode ${label}`}
+          className={`crt-panel flex items-center gap-1.5 rounded border px-2 py-1 font-mono text-[11px] transition-colors ${
+            designMode === "modern"
+              ? "border-primary/60 bg-primary/12 text-text-bright hover:border-primary"
+              : "border-border bg-bg-raised text-text-muted hover:border-primary hover:text-text-normal"
+          }`}
+          onClick={toggle}
+        >
+          <span className="flex h-3.5 w-5 shrink-0 overflow-hidden rounded-sm border border-white/20">
+            {(current?.swatches ?? ["var(--color-primary)", "var(--color-secondary)", "var(--color-bg-base)"]).slice(0, 3).map((swatch) => (
+              <span key={swatch} className="flex-1" style={{ background: swatch }} />
+            ))}
+          </span>
+          <span className="hidden max-w-24 truncate sm:inline">{designMode === "modern" ? "GLASS" : "RETRO"}</span>
+          <span className="text-text-dim text-[11px]">v</span>
+        </button>
+      )}
+    >
+      {(close) => (
+        <>
+          <button
+            type="button"
+            className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-mono transition-colors ${
+              designMode === "retro" ? "bg-primary/10 text-text-bright" : "text-text-muted hover:bg-primary/8 hover:text-text-normal"
+            }`}
+            onClick={() => {
+              setDesignMode("retro");
+              close();
+            }}
+          >
+            <span className="h-3 w-3 shrink-0 rounded-sm border border-primary/40 bg-primary/20 shadow-[0_0_8px_currentColor]" />
+            <span className="min-w-0">
+              <span className="block font-semibold">Retro CRT</span>
+              <span className="block truncate text-[10px] text-text-dim">Use the current retro color palette.</span>
+            </span>
+          </button>
+
+          <div className="border-t border-border-subtle px-3 pb-1 pt-2 text-[10px] font-mono uppercase tracking-wide text-text-dim">Modern Glass</div>
+          {modernStyles.map((style) => {
+            const active = designMode === "modern" && style.id === modernStyleId;
+            return (
+              <button
+                key={style.id}
+                type="button"
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-mono transition-colors ${
+                  active ? "bg-primary/12 text-text-bright" : "text-text-muted hover:bg-primary/8 hover:text-text-normal"
+                }`}
+                onClick={() => {
+                  setModernStyleId(style.id);
+                  close();
+                }}
+              >
+                <span className="flex h-4 w-8 shrink-0 overflow-hidden rounded-sm border border-white/20">
+                  {style.swatches.slice(0, 4).map((swatch) => (
+                    <span key={swatch} className="flex-1" style={{ background: swatch }} />
+                  ))}
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-semibold">{style.name}</span>
+                  <span className="block truncate text-[10px] text-text-dim">{style.description}</span>
+                </span>
+              </button>
+            );
+          })}
+        </>
+      )}
+    </Dropdown>
+  );
+}
+
 function DisplayPreferences() {
+  const { designMode } = useTheme();
   const [fontMode, setFontMode] = useState<FontMode>(readFontMode);
   const [scanlines, setScanlines] = useState<ScanlineMode>(readScanlines);
 
@@ -290,6 +373,16 @@ function DisplayPreferences() {
 
   const fontReadable = fontMode === "modern";
   const scanlinesReadable = scanlines === "off";
+
+  if (designMode === "modern") {
+    return (
+      <div className="display-preferences flex min-w-0 items-center gap-1.5">
+        <span className="modern-mode-pill shrink-0 rounded-sm border border-primary/35 bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider leading-none text-primary">
+          Modern UI
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="display-preferences flex min-w-0 items-center gap-1.5">
@@ -318,11 +411,13 @@ function DisplayPreferences() {
 }
 
 function ThemeAmbientLayer({ activeTab }: { activeTab: string }) {
-  const { themeId } = useTheme();
+  const { themeId, designMode, modernStyleId } = useTheme();
   return (
     <div
       className="theme-ambient-layer"
       data-ambient-theme={themeId}
+      data-ambient-design={designMode}
+      data-ambient-modern-style={modernStyleId}
       data-ambient-tab={activeTab.toLowerCase()}
       aria-hidden="true"
     >
@@ -367,6 +462,7 @@ export function AppShell({ activeTab, onTabChange, wsManager, onOpenSearch, chil
           )}
           <RegionSelector />
           <ThemePicker />
+          <DesignPicker />
           <LiveBadge wsManager={wsManager} />
         </div>
       </header>

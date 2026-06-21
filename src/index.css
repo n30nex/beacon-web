@@ -26,7 +26,7 @@
 
 /* theme tokens from palette CSS vars */
 @theme {
-  --font-mono: var(--beacon-ui-font, "Beacon IBM VGA", "Beacon IBM MDA", "Share Tech Mono", "JetBrains Mono", monospace);
+  --font-mono: var(--beacon-mono-font, "Beacon IBM VGA", "Beacon IBM MDA", "Share Tech Mono", "JetBrains Mono", monospace);
   --font-sans: var(--beacon-ui-font, "Beacon IBM VGA", "Beacon IBM MDA", "Share Tech Mono", "JetBrains Mono", monospace);
 
   --color-bg-base: var(--palette-bg-base, #090500);
@@ -52,12 +52,14 @@
 @layer base {
   :root {
     --beacon-retro-font: "Beacon IBM VGA", "Beacon IBM MDA", "Share Tech Mono", "JetBrains Mono", monospace;
-    --beacon-modern-font: "Share Tech Mono", "JetBrains Mono", monospace;
+    --beacon-modern-font: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     --beacon-ui-font: var(--beacon-retro-font);
+    --beacon-mono-font: var(--beacon-retro-font);
   }
 
   html[data-font-mode="modern"] {
     --beacon-ui-font: var(--beacon-modern-font);
+    --beacon-mono-font: "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
   }
 
   html[data-font-mode="retro"][data-theme="crt-3278"] {
@@ -67,6 +69,12 @@
   html[data-font-mode="retro"][data-theme="crt-green"],
   html[data-font-mode="retro"][data-theme="crt-apple"] {
     --beacon-ui-font: "Beacon IBM MDA", var(--beacon-retro-font);
+  }
+
+  html[data-design-mode="modern"] {
+    --beacon-ui-font: var(--beacon-modern-font);
+    --beacon-mono-font: var(--beacon-modern-font);
+    color-scheme: dark;
   }
 
   html, body, #root {
@@ -1369,6 +1377,324 @@ textarea {
 
 .fade-in {
   animation: fade-in 150ms ease-out;
+}
+
+@keyframes modern-shell-enter {
+  0% {
+    opacity: 0.6;
+    filter: blur(10px) saturate(1.25);
+    transform: scale(0.992);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0) saturate(1);
+    transform: scale(1);
+  }
+}
+
+@keyframes modern-sheen-drift {
+  0% { transform: translateX(-24%) skewX(-10deg); opacity: 0.18; }
+  48% { opacity: 0.62; }
+  100% { transform: translateX(124%) skewX(-10deg); opacity: 0.18; }
+}
+
+@keyframes modern-pane-float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-12deg); opacity: 0.2; }
+  50% { transform: translate3d(18px, -14px, 0) rotate(-8deg); opacity: 0.42; }
+}
+
+@keyframes modern-noise {
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(1px, -1px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+html[data-design-mode="modern"] {
+  background:
+    linear-gradient(118deg, transparent 0 18%, var(--modern-bg-a, rgba(122, 183, 255, 0.28)) 28%, transparent 48%),
+    linear-gradient(244deg, transparent 0 24%, var(--modern-bg-b, rgba(167, 139, 250, 0.22)) 38%, transparent 62%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-bg-surface) 72%, black) 0%, var(--color-bg-base) 100%);
+}
+
+html[data-design-mode="modern"] body {
+  letter-spacing: 0;
+  text-shadow: none;
+  background:
+    linear-gradient(115deg, transparent 0 10%, var(--modern-bg-a, rgba(122, 183, 255, 0.24)) 24%, transparent 42%),
+    linear-gradient(250deg, transparent 0 20%, var(--modern-bg-b, rgba(167, 139, 250, 0.22)) 36%, transparent 58%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-bg-base) 82%, #111827) 0%, var(--color-bg-base) 100%);
+}
+
+html[data-design-mode="modern"] body::before {
+  content: none;
+}
+
+html[data-design-mode="modern"] body::after {
+  content: "";
+  opacity: var(--modern-noise-opacity, 0.03);
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.16) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.10) 0 1px, transparent 1px 4px);
+  animation: modern-noise 420ms steps(2, end) infinite;
+  mix-blend-mode: overlay;
+}
+
+html[data-design-mode="modern"] #root {
+  background:
+    linear-gradient(128deg, transparent 0 22%, var(--modern-bg-a, rgba(122, 183, 255, 0.22)) 34%, transparent 52%),
+    linear-gradient(236deg, transparent 0 18%, var(--modern-bg-b, rgba(167, 139, 250, 0.18)) 34%, transparent 56%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-bg-base) 78%, #101827) 0%, var(--color-bg-base) 100%);
+}
+
+html[data-design-mode="modern"] ::selection {
+  color: var(--color-bg-base);
+  background: color-mix(in srgb, var(--color-primary) 82%, white);
+}
+
+html[data-design-mode="modern"] :focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 82%, white);
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, var(--color-primary) 18%, transparent),
+    0 0 32px color-mix(in srgb, var(--color-primary) 34%, transparent);
+}
+
+html[data-design-mode="modern"] .font-mono,
+html[data-design-mode="modern"] .font-sans {
+  font-family: var(--beacon-ui-font);
+}
+
+html[data-design-mode="modern"] .crt-shell {
+  background:
+    linear-gradient(125deg, transparent 0 17%, var(--modern-bg-a, rgba(122, 183, 255, 0.22)) 32%, transparent 52%),
+    linear-gradient(245deg, transparent 0 18%, var(--modern-bg-b, rgba(167, 139, 250, 0.2)) 36%, transparent 58%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-bg-surface) 62%, black) 0%, var(--color-bg-base) 100%);
+  border: 0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    var(--modern-shadow-strong, 0 28px 90px rgba(0, 0, 0, 0.58));
+  animation: modern-shell-enter 420ms ease-out both;
+}
+
+html[data-design-mode="modern"] .theme-ambient-layer {
+  opacity: var(--modern-ambient-opacity, 0.92);
+  color: var(--color-primary);
+}
+
+html[data-design-mode="modern"] .theme-ambient-layer::before {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 13%, transparent) 0 1px, transparent 1px 72px),
+    linear-gradient(0deg, color-mix(in srgb, white 6%, transparent) 0 1px, transparent 1px 54px);
+  mask-image: linear-gradient(180deg, transparent 0%, black 18%, black 82%, transparent 100%);
+  opacity: 0.24;
+}
+
+html[data-design-mode="modern"] .theme-ambient-sweep {
+  top: -8%;
+  bottom: -8%;
+  width: 34%;
+  background:
+    linear-gradient(90deg, transparent, var(--modern-bg-a, rgba(122, 183, 255, 0.32)), var(--modern-bg-b, rgba(167, 139, 250, 0.25)), transparent);
+  filter: blur(18px);
+  mix-blend-mode: screen;
+  animation: modern-sheen-drift 10s ease-in-out infinite;
+}
+
+html[data-design-mode="modern"] .theme-ambient-blip {
+  width: min(38vw, 420px);
+  height: min(28vh, 280px);
+  clip-path: none;
+  border-radius: var(--modern-radius-lg, 22px);
+  border-color: var(--modern-glass-border, rgba(255,255,255,0.16));
+  background:
+    linear-gradient(135deg, var(--modern-glass-highlight, rgba(255,255,255,0.14)), transparent 56%),
+    var(--modern-glass-bg, rgba(13, 19, 32, 0.48));
+  box-shadow: var(--modern-shadow-soft, 0 18px 55px rgba(0, 0, 0, 0.38));
+  backdrop-filter: blur(var(--modern-glass-blur, 24px)) saturate(var(--modern-glass-saturate, 1.5));
+  animation: modern-pane-float 12s ease-in-out infinite;
+}
+
+html[data-design-mode="modern"] .theme-ambient-blip-a {
+  left: -8%;
+  top: 10%;
+}
+
+html[data-design-mode="modern"] .theme-ambient-blip-b {
+  right: -10%;
+  bottom: 8%;
+  animation-delay: 5.2s;
+}
+
+html[data-design-mode="modern"] .theme-ambient-ticker {
+  bottom: 1rem;
+  font-size: 0.58rem;
+  letter-spacing: 0;
+  opacity: 0.12;
+  text-shadow: none;
+}
+
+html[data-design-mode="modern"] .crt-panel,
+html[data-design-mode="modern"] .crt-float-panel {
+  background:
+    linear-gradient(180deg, var(--modern-glass-highlight, rgba(255,255,255,0.13)), transparent 42%),
+    var(--modern-glass-bg, rgba(13, 19, 32, 0.54));
+  border-color: var(--modern-glass-border, rgba(255,255,255,0.16));
+  border-radius: var(--modern-radius-md, 15px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    var(--modern-shadow-soft, 0 18px 55px rgba(0, 0, 0, 0.38));
+  backdrop-filter: blur(var(--modern-glass-blur, 24px)) saturate(var(--modern-glass-saturate, 1.5));
+  -webkit-backdrop-filter: blur(var(--modern-glass-blur, 24px)) saturate(var(--modern-glass-saturate, 1.5));
+  animation: none;
+}
+
+html[data-design-mode="modern"] .crt-float-panel {
+  background:
+    linear-gradient(180deg, var(--modern-glass-highlight, rgba(255,255,255,0.16)), transparent 42%),
+    var(--modern-glass-bg-strong, rgba(17, 25, 41, 0.72));
+  border-color: var(--modern-glass-border-strong, rgba(255,255,255,0.28));
+  box-shadow: var(--modern-shadow-strong, 0 28px 90px rgba(0, 0, 0, 0.58));
+}
+
+html[data-design-mode="modern"] .app-shell-topbar {
+  height: 54px;
+  margin: 10px 10px 0;
+  border: 1px solid var(--modern-glass-border-strong, rgba(255,255,255,0.24));
+}
+
+html[data-design-mode="modern"] .app-shell-tabs {
+  margin: 8px 10px 0;
+  border: 1px solid var(--modern-glass-border, rgba(255,255,255,0.16));
+  padding-inline: 8px;
+}
+
+html[data-design-mode="modern"] .app-shell-tabs button {
+  border-radius: var(--modern-radius-sm, 10px);
+  border-bottom-width: 0;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+html[data-design-mode="modern"] .app-shell-tabs button[aria-selected="true"] {
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  color: var(--color-text-bright);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 36%, transparent);
+}
+
+html[data-design-mode="modern"] main {
+  padding: 10px;
+}
+
+html[data-design-mode="modern"] footer.crt-panel,
+html[data-design-mode="modern"] nav[aria-label="Primary"].crt-panel {
+  margin: 0 10px 10px;
+  border: 1px solid var(--modern-glass-border, rgba(255,255,255,0.16));
+}
+
+html[data-design-mode="modern"] .rounded-sm,
+html[data-design-mode="modern"] .rounded {
+  border-radius: var(--modern-radius-sm, 10px);
+}
+
+html[data-design-mode="modern"] .rounded-md {
+  border-radius: var(--modern-radius-md, 15px);
+}
+
+html[data-design-mode="modern"] .rounded-lg,
+html[data-design-mode="modern"] .rounded-xl,
+html[data-design-mode="modern"] .rounded-t-xl {
+  border-radius: var(--modern-radius-lg, 22px);
+}
+
+html[data-design-mode="modern"] .rounded-full {
+  border-radius: 9999px;
+}
+
+html[data-design-mode="modern"] button,
+html[data-design-mode="modern"] input,
+html[data-design-mode="modern"] textarea,
+html[data-design-mode="modern"] select {
+  letter-spacing: 0;
+  text-shadow: none;
+}
+
+html[data-design-mode="modern"] input,
+html[data-design-mode="modern"] textarea,
+html[data-design-mode="modern"] select {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.06), transparent),
+    color-mix(in srgb, var(--color-bg-raised) 72%, transparent);
+  border-color: var(--modern-glass-border, rgba(255,255,255,0.16));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+html[data-design-mode="modern"] .backdrop-sepia {
+  background: rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(18px) saturate(1.22);
+  -webkit-backdrop-filter: blur(18px) saturate(1.22);
+}
+
+html[data-design-mode="modern"] table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+html[data-design-mode="modern"] thead.crt-panel {
+  background: var(--modern-glass-bg-strong, rgba(17, 25, 41, 0.72));
+}
+
+html[data-design-mode="modern"] tbody tr {
+  background: color-mix(in srgb, var(--color-bg-surface) 36%, transparent);
+}
+
+html[data-design-mode="modern"] tbody tr:hover {
+  background: color-mix(in srgb, var(--color-primary) 11%, transparent);
+}
+
+html[data-design-mode="modern"] .crt-glow-dot,
+html[data-design-mode="modern"] .beacon-core-pulse,
+html[data-design-mode="modern"] .beacon-ring {
+  filter: drop-shadow(0 0 8px color-mix(in srgb, currentColor 40%, transparent));
+}
+
+html[data-design-mode="modern"] .crt-bar-track {
+  background: color-mix(in srgb, white 8%, transparent);
+  box-shadow: inset 0 0 0 1px var(--modern-glass-border, rgba(255,255,255,0.16));
+}
+
+html[data-design-mode="modern"] .crt-bar-fill {
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--color-primary) 38%, transparent);
+}
+
+html[data-design-mode="modern"] .terminal-spinner > span,
+html[data-design-mode="modern"] .terminal-cursor,
+html[data-design-mode="modern"] .crt-terminal-cursor::after {
+  box-shadow: 0 0 18px color-mix(in srgb, var(--color-primary) 42%, transparent);
+}
+
+html[data-design-mode="modern"] .map-profile-scope {
+  --map-panel-bg: var(--modern-glass-bg, rgba(13, 19, 32, 0.54));
+  --map-panel-bg-raised: var(--modern-glass-bg-strong, rgba(17, 25, 41, 0.72));
+  --map-panel-border: var(--modern-glass-border-strong, rgba(255,255,255,0.28));
+  --map-panel-border-subtle: var(--modern-glass-border, rgba(255,255,255,0.16));
+  --map-panel-shadow: var(--modern-shadow-soft, 0 18px 55px rgba(0, 0, 0, 0.38));
+  --map-control-bg: var(--modern-glass-bg-strong, rgba(17, 25, 41, 0.72));
+  --map-control-hover: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  --map-canvas-filter: saturate(1.02) contrast(1.03) brightness(0.9);
+}
+
+html[data-design-mode="modern"] .map-profile-scope .crt-panel,
+html[data-design-mode="modern"] .map-profile-scope .crt-float-panel {
+  background:
+    linear-gradient(180deg, var(--modern-glass-highlight, rgba(255,255,255,0.13)), transparent 42%),
+    var(--modern-glass-bg, rgba(13, 19, 32, 0.54));
+  border-color: var(--modern-glass-border, rgba(255,255,255,0.16));
+  box-shadow: var(--modern-shadow-soft, 0 18px 55px rgba(0, 0, 0, 0.38));
+  backdrop-filter: blur(var(--modern-glass-blur, 24px)) saturate(var(--modern-glass-saturate, 1.5));
+  -webkit-backdrop-filter: blur(var(--modern-glass-blur, 24px)) saturate(var(--modern-glass-saturate, 1.5));
 }
 
 .live-map-matrix .maplibregl-canvas {

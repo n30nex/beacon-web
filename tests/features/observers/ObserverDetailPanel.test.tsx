@@ -3,16 +3,22 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { ObserverDetailPanel } from "../../../src/features/observers/ObserverDetailPanel";
-import { getObserver, getObserverAdverts } from "../../../src/api/client";
+import { RegionProvider } from "../../../src/hooks/useRegion";
+import { ALL_REGIONS } from "../../../src/hooks/region-selection";
+import { getObserver, getObserverAdverts, getObserverTopology, getRegions } from "../../../src/api/client";
 import type { Observer, AdvertObservation } from "../../../src/features/observers/types";
 
 vi.mock("../../../src/api/client", () => ({
   getObserver: vi.fn(),
   getObserverAdverts: vi.fn(),
+  getObserverTopology: vi.fn(),
+  getRegions: vi.fn(),
 }));
 
 const mockGetObserver = vi.mocked(getObserver);
 const mockGetObserverAdverts = vi.mocked(getObserverAdverts);
+const mockGetObserverTopology = vi.mocked(getObserverTopology);
+const mockGetRegions = vi.mocked(getRegions);
 
 const observer: Observer = {
   id: "obs-1",
@@ -44,17 +50,36 @@ function advert(id: number, nodeName: string): AdvertObservation {
 function renderPanel(onAnalyzePacket = vi.fn()) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    <QueryClientProvider client={client}>
+      <RegionProvider defaultSelection={ALL_REGIONS}>{children}</RegionProvider>
+    </QueryClientProvider>
   );
-  render(<ObserverDetailPanel observerId="obs-1" onClose={vi.fn()} onAnalyzePacket={onAnalyzePacket} />, { wrapper });
+  render(<ObserverDetailPanel observerId="obs-1" range="24h" onClose={vi.fn()} onAnalyzePacket={onAnalyzePacket} />, { wrapper });
   return { onAnalyzePacket };
 }
 
 beforeEach(() => {
   mockGetObserver.mockReset();
   mockGetObserverAdverts.mockReset();
+  mockGetObserverTopology.mockReset();
+  mockGetRegions.mockReset();
   mockGetObserver.mockResolvedValue(observer);
   mockGetObserverAdverts.mockResolvedValue({ items: [], nextCursor: null, hasMore: false });
+  mockGetObserverTopology.mockResolvedValue({
+    serverTime: 0,
+    window: { since: 0, until: 0, bucket: "1h" },
+    observerId: "obs-1",
+    packetCount: 0,
+    observationCount: 0,
+    activeIatas: 0,
+    payloadMix: [],
+    routeMix: [],
+    topNodes: [],
+    topTraceTags: [],
+    topScopes: [],
+    recentAdverts: [],
+  });
+  mockGetRegions.mockResolvedValue([]);
 });
 
 describe("ObserverDetailPanel status", () => {

@@ -10,6 +10,15 @@ import {
 
 export type WsStatus = "connected" | "connecting" | "disconnected" | "error";
 
+export interface WsDiagnostics {
+  status: WsStatus;
+  lastEventTimestamp: number;
+  reconnectAttempt: number;
+  parseFailureCount: number;
+  lastParseFailureAt: number | null;
+  activeSubscriptionId: string | null;
+}
+
 type PacketHandler = (data: WsPacketObservation["data"]) => void;
 type LaggedHandler = (data: WsLagged) => void;
 type ChannelMessageHandler = (data: WsChannelMessage["data"]) => void;
@@ -31,6 +40,8 @@ export class WsManager {
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   private msgCounter = 0;
   private lastEventTimestamp: number = Date.now();
+  private parseFailureCount = 0;
+  private lastParseFailureAt: number | null = null;
 
   private packetHandlers: PacketHandler[] = [];
   private laggedHandlers: LaggedHandler[] = [];
@@ -49,6 +60,17 @@ export class WsManager {
 
   getLastEventTimestamp(): number {
     return this.lastEventTimestamp;
+  }
+
+  getDiagnostics(): WsDiagnostics {
+    return {
+      status: this.status,
+      lastEventTimestamp: this.lastEventTimestamp,
+      reconnectAttempt: this.reconnectAttempt,
+      parseFailureCount: this.parseFailureCount,
+      lastParseFailureAt: this.lastParseFailureAt,
+      activeSubscriptionId: this.subscriptionId,
+    };
   }
 
   onPacketObservation(handler: PacketHandler): () => void {
@@ -144,8 +166,15 @@ export class WsManager {
       let msg: WsServerMessage;
       try {
         msg = JSON.parse(e.data as string) as WsServerMessage;
-      } catch {
-        // FIXME: should probably log parse failures somewhere
+      } catch (err) {
+        this.parseFailureCount++;
+        this.lastParseFailureAt = Date.now();
+        const sample = typeof e.data === "string" ? e.data.slice(0, 240) : "[non-string payload]";
+        console.warn("Beacon WebSocket: failed to parse server message", {
+          error: err,
+          sample,
+          parseFailureCount: this.parseFailureCount,
+        });
         return;
       }
       this.handleMessage(msg);

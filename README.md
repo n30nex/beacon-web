@@ -68,6 +68,18 @@ npm run dev             # starts Vite dev server at http://localhost:5173
 | `npx vitest run` | Run tests |
 | `npx tsc --noEmit` | Type-check without emitting |
 
+### Cross-stack smoke check
+
+After the local Beacon stack is running, use the companion backend smoke script
+to verify the UI, API, WebSocket, Postgres, Redis, and key operator endpoints:
+
+```powershell
+cd F:\Beacon\beacon-server
+.\scripts\Test-BeaconLocal.ps1
+```
+
+See `docs/project-status.md` for the web-focused validation checklist.
+
 ## Project Structure
 
 ```

@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { TraceList } from "../../../src/features/traces/TraceList";
 import { RegionProvider } from "../../../src/hooks/useRegion";
 import { ALL_REGIONS } from "../../../src/hooks/region-selection";
-import { getTraces, getTraceDetail, getRegions } from "../../../src/api/client";
+import { getTraces, getTraceDetail, getRegions, getScopes } from "../../../src/api/client";
 import { timeAgoMs } from "../../../src/lib/formatters";
 import type { TraceTagSummary, TraceDetail } from "../../../src/types/api";
 
@@ -14,11 +14,13 @@ vi.mock("../../../src/api/client", () => ({
   getTraces: vi.fn(),
   getTraceDetail: vi.fn(),
   getRegions: vi.fn(),
+  getScopes: vi.fn(),
 }));
 
 const mockGetTraces = vi.mocked(getTraces);
 const mockGetTraceDetail = vi.mocked(getTraceDetail);
 const mockGetRegions = vi.mocked(getRegions);
+const mockGetScopes = vi.mocked(getScopes);
 
 function tag(traceTag: string, packetCount = 1): TraceTagSummary {
   return { traceTag, firstHeardAt: 1, lastHeardAt: 2, packetCount, iataCount: 1 };
@@ -49,7 +51,9 @@ beforeEach(() => {
   mockGetTraces.mockReset();
   mockGetTraceDetail.mockReset();
   mockGetRegions.mockReset();
+  mockGetScopes.mockReset();
   mockGetRegions.mockResolvedValue([]);
+  mockGetScopes.mockResolvedValue([]);
 });
 
 describe("TraceList", () => {
@@ -60,8 +64,7 @@ describe("TraceList", () => {
 
     expect(await screen.findByText("3F2A11C0")).toBeInTheDocument();
     expect(screen.getByText("9B40DE22")).toBeInTheDocument();
-    // no detail panel yet -> no "Packets" section heading
-    expect(screen.queryByText("Packets")).not.toBeInTheDocument();
+    expect(mockGetTraceDetail).not.toHaveBeenCalled();
   });
 
   it("opens the detail panel with a Packets section listing the trace's packets when a card is clicked", async () => {
@@ -74,7 +77,7 @@ describe("TraceList", () => {
 
     expect(await screen.findByText("Packets")).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("ROUTE_REQUEST")).toHaveLength(2));
-    expect(mockGetTraceDetail).toHaveBeenCalledWith("3f2a11c0");
+    expect(mockGetTraceDetail).toHaveBeenCalledWith("3f2a11c0", undefined, expect.objectContaining({ range: "24h" }));
   });
 
   it("shows each packet's first/last heard with millisecond precision", async () => {

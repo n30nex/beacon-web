@@ -36,6 +36,10 @@ class MockWebSocket {
     this.onmessage?.({ data: JSON.stringify(data) });
   }
 
+  simulateRawMessage(data: string) {
+    this.onmessage?.({ data });
+  }
+
   simulateClose(code = 1006) {
     this.readyState = 3;
     this.onclose?.({ code });
@@ -204,6 +208,23 @@ describe("WsManager", () => {
     vi.advanceTimersByTime(5000);
     ws.simulateMessage({ v: 1, type: "pong", id: "p-1" });
     expect(mgr.getLastEventTimestamp()).toBeGreaterThan(afterLagged);
+  });
+
+  it("tracks parse failures without dispatching malformed messages", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const handler = vi.fn();
+    const mgr = new WsManager("ws://test/ws");
+    mgr.onPacketObservation(handler);
+    mgr.connect({ iatas: ["YOW"] });
+
+    const ws = MockWebSocket.instances[0]!;
+    ws.simulateOpen();
+    ws.simulateRawMessage("{not-json");
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledOnce();
+    expect(mgr.getDiagnostics().parseFailureCount).toBe(1);
+    expect(mgr.getDiagnostics().lastParseFailureAt).toEqual(expect.any(Number));
   });
 
   it("dispatches channelMessage events to handlers", () => {
