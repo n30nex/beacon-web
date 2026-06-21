@@ -1,3 +1,4 @@
+import { useCallback, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getNode, getNodeAdverts, getNodeAnalytics, getNodeObservations, getNodeNeighbors, getNodeReach } from "../../api/client";
 import { Badge } from "../../components/Badge";
@@ -9,6 +10,10 @@ import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { Timestamp } from "../../components/Timestamp";
 import { useRegion } from "../../hooks/useRegion";
 import type { NodeActivityPoint, NodeAdvertObservation, NodeAnalyticsCount, NodeAnalyticsPeer, NodeObservation, NodeNeighbor, NodeReachNode } from "./types";
+import type { Node, NodeAnalytics, NodeReach } from "./types";
+import type { CursorPage } from "../../types/api";
+import { buildNodeJsonExport, nodeJsonFilename } from "./node-export";
+import { VARIANT_CLASSES } from "../../components/badge-utils";
 
 function NodeNeighborRow({ neighbor, onClick }: { neighbor: NodeNeighbor; onClick?: () => void }) {
   const label = sanitizeDisplayLabel(neighbor.name, formatHex(neighbor.id));
@@ -355,6 +360,78 @@ function ReachNodeRow({ node, onClick }: { node: NodeReachNode; onClick?: () => 
   );
 }
 
+function NodeJsonActions({
+  node,
+  regionKey,
+  iatas,
+  analytics,
+  reach,
+  neighbors,
+  observations,
+  adverts,
+}: {
+  node: Node;
+  regionKey: string;
+  iatas?: string[];
+  analytics?: NodeAnalytics;
+  reach?: NodeReach;
+  neighbors?: NodeNeighbor[];
+  observations?: CursorPage<NodeObservation>;
+  adverts?: CursorPage<NodeAdvertObservation>;
+}) {
+  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
+
+  const nodeJson = useCallback(
+    () => JSON.stringify(buildNodeJsonExport({ node, regionKey, iatas, analytics, reach, neighbors, observations, adverts }), null, 2),
+    [adverts, analytics, iatas, neighbors, node, observations, reach, regionKey],
+  );
+
+  const flash = useCallback((next: "copied" | "failed") => {
+    setStatus(next);
+    window.setTimeout(() => setStatus("idle"), 1500);
+  }, []);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(nodeJson());
+      flash("copied");
+    } catch {
+      flash("failed");
+    }
+  }, [flash, nodeJson]);
+
+  const handleDownload = useCallback(() => {
+    const blob = new Blob([nodeJson()], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = nodeJsonFilename(node.id);
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }, [node.id, nodeJson]);
+
+  return (
+    <>
+      <button
+        type="button"
+        className={`inline-flex items-center font-mono text-[11px] font-semibold px-2 py-0.5 rounded-sm border tracking-wider uppercase cursor-pointer transition-colors ${status === "copied" ? VARIANT_CLASSES.live : status === "failed" ? VARIANT_CLASSES.stale : VARIANT_CLASSES.text}`}
+        onClick={handleCopy}
+        aria-label="Copy node JSON"
+      >
+        {status === "copied" ? "Copied JSON" : status === "failed" ? "Copy Failed" : "Copy JSON"}
+      </button>
+      <button
+        type="button"
+        className={`inline-flex items-center font-mono text-[11px] font-semibold px-2 py-0.5 rounded-sm border tracking-wider uppercase cursor-pointer transition-colors ${VARIANT_CLASSES.text}`}
+        onClick={handleDownload}
+        aria-label="Download node JSON"
+      >
+        Save JSON
+      </button>
+    </>
+  );
+}
+
 interface NodeDetailPanelProps {
   nodeId: string;
   onClose: () => void;
@@ -414,6 +491,20 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, o
       isLoading={isLoading}
       notFound={!node}
       notFoundLabel="Node not found"
+      actions={
+        node ? (
+          <NodeJsonActions
+            node={node}
+            regionKey={regionKey}
+            iatas={iatas}
+            analytics={analytics}
+            reach={reach}
+            neighbors={neighbors}
+            observations={observations}
+            adverts={adverts}
+          />
+        ) : undefined
+      }
       notFoundIcon={
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-border">
           <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.2" />

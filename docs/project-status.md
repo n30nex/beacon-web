@@ -29,6 +29,8 @@ The tracked cross-stack smoke script lives in `beacon-server\scripts\Test-Beacon
 
 The web test suite also includes `tests/contracts/openapi-contract.test.ts`, which reads `..\beacon-server\docs\swagger.json` and verifies the REST endpoints and response fields that the operator UI depends on. Regenerate backend Swagger before changing API shapes.
 
+`npm run lint` uses `scripts/lint.mjs` to run ESLint in stable chunks on Windows while preserving full source, test, and config coverage.
+
 ## UI Improvement Tracks
 
 - Complete the modern glass design mode as a first-class skin while preserving the retro CRT themes.
@@ -36,3 +38,4 @@ The web test suite also includes `tests/contracts/openapi-contract.test.ts`, whi
 - Browser-QA every major surface at desktop and phone widths: Atlas, Live, Map, Packets, Stats, Nodes, Observers, Routes, Traces, and Channels.
 - Keep keyboard and drilldown flows consistent: global search, escape-to-close overlays, selected row state, packet/node/observer/route links, and copyable identifiers.
 - Packet analyzer handoff now supports copy/download of `beacon.packet.v1` JSON with timing, selected observation, raw frame, decoded payload, and route context.
+- Node detail handoff now supports copy/download of `beacon.node.v1` JSON with node metadata, active region scope, analytics, reach, neighbors, recent observations, and advert timeline.

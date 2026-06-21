@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "lint": "node scripts/lint.mjs",
     "test": "vitest run",
     "preview": "vite preview",
     "start": "./scripts/devserver.sh start",

@@ -280,10 +280,10 @@ export function MapView({ wsManager, selectedNodeId, onSelectNode }: MapViewProp
   const [appearanceSettings, setAppearanceSettings] = useState(readMapAppearanceSettings);
   const visualProfile = useMemo(
     () => resolveMapVisualProfile(styleId, appearanceSettings),
-    [appearanceSettings, paletteRev, styleId],
+    [appearanceSettings, styleId],
   );
   const visualProfileStyle = useMemo(() => mapVisualProfileStyle(visualProfile) as CSSProperties, [visualProfile]);
-  const profileKey = `${themeKey}:${visualProfile.key}`;
+  const profileKey = `${themeKey}:${paletteRev}:${visualProfile.key}`;
   const handleAppearanceChange = useCallback((patch: Partial<MapAppearanceSettings>) => {
     setAppearanceSettings((current) => {
       const next = { ...current, ...patch };
