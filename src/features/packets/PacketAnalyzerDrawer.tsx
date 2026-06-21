@@ -14,6 +14,7 @@ import { buildObservationFrame, computeFieldRanges, ColoredHexDump, HeaderBitBre
 import { PayloadBreakdown } from "./payload-renderers";
 import { ObservationCard } from "./ObservationCard";
 import { PathData } from "./PathData";
+import { buildPacketJsonExport, packetJsonFilename } from "./packet-export";
 
 function decodePayloadHex(encoded: string): string | null {
   try {
@@ -47,6 +48,57 @@ function CopyLinkButton({ packetHash }: { packetHash: string }) {
     >
       {copied ? "Copied" : "Copy Link"}
     </button>
+  );
+}
+
+function PacketJsonActions({ detail, selectedObservation, rawHex }: { detail: PacketDetail; selectedObservation: PacketDetail["observations"][number] | null; rawHex: string }) {
+  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
+
+  const packetJson = useCallback(() => JSON.stringify(buildPacketJsonExport(detail, selectedObservation, rawHex), null, 2), [detail, selectedObservation, rawHex]);
+
+  const flash = useCallback((next: "copied" | "failed") => {
+    setStatus(next);
+    window.setTimeout(() => setStatus("idle"), 1500);
+  }, []);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(packetJson());
+      flash("copied");
+    } catch {
+      flash("failed");
+    }
+  }, [flash, packetJson]);
+
+  const handleDownload = useCallback(() => {
+    const blob = new Blob([packetJson()], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = packetJsonFilename(detail.packetHash);
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }, [detail.packetHash, packetJson]);
+
+  return (
+    <>
+      <button
+        type="button"
+        className={`inline-flex items-center font-mono text-[11px] font-semibold px-2 py-0.5 rounded-sm border tracking-wider uppercase cursor-pointer transition-colors ${status === "copied" ? VARIANT_CLASSES.live : status === "failed" ? VARIANT_CLASSES.stale : VARIANT_CLASSES.text}`}
+        onClick={handleCopy}
+        aria-label="Copy packet JSON"
+      >
+        {status === "copied" ? "Copied JSON" : status === "failed" ? "Copy Failed" : "Copy JSON"}
+      </button>
+      <button
+        type="button"
+        className={`inline-flex items-center font-mono text-[11px] font-semibold px-2 py-0.5 rounded-sm border tracking-wider uppercase cursor-pointer transition-colors ${VARIANT_CLASSES.text}`}
+        onClick={handleDownload}
+        aria-label="Download packet JSON"
+      >
+        Save JSON
+      </button>
+    </>
   );
 }
 
@@ -89,9 +141,10 @@ export function PacketAnalyzerDrawer({ detail, selectedObservationId, onClose, o
 
   return (
     <div className="absolute inset-0 z-30 w-full md:static md:inset-auto md:z-auto md:shrink-0 md:w-[400px] md:border-l border-border bg-bg-surface flex flex-col min-h-0 overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border-subtle shrink-0">
-        <span className="text-[13px] font-mono font-medium text-text-dim uppercase tracking-wider">Packet Analyzer</span>
-        <div className="flex items-center gap-1.5">
+      <div className="flex items-start justify-between gap-2 px-3 py-2 border-b border-border-subtle shrink-0">
+        <span className="shrink-0 pt-1 text-[13px] font-mono font-medium text-text-dim uppercase tracking-wider">Packet Analyzer</span>
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
+          {detail && <PacketJsonActions detail={detail} selectedObservation={selectedObs} rawHex={rawHex} />}
           {detail && <CopyLinkButton packetHash={detail.packetHash} />}
           <CloseButton onClose={handleClose} label="Close analyzer" className="-mr-1" />
         </div>

@@ -35,3 +35,4 @@ The web test suite also includes `tests/contracts/openapi-contract.test.ts`, whi
 - Keep shared primitives consistent: shell, tabs, bottom nav, tables, filter bars, dropdowns, panels, modals, drawers, loading states, empty states, search, and stat cards.
 - Browser-QA every major surface at desktop and phone widths: Atlas, Live, Map, Packets, Stats, Nodes, Observers, Routes, Traces, and Channels.
 - Keep keyboard and drilldown flows consistent: global search, escape-to-close overlays, selected row state, packet/node/observer/route links, and copyable identifiers.
+- Packet analyzer handoff now supports copy/download of `beacon.packet.v1` JSON with timing, selected observation, raw frame, decoded payload, and route context.
