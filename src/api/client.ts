@@ -174,6 +174,16 @@ export async function getHealth(): Promise<HealthStatus> {
   return res.json();
 }
 
+export async function getReadiness(): Promise<HealthStatus> {
+  const url = new URL("/readyz", window.location.origin);
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: { code: "unknown", message: res.statusText } }));
+    throw new ApiError(res.status, body.error?.code ?? "unknown", body.error?.message ?? res.statusText);
+  }
+  return res.json();
+}
+
 export function getGlobalSearch(
   iatas: string[] | undefined,
   params: { q: string; limit?: number; types?: string },

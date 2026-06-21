@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getNodesPage, getObserversPage, getScopes, getKnownRoutesPage, searchKnownRoutes, getChannels, getChannelMessagesPage, getTraces, getTraceDetail, getHealth } from "../../src/api/client";
+import { getNodesPage, getObserversPage, getScopes, getKnownRoutesPage, searchKnownRoutes, getChannels, getChannelMessagesPage, getTraces, getTraceDetail, getHealth, getReadiness } from "../../src/api/client";
 import type { NodeSummary } from "../../src/features/nodes/types";
 import type { ObserverSummary } from "../../src/features/observers/types";
 import type { ChannelMessage, ChannelSummary } from "../../src/features/channels/types";
@@ -104,6 +104,24 @@ describe("getHealth", () => {
     const url = new URL(getUrl());
     expect(url.pathname).toBe("/healthz");
     expect(health.status).toBe("ok");
+  });
+
+  it("hits the root /readyz endpoint", async () => {
+    const getUrl = mockFetchOnce({
+      status: "ok",
+      ready: true,
+      version: "test",
+      serverTime: 1,
+      mode: "readiness",
+      dependencies: { database: { status: "ok" } },
+      brokers: [],
+    });
+
+    const readiness = await getReadiness();
+
+    const url = new URL(getUrl());
+    expect(url.pathname).toBe("/readyz");
+    expect(readiness.ready).toBe(true);
   });
 });
 

@@ -5,7 +5,7 @@ import { AppShell } from "../../src/components/AppShell";
 import { RegionProvider } from "../../src/hooks/useRegion";
 import { ThemeProvider } from "../../src/hooks/useTheme";
 import { ALL_REGIONS } from "../../src/hooks/region-selection";
-import { getBrokers, getHealth, getIatas, getLiveSummary, getRegions } from "../../src/api/client";
+import { getBrokers, getHealth, getIatas, getLiveSummary, getReadiness, getRegions } from "../../src/api/client";
 import type { WsManager } from "../../src/api/ws-manager";
 
 vi.mock("../../src/api/client", () => ({
@@ -13,6 +13,7 @@ vi.mock("../../src/api/client", () => ({
   getRegions: vi.fn(),
   getRegion: vi.fn(),
   getHealth: vi.fn(),
+  getReadiness: vi.fn(),
   getBrokers: vi.fn(),
   getLiveSummary: vi.fn(),
 }));
@@ -136,11 +137,27 @@ beforeEach(() => {
   vi.mocked(getRegions).mockReset().mockResolvedValue([]);
   vi.mocked(getHealth).mockReset().mockResolvedValue({
     status: "ok",
+    ready: true,
     version: "dev",
     serverTime: Date.now(),
+    mode: "health",
     dependencies: {
       database: { status: "ok" },
       cache: { status: "ok", detail: "redis" },
+    },
+    brokers: [{ name: "broker-a", connected: true }],
+  });
+  vi.mocked(getReadiness).mockReset().mockResolvedValue({
+    status: "ok",
+    ready: true,
+    version: "dev",
+    serverTime: Date.now(),
+    mode: "readiness",
+    dependencies: {
+      database: { status: "ok" },
+      cache: { status: "ok", detail: "redis" },
+      ingestWorkers: { status: "ok", detail: "brokers connected" },
+      websocket: { status: "ok", detail: "endpoint available at /ws" },
     },
     brokers: [{ name: "broker-a", connected: true }],
   });
@@ -203,9 +220,11 @@ describe("AppShell", () => {
     expect(screen.getByText("CONNECTED")).toBeInTheDocument();
     expect(await screen.findByText("broker-a")).toBeInTheDocument();
     expect(screen.getByText("broker-b")).toBeInTheDocument();
+    expect(screen.getByText("YES")).toBeInTheDocument();
     expect(screen.getByText(/0 dropped/)).toBeInTheDocument();
     expect(screen.getByText("42")).toBeInTheDocument();
     expect(getHealth).toHaveBeenCalled();
+    expect(getReadiness).toHaveBeenCalled();
     expect(getBrokers).toHaveBeenCalled();
     expect(getLiveSummary).toHaveBeenCalled();
   });

@@ -9,7 +9,7 @@ import { Dropdown } from "./Dropdown";
 import { BottomNav } from "./BottomNav";
 import { BeaconWordmark } from "./BeaconWordmark";
 import { TerminalLoadingState } from "./TerminalLoader";
-import { getBrokers, getHealth, getIatas, getLiveSummary } from "../api/client";
+import { getBrokers, getHealth, getIatas, getLiveSummary, getReadiness } from "../api/client";
 import { TABS } from "../lib/constants";
 import { sanitizeDisplayLabel } from "../lib/display-label";
 import type { WsManager } from "../api/ws-manager";
@@ -85,6 +85,11 @@ function LiveRuntimePanel({ wsManager }: { wsManager: WsManager }) {
     queryFn: getHealth,
     refetchInterval: 30_000,
   });
+  const readiness = useQuery({
+    queryKey: ["runtime-readiness"],
+    queryFn: getReadiness,
+    refetchInterval: 30_000,
+  });
   const brokers = useQuery({
     queryKey: ["runtime-brokers"],
     queryFn: getBrokers,
@@ -100,6 +105,7 @@ function LiveRuntimePanel({ wsManager }: { wsManager: WsManager }) {
   const connectedBrokers = brokerRows.filter((b) => b.connected).length;
   const brokerTone = brokerRows.length === 0 ? "warn" : connectedBrokers === brokerRows.length ? "good" : "danger";
   const apiTone = health.data?.status === "ok" ? "good" : health.data?.status === "degraded" ? "warn" : health.isError ? "danger" : "normal";
+  const readyTone = readiness.data?.ready ? "good" : readiness.isError ? "danger" : readiness.data ? "warn" : "normal";
   const scopeLabel = iatas ? (iatas.length <= 3 ? iatas.join(", ") : `${iatas.length} IATA`) : "ALL";
   const gapLabel =
     diagnostics.laggedNoticeCount === 0
@@ -125,6 +131,7 @@ function LiveRuntimePanel({ wsManager }: { wsManager: WsManager }) {
         <RuntimeMetric label="Reconnects" value={diagnostics.reconnectAttempt} tone={diagnostics.reconnectAttempt > 0 ? "warn" : "normal"} />
         <RuntimeMetric label="Parse Errors" value={diagnostics.parseFailureCount} tone={diagnostics.parseFailureCount > 0 ? "danger" : "normal"} />
         <RuntimeMetric label="API" value={health.data?.status ?? (health.isError ? "DOWN" : "...")} tone={apiTone} />
+        <RuntimeMetric label="Ready" value={readiness.data?.ready === undefined ? (readiness.isError ? "NO" : "...") : readiness.data.ready ? "YES" : "NO"} tone={readyTone} />
         <RuntimeMetric label="Brokers" value={`${connectedBrokers}/${brokerRows.length || "?"}`} tone={brokerTone} />
         <RuntimeMetric label="Live Packets" value={live.data?.packetCount ?? "..."} tone={live.isError ? "danger" : "normal"} />
         <RuntimeMetric label="Gap Heal" value={gapDetail ? `${gapLabel} ${gapDetail}` : gapLabel} tone={diagnostics.laggedNoticeCount > 0 ? "warn" : "normal"} />

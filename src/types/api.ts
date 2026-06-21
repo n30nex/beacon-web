@@ -132,6 +132,7 @@ export interface Region extends RegionSummary {
 export interface BrokerStatus {
   name: string;
   connected: boolean;
+  status?: string;
 }
 
 export interface HealthDependency {
@@ -141,8 +142,10 @@ export interface HealthDependency {
 
 export interface HealthStatus {
   status: string;
+  ready?: boolean;
   version: string;
   serverTime: number;
+  mode?: string;
   dependencies: Record<string, HealthDependency>;
   brokers: BrokerStatus[];
 }
