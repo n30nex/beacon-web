@@ -27,6 +27,8 @@ cd F:\Beacon\beacon-server
 
 The tracked cross-stack smoke script lives in `beacon-server\scripts\Test-BeaconLocal.ps1` because the workspace root is not a Git repository.
 
+The web test suite also includes `tests/contracts/openapi-contract.test.ts`, which reads `..\beacon-server\docs\swagger.json` and verifies the REST endpoints and response fields that the operator UI depends on. Regenerate backend Swagger before changing API shapes.
+
 ## UI Improvement Tracks
 
 - Complete the modern glass design mode as a first-class skin while preserving the retro CRT themes.
