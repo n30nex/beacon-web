@@ -101,6 +101,11 @@ function LiveRuntimePanel({ wsManager }: { wsManager: WsManager }) {
   const brokerTone = brokerRows.length === 0 ? "warn" : connectedBrokers === brokerRows.length ? "good" : "danger";
   const apiTone = health.data?.status === "ok" ? "good" : health.data?.status === "degraded" ? "warn" : health.isError ? "danger" : "normal";
   const scopeLabel = iatas ? (iatas.length <= 3 ? iatas.join(", ") : `${iatas.length} IATA`) : "ALL";
+  const gapLabel =
+    diagnostics.laggedNoticeCount === 0
+      ? "NONE"
+      : `${diagnostics.lastLaggedDroppedCount ?? 0} dropped`;
+  const gapDetail = diagnostics.lastLaggedAt ? `${formatDuration(now - diagnostics.lastLaggedAt)} ago` : "";
 
   return (
     <div className="w-72 space-y-2 px-3 py-2 font-mono">
@@ -122,6 +127,7 @@ function LiveRuntimePanel({ wsManager }: { wsManager: WsManager }) {
         <RuntimeMetric label="API" value={health.data?.status ?? (health.isError ? "DOWN" : "...")} tone={apiTone} />
         <RuntimeMetric label="Brokers" value={`${connectedBrokers}/${brokerRows.length || "?"}`} tone={brokerTone} />
         <RuntimeMetric label="Live Packets" value={live.data?.packetCount ?? "..."} tone={live.isError ? "danger" : "normal"} />
+        <RuntimeMetric label="Gap Heal" value={gapDetail ? `${gapLabel} ${gapDetail}` : gapLabel} tone={diagnostics.laggedNoticeCount > 0 ? "warn" : "normal"} />
       </div>
 
       {diagnostics.activeSubscriptionId && (

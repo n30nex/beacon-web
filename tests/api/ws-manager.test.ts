@@ -186,6 +186,8 @@ describe("WsManager", () => {
 
     expect(handler).toHaveBeenCalledOnce();
     expect(handler.mock.calls[0]![0].droppedCount).toBe(47);
+    expect(mgr.getDiagnostics().laggedNoticeCount).toBe(1);
+    expect(mgr.getDiagnostics().lastLaggedDroppedCount).toBe(47);
   });
 
   it("refreshes the last-event timestamp on lagged and pong messages", () => {
@@ -375,6 +377,8 @@ describe("WsManager", () => {
     ws2.simulateMessage({ v: 1, type: "hello", serverTime: 2, connectionId: "c2" });
 
     expect(handler).toHaveBeenCalledOnce();
+    expect(mgr.getDiagnostics().laggedNoticeCount).toBe(1);
+    expect(mgr.getDiagnostics().lastLaggedDroppedCount).toBe(0);
   });
 
   it("unsubscribes channelMessage handler on cleanup", () => {

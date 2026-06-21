@@ -16,6 +16,10 @@ export interface WsDiagnostics {
   reconnectAttempt: number;
   parseFailureCount: number;
   lastParseFailureAt: number | null;
+  laggedNoticeCount: number;
+  lastLaggedAt: number | null;
+  lastLaggedDroppedCount: number | null;
+  lastLaggedSince: number | null;
   activeSubscriptionId: string | null;
 }
 
@@ -43,6 +47,10 @@ export class WsManager {
   private lastEventTimestamp: number = Date.now();
   private parseFailureCount = 0;
   private lastParseFailureAt: number | null = null;
+  private laggedNoticeCount = 0;
+  private lastLaggedAt: number | null = null;
+  private lastLaggedDroppedCount: number | null = null;
+  private lastLaggedSince: number | null = null;
   private diagnosticsSnapshot: WsDiagnostics | null = null;
 
   private packetHandlers: PacketHandler[] = [];
@@ -73,6 +81,10 @@ export class WsManager {
       reconnectAttempt: this.reconnectAttempt,
       parseFailureCount: this.parseFailureCount,
       lastParseFailureAt: this.lastParseFailureAt,
+      laggedNoticeCount: this.laggedNoticeCount,
+      lastLaggedAt: this.lastLaggedAt,
+      lastLaggedDroppedCount: this.lastLaggedDroppedCount,
+      lastLaggedSince: this.lastLaggedSince,
       activeSubscriptionId: this.subscriptionId,
     };
     return this.diagnosticsSnapshot;
@@ -222,6 +234,8 @@ export class WsManager {
         if (isReconnect) {
           // we were dark during the outage — synthesize a lag notice so live views heal the gap
           const notice: WsLagged = { v: 1, type: "lagged", droppedCount: 0, since: this.lastEventTimestamp };
+          this.recordLaggedNotice(notice);
+          this.emitDiagnostics();
           for (const handler of this.laggedHandlers) {
             handler(notice);
           }
@@ -270,6 +284,7 @@ export class WsManager {
       case "lagged":
         // a lag notice is still server traffic, so it counts as recent activity
         this.lastEventTimestamp = Date.now();
+        this.recordLaggedNotice(msg);
         this.emitDiagnostics();
         for (const handler of this.laggedHandlers) {
           handler(msg);
@@ -345,6 +360,13 @@ export class WsManager {
       handler(status);
     }
     this.emitDiagnostics();
+  }
+
+  private recordLaggedNotice(notice: WsLagged): void {
+    this.laggedNoticeCount++;
+    this.lastLaggedAt = Date.now();
+    this.lastLaggedDroppedCount = notice.droppedCount;
+    this.lastLaggedSince = notice.since ?? null;
   }
 
   private emitDiagnostics(): void {

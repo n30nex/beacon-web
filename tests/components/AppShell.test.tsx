@@ -23,6 +23,10 @@ const wsDiagnostics = {
   reconnectAttempt: 0,
   parseFailureCount: 0,
   lastParseFailureAt: null,
+  laggedNoticeCount: 1,
+  lastLaggedAt: Date.now(),
+  lastLaggedDroppedCount: 0,
+  lastLaggedSince: Date.now() - 10_000,
   activeSubscriptionId: "sub-test",
 } as const;
 
@@ -199,6 +203,7 @@ describe("AppShell", () => {
     expect(screen.getByText("CONNECTED")).toBeInTheDocument();
     expect(await screen.findByText("broker-a")).toBeInTheDocument();
     expect(screen.getByText("broker-b")).toBeInTheDocument();
+    expect(screen.getByText(/0 dropped/)).toBeInTheDocument();
     expect(screen.getByText("42")).toBeInTheDocument();
     expect(getHealth).toHaveBeenCalled();
     expect(getBrokers).toHaveBeenCalled();
