@@ -2,6 +2,10 @@ import type { ChannelMessage } from "../features/channels/types";
 import type { NodeIATA } from "../features/nodes/types";
 import type { ResolvedHop } from "./api";
 
+export const WS_EVENT_TYPES = ["packetObservation", "channelMessage", "observerStatus", "nodeUpdate"] as const;
+
+export type WsEventType = (typeof WS_EVENT_TYPES)[number];
+
 // individual server-sent message shapes
 
 export interface WsHello {
@@ -152,5 +156,5 @@ export interface SubscriptionFilter {
   routeTypes?: number[];
   channelHashes?: string[];
   observerIds?: string[];
-  events?: string[];
+  events?: WsEventType[];
 }

@@ -31,6 +31,7 @@ import { getPacketDetail } from "./api/client";
 import { WsManager } from "./api/ws-manager";
 import { WS_URL, TABS } from "./lib/constants";
 import type { GlobalSearchResult } from "./types/api";
+import { WS_EVENT_TYPES } from "./types/ws";
 
 // All map-bearing tabs are lazy so maplibre-gl (~800KB) leaves the entry graph entirely and streams
 // in its own cacheable chunk instead of blocking first paint. Atlas/Live are the default landing
@@ -67,8 +68,6 @@ const queryClient = new QueryClient({
 
 const wsManager = new WsManager(WS_URL);
 
-const WS_EVENTS = ["packetObservation", "channelMessage", "observerStatus", "nodeUpdate"];
-
 // Compute the initial region selection on first load: URL params win (shareable links), then the
 // persisted selection, then the pre-multi-select single-IATA key (migrated), else all regions.
 function computeInitialSelection(params: URLSearchParams): RegionSelection {
@@ -87,7 +86,7 @@ function RegionWatcher({ wsManager: mgr }: { wsManager: WsManager }) {
   const { iatas, regionKey } = useRegion();
 
   useEffect(() => {
-    mgr.updateSubscription({ iatas, events: WS_EVENTS });
+    mgr.updateSubscription({ iatas, events: [...WS_EVENT_TYPES] });
     // regionKey is the stable identity of the resolved iatas
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mgr, regionKey]);
@@ -281,7 +280,7 @@ function AppInner() {
   useEffect(() => {
     // Region slugs can't be expanded yet (region details load async) — connect with the directly
     // selected IATAs; RegionWatcher narrows the subscription once useRegion resolves the slugs.
-    wsManager.connect({ iatas: resolveIatas(initialSelection, new Map()), events: WS_EVENTS });
+    wsManager.connect({ iatas: resolveIatas(initialSelection, new Map()), events: [...WS_EVENT_TYPES] });
     return () => wsManager.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
