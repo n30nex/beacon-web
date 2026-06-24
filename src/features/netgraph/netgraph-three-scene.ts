@@ -126,24 +126,27 @@ export function createNetgraphSceneStage(options: {
 }
 
 export function makeLabelSprite(text: string, color: string): THREE.Sprite {
-  const font = "600 24px Inter, ui-sans-serif, system-ui, sans-serif";
+  const font = "750 32px Inter, ui-sans-serif, system-ui, sans-serif";
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d")!;
   context.font = font;
   const metrics = context.measureText(text);
-  canvas.width = Math.min(512, Math.max(128, Math.ceil(metrics.width + 32)));
-  canvas.height = 46;
+  canvas.width = Math.min(720, Math.max(180, Math.ceil(metrics.width + 52)));
+  canvas.height = 70;
   context.font = font;
   context.textBaseline = "middle";
-  context.lineWidth = 5;
-  context.strokeStyle = "rgba(0,0,0,0.82)";
+  context.lineWidth = 8;
+  context.strokeStyle = "rgba(0,0,0,0.94)";
   context.fillStyle = color;
-  context.shadowColor = "rgba(0,0,0,0.88)";
-  context.shadowBlur = 8;
-  context.strokeText(text, 16, canvas.height / 2);
-  context.fillText(text, 16, canvas.height / 2);
+  context.shadowColor = "rgba(0,0,0,0.96)";
+  context.shadowBlur = 14;
+  context.strokeText(text, 26, canvas.height / 2);
+  context.fillText(text, 26, canvas.height / 2);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
+  texture.generateMipmaps = false;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
   const material = new THREE.SpriteMaterial({
     map: texture,
     transparent: true,
@@ -151,8 +154,8 @@ export function makeLabelSprite(text: string, color: string): THREE.Sprite {
     depthWrite: false,
   });
   const sprite = new THREE.Sprite(material);
-  sprite.scale.set(canvas.width / 18, canvas.height / 18, 1);
-  sprite.renderOrder = 10;
+  sprite.scale.set(canvas.width / 15.5, canvas.height / 15.5, 1);
+  sprite.renderOrder = 60;
   return sprite;
 }
 
@@ -192,7 +195,8 @@ export function createNodeLabelSprites(options: {
     const sprite = makeLabelSprite(node.label, labelColor);
     sprite.scale.multiplyScalar(options.labelScale);
     const labelRadius = node.radius * options.labelScale;
-    sprite.position.set(node.position.x + labelRadius * 1.4, node.position.y + labelRadius * 1.1, node.position.z + 1.8);
+    const labelDrop = labelRadius * (options.narrowViewport ? 3.4 : 2.65) + sprite.scale.y * 0.48;
+    sprite.position.set(node.position.x, node.position.y - labelDrop, node.position.z + labelRadius * 0.82 + 5.5);
     options.group.add(sprite);
     sprites.push(sprite);
   }

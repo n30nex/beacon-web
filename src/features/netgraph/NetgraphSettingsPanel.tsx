@@ -305,7 +305,7 @@ export function NetgraphSettingsPanel({
                 label="Cluster scale"
                 value={galaxyProfile.clusterScale}
                 min={0.6}
-                max={2.1}
+                max={2.85}
                 step={0.01}
                 onChange={(clusterScale) => onChangeGalaxyProfile(normalizeGalaxyProfile({ ...galaxyProfile, clusterScale }))}
               />
@@ -321,7 +321,7 @@ export function NetgraphSettingsPanel({
                 label="3D depth contrast"
                 value={galaxyProfile.depthContrast}
                 min={0.45}
-                max={2.8}
+                max={3.4}
                 step={0.01}
                 onChange={(depthContrast) => onChangeGalaxyProfile(normalizeGalaxyProfile({ ...galaxyProfile, depthContrast }))}
               />
@@ -329,7 +329,7 @@ export function NetgraphSettingsPanel({
                 label="Settle strength"
                 value={galaxyProfile.settleStrength}
                 min={0.4}
-                max={2}
+                max={2.4}
                 step={0.01}
                 onChange={(settleStrength) => onChangeGalaxyProfile(normalizeGalaxyProfile({ ...galaxyProfile, settleStrength }))}
               />
@@ -337,7 +337,7 @@ export function NetgraphSettingsPanel({
                 label="Edge spacing"
                 value={galaxyProfile.edgeSpacingScale}
                 min={0.5}
-                max={2}
+                max={3}
                 step={0.01}
                 onChange={(edgeSpacingScale) => onChangeGalaxyProfile(normalizeGalaxyProfile({ ...galaxyProfile, edgeSpacingScale }))}
               />

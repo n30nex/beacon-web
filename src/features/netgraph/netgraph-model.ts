@@ -10,17 +10,17 @@ export const MAX_NETGRAPH_NODES = 2600;
 export const MAX_NETGRAPH_EDGES = 4200;
 export const MAX_NETGRAPH_PULSES = 360;
 export const MAX_NETGRAPH_GLOWS = 220;
-export const NETGRAPH_LAYOUT_WIDTH = 144;
-export const NETGRAPH_LAYOUT_HEIGHT = 92;
-export const NETGRAPH_LAYOUT_DEPTH = 340;
+export const NETGRAPH_LAYOUT_WIDTH = 190;
+export const NETGRAPH_LAYOUT_HEIGHT = 124;
+export const NETGRAPH_LAYOUT_DEPTH = 430;
 
 const NETGRAPH_LAYOUT_DEPTH_MIN = 150;
-const NETGRAPH_LAYOUT_DEPTH_SOFT_MAX = 780;
-const NETGRAPH_FOCUS_DIRECT_RADIUS_BASE = 102;
-const NETGRAPH_FOCUS_DIRECT_RADIUS_GROWTH = 14;
-const NETGRAPH_FOCUS_CONTEXT_RADIUS_BASE = 206;
-const NETGRAPH_FOCUS_CONTEXT_RADIUS_GROWTH = 18.4;
-const NETGRAPH_FOCUS_DEPTH_SCALE = 2.45;
+const NETGRAPH_LAYOUT_DEPTH_SOFT_MAX = 980;
+const NETGRAPH_FOCUS_DIRECT_RADIUS_BASE = 124;
+const NETGRAPH_FOCUS_DIRECT_RADIUS_GROWTH = 18;
+const NETGRAPH_FOCUS_CONTEXT_RADIUS_BASE = 252;
+const NETGRAPH_FOCUS_CONTEXT_RADIUS_GROWTH = 23;
+const NETGRAPH_FOCUS_DEPTH_SCALE = 2.8;
 
 export interface NetgraphGalaxyProfile {
   seedShape: "spherical" | "spiral";
@@ -65,11 +65,11 @@ export interface NetgraphRenderTier {
 
 export const DEFAULT_NETGRAPH_GALAXY_PROFILE: NetgraphGalaxyProfile = {
   seedShape: "spherical",
-  clusterScale: 1.92,
+  clusterScale: 2.36,
   spiralIntensity: 0.58,
-  depthContrast: 2.72,
-  settleStrength: 1.48,
-  edgeSpacingScale: 1.82,
+  depthContrast: 3.08,
+  settleStrength: 1.62,
+  edgeSpacingScale: 2.42,
 };
 
 export const DEFAULT_NETGRAPH_VISUAL_PROFILE: NetgraphVisualProfile = {
@@ -77,7 +77,7 @@ export const DEFAULT_NETGRAPH_VISUAL_PROFILE: NetgraphVisualProfile = {
   orbitControlSpeed: 1,
   orbitDamping: 0.07,
   nodeScale: 2.35,
-  labelScale: 1,
+  labelScale: 1.28,
   edgeOpacity: 1.14,
   labelDensity: 1,
   pulseDensity: 1.32,
@@ -242,11 +242,11 @@ export function normalizeGalaxyProfile(profile?: NetgraphGalaxyProfile): Netgrap
   const raw = profile ?? DEFAULT_NETGRAPH_GALAXY_PROFILE;
   return {
     seedShape: raw.seedShape === "spiral" ? "spiral" : "spherical",
-    clusterScale: clamp(raw.clusterScale, 0.6, 2.1),
+    clusterScale: clamp(raw.clusterScale, 0.6, 2.85),
     spiralIntensity: clamp(raw.spiralIntensity, 0, 1),
-    depthContrast: clamp(raw.depthContrast, 0.45, 2.8),
-    settleStrength: clamp(raw.settleStrength, 0.4, 2),
-    edgeSpacingScale: clamp(raw.edgeSpacingScale, 0.5, 2),
+    depthContrast: clamp(raw.depthContrast, 0.45, 3.4),
+    settleStrength: clamp(raw.settleStrength, 0.4, 2.4),
+    edgeSpacingScale: clamp(raw.edgeSpacingScale, 0.5, 3),
   };
 }
 
@@ -775,12 +775,12 @@ function applySeedLayout(
   const byId = new Map(nextNodes.map((node) => [node.id, node]));
   components.forEach((component, componentId) => {
     const cell = cells[componentId] ?? { x: width / 2, y: height / 2, width: width * 0.72, height: height * 0.72 };
-    const completeViewScale = components.length === 1 ? 1.54 : 1.12;
+    const completeViewScale = components.length === 1 ? 1.9 : 1.24;
     const spreadBase = components.length === 1
-      ? Math.min(width, height) * 0.42 * spacingScale
-      : Math.min(cell.width, cell.height) * 0.45 * spacingScale;
+      ? Math.min(width, height) * 0.5 * spacingScale
+      : Math.min(cell.width, cell.height) * 0.52 * spacingScale;
     const spread = Math.max(20, spreadBase * Math.max(0.42, Math.sqrt(component.nodes.length / largest)) * profileSafe.clusterScale * completeViewScale);
-    const clusterRadius = Math.max(18, Math.min(spread * 0.84, Math.min(cell.width, cell.height) * 0.44));
+    const clusterRadius = Math.max(18, Math.min(spread * 0.92, Math.min(cell.width, cell.height) * 0.54));
     const depthScale = completeViewDepthScale(nodes.length, edges.length, component.nodes.length);
     const bounds = latLngBounds(component.nodes);
     const sphereScale = Math.max(0.82, Math.min(1.72, 0.58 + depthScale * 0.56 * depthScaleModifier));
@@ -875,8 +875,8 @@ export function packedComponentCells(count: number, width: number, height: numbe
   if (count <= 0) return [];
   const columns = Math.max(1, Math.ceil(Math.sqrt(count * Math.max(0.72, width / Math.max(height, 1)))));
   const rows = Math.max(1, Math.ceil(count / columns));
-  const usedWidth = width * Math.min(0.76, count <= 2 ? 0.42 : 0.72);
-  const usedHeight = height * Math.min(0.72, count <= 2 ? 0.42 : 0.68);
+  const usedWidth = width * Math.min(0.86, count <= 2 ? 0.56 : 0.82);
+  const usedHeight = height * Math.min(0.8, count <= 2 ? 0.54 : 0.76);
   const cellWidth = usedWidth / columns;
   const cellHeight = usedHeight / rows;
   const cellSize = Math.max(18, Math.min(cellWidth, cellHeight, Math.min(width, height) * 0.28));
