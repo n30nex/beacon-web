@@ -77,7 +77,7 @@ export const DEFAULT_NETGRAPH_VISUAL_PROFILE: NetgraphVisualProfile = {
   orbitControlSpeed: 1,
   orbitDamping: 0.07,
   nodeScale: 2.35,
-  labelScale: 1.56,
+  labelScale: 1.18,
   edgeOpacity: 1.14,
   labelDensity: 1,
   pulseDensity: 1.32,
@@ -683,7 +683,7 @@ export function importantLabelNodeIds(graph: NetgraphGraph, searchMatches: Set<s
   for (const node of graph.nodes) {
     if (node.id === selectedNodeId || selectedRoutes.has(node.id) || searchMatches.has(node.id)) ids.add(node.id);
   }
-  const labelBudget = graph.nodes.length > 520 ? 34 : graph.nodes.length > 180 ? 52 : 80;
+  const labelBudget = graph.nodes.length > 520 ? 16 : graph.nodes.length > 320 ? 22 : graph.nodes.length > 180 ? 32 : 64;
   const topRouteNodes = graph.nodes
     .filter((node) => node.routeCount > 0)
     .slice()

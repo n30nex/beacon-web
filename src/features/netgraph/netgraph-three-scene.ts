@@ -126,21 +126,21 @@ export function createNetgraphSceneStage(options: {
 }
 
 export function makeLabelSprite(text: string, color: string): THREE.Sprite {
-  const font = "800 36px Inter, ui-sans-serif, system-ui, sans-serif";
+  const font = "800 28px Inter, ui-sans-serif, system-ui, sans-serif";
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d")!;
   context.font = font;
   const metrics = context.measureText(text);
-  canvas.width = Math.min(860, Math.max(220, Math.ceil(metrics.width + 76)));
-  canvas.height = 88;
+  canvas.width = Math.min(640, Math.max(180, Math.ceil(metrics.width + 58)));
+  canvas.height = 68;
   context.font = font;
   context.textBaseline = "middle";
   context.lineJoin = "round";
-  context.lineWidth = 9;
+  context.lineWidth = 7;
   context.strokeStyle = "rgba(0,0,0,0.94)";
   context.fillStyle = color;
   const plateInset = 6;
-  const plateRadius = 18;
+  const plateRadius = 14;
   context.beginPath();
   context.roundRect(plateInset, plateInset, canvas.width - plateInset * 2, canvas.height - plateInset * 2, plateRadius);
   context.fillStyle = "rgba(4,10,22,0.84)";
@@ -150,13 +150,13 @@ export function makeLabelSprite(text: string, color: string): THREE.Sprite {
   context.globalAlpha = 0.62;
   context.stroke();
   context.globalAlpha = 1;
-  context.lineWidth = 9;
+  context.lineWidth = 7;
   context.strokeStyle = "rgba(0,0,0,0.94)";
   context.fillStyle = color;
   context.shadowColor = "rgba(0,0,0,0.96)";
   context.shadowBlur = 14;
-  context.strokeText(text, 38, canvas.height / 2 + 1);
-  context.fillText(text, 38, canvas.height / 2 + 1);
+  context.strokeText(text, 29, canvas.height / 2 + 1);
+  context.fillText(text, 29, canvas.height / 2 + 1);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.generateMipmaps = false;
@@ -170,7 +170,7 @@ export function makeLabelSprite(text: string, color: string): THREE.Sprite {
     sizeAttenuation: false,
   });
   const sprite = new THREE.Sprite(material);
-  sprite.scale.set(canvas.width / 2600, canvas.height / 2600, 1);
+  sprite.scale.set(canvas.width / 4200, canvas.height / 4200, 1);
   sprite.renderOrder = 120;
   return sprite;
 }
@@ -193,13 +193,13 @@ export function createNodeLabelSprites(options: {
   narrowViewport: boolean;
 }): THREE.Sprite[] {
   const labelCap = options.batteryQuality
-    ? (options.narrowViewport ? 26 : 44)
+    ? (options.narrowViewport ? 14 : 22)
     : options.balancedQuality
-      ? (options.narrowViewport ? 42 : 76)
+      ? (options.narrowViewport ? 18 : 30)
       : options.denseGraph
-        ? (options.narrowViewport ? 48 : 90)
+        ? (options.narrowViewport ? 20 : 34)
         : options.narrowViewport
-          ? 64
+          ? 28
           : MAX_LABELS;
   const labelIds = Array.from(options.importantLabels).slice(0, Math.max(1, Math.floor(labelCap * options.labelDensity * options.labelBudgetScale)));
   const sprites: THREE.Sprite[] = [];
@@ -209,7 +209,7 @@ export function createNodeLabelSprites(options: {
     if (!node) continue;
     const labelColor = options.selectedNodeId === id || options.searchMatches.has(id) || options.selectedNodes.has(id) ? "#ffffff" : options.roleColors[node.role];
     const sprite = makeLabelSprite(node.label, labelColor);
-    sprite.scale.multiplyScalar(options.labelScale * (options.denseGraph ? 1.36 : 1.16));
+    sprite.scale.multiplyScalar(options.labelScale * (options.denseGraph ? 1.08 : 1.12));
     const labelRadius = node.radius * options.labelScale;
     const labelDrop = labelRadius * (options.narrowViewport ? 2.7 : 2.08) + sprite.scale.y * 0.34;
     sprite.position.set(node.position.x, node.position.y - labelDrop, node.position.z + labelRadius * 1.22 + 8);
