@@ -320,8 +320,18 @@ describe("packetObservationToNetgraphLiveVisual", () => {
     if (visual?.type !== "pulse") return;
     expect(visual.pulse.txNodeId).toBe("node-alpha");
     expect(visual.pulse.rxNodeId).toBe("node-charlie");
+    expect(visual.pulse.segments.map((segment) => segment.edgeId)).toEqual(["node-alpha>node-bravo", "node-bravo>node-charlie"]);
     expect(visual.pulse.txColor).toBe("#7ab7ff");
     expect(visual.pulse.rxColor).toBe("#54e1a6");
+  });
+
+  it("bridges sparse live paths through known graph edges", () => {
+    const graph = buildNetgraph(snapshot());
+    const visual = packetObservationToNetgraphLiveVisual(packetData(["node-alpha", "node-missing", "node-charlie"]), graph, 5000);
+
+    expect(visual?.type).toBe("pulse");
+    if (visual?.type !== "pulse") return;
+    expect(visual.pulse.segments.map((segment) => segment.edgeId)).toEqual(["node-alpha>node-bravo", "node-bravo>node-charlie"]);
   });
 
   it("uses a node glow when only one path node can be matched", () => {

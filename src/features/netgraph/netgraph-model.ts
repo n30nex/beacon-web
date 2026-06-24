@@ -512,39 +512,26 @@ export function packetObservationToNetgraphLiveVisual(
   const txNodeId = nodeIds.find((nodeId) => graph.nodeById.has(nodeId));
   const observerNodeId = graph.nodeById.has(event.observation.observerId) ? event.observation.observerId : undefined;
   const rxNodeId = observerNodeId ?? nodeIds.slice().reverse().find((nodeId) => graph.nodeById.has(nodeId));
-  if (nodeIds.length >= 2) {
-    const segments: NetgraphPulseSegment[] = [];
-    for (let i = 1; i < nodeIds.length; i += 1) {
-      const fromId = nodeIds[i - 1]!;
-      const toId = nodeIds[i]!;
-      const edge = graph.edgeById.get(`${fromId}>${toId}`);
-      const reverseEdge = edge ? null : graph.edgeById.get(`${toId}>${fromId}`);
-      const matched = edge ?? reverseEdge;
-      if (!matched) continue;
-      segments.push({
-        edgeId: matched.id,
-        fromId: matched.fromId,
-        toId: matched.toId,
-        reverse: Boolean(reverseEdge),
-      });
-    }
-    if (segments.length > 0) {
-      return {
-        type: "pulse",
-        pulse: {
-          id: `${event.packetHash}:${event.observation.id ?? event.observation.heardAt}`,
-          payloadTypeName,
-          color,
-          txNodeId,
-          rxNodeId,
-          txColor: "#7ab7ff",
-          rxColor: "#54e1a6",
-          startedAt: now,
-          durationMs: Math.min(5600, Math.max(2200, segments.length * 900)),
-          segments,
-        },
-      };
-    }
+  const livePathIds = liveTrafficPathIds(nodeIds, observerNodeId);
+  const segments =
+    bridgedLiveSegments(graph, livePathIds.filter((nodeId) => graph.nodeById.has(nodeId))) ??
+    adjacentLiveSegments(graph, livePathIds);
+  if (segments && segments.length > 0) {
+    return {
+      type: "pulse",
+      pulse: {
+        id: `${event.packetHash}:${event.observation.id ?? event.observation.heardAt}`,
+        payloadTypeName,
+        color,
+        txNodeId,
+        rxNodeId,
+        txColor: "#7ab7ff",
+        rxColor: "#54e1a6",
+        startedAt: now,
+        durationMs: Math.min(5600, Math.max(2200, segments.length * 900)),
+        segments,
+      },
+    };
   }
   const glowNodeId = rxNodeId ?? txNodeId;
   if (glowNodeId) {
@@ -560,6 +547,90 @@ export function packetObservationToNetgraphLiveVisual(
         durationMs: 3600,
       },
     };
+  }
+  return null;
+}
+
+function liveTrafficPathIds(nodeIds: string[], observerNodeId: string | undefined): string[] {
+  const ids = [...nodeIds];
+  if (observerNodeId && ids.at(-1) !== observerNodeId) ids.push(observerNodeId);
+  return ids;
+}
+
+function adjacentLiveSegments(graph: NetgraphGraph, nodeIds: string[]): NetgraphPulseSegment[] | null {
+  if (nodeIds.length < 2) return null;
+  const segments: NetgraphPulseSegment[] = [];
+  for (let i = 1; i < nodeIds.length; i += 1) {
+    const segment = segmentBetween(graph, nodeIds[i - 1]!, nodeIds[i]!);
+    if (segment) segments.push(segment);
+  }
+  return segments.length > 0 ? segments : null;
+}
+
+function bridgedLiveSegments(graph: NetgraphGraph, nodeIds: string[]): NetgraphPulseSegment[] | null {
+  if (nodeIds.length < 2) return null;
+  const segments: NetgraphPulseSegment[] = [];
+  for (let i = 1; i < nodeIds.length; i += 1) {
+    const direct = segmentBetween(graph, nodeIds[i - 1]!, nodeIds[i]!);
+    if (direct) {
+      segments.push(direct);
+      continue;
+    }
+    const bridge = shortestLiveBridge(graph, nodeIds[i - 1]!, nodeIds[i]!);
+    if (bridge) segments.push(...bridge);
+  }
+  return segments.length > 0 ? segments : null;
+}
+
+function segmentBetween(graph: NetgraphGraph, fromId: string, toId: string): NetgraphPulseSegment | null {
+  const edge = graph.edgeById.get(`${fromId}>${toId}`);
+  const reverseEdge = edge ? null : graph.edgeById.get(`${toId}>${fromId}`);
+  const matched = edge ?? reverseEdge;
+  if (!matched) return null;
+  return {
+    edgeId: matched.id,
+    fromId: matched.fromId,
+    toId: matched.toId,
+    reverse: Boolean(reverseEdge),
+  };
+}
+
+function shortestLiveBridge(graph: NetgraphGraph, fromId: string, toId: string): NetgraphPulseSegment[] | null {
+  const maxHops = 8;
+  const maxVisited = 560;
+  const adjacency = new Map<string, Array<{ nodeId: string; segment: NetgraphPulseSegment }>>();
+  for (const edge of graph.edges) {
+    const forward = {
+      edgeId: edge.id,
+      fromId: edge.fromId,
+      toId: edge.toId,
+      reverse: false,
+    };
+    const reverse = {
+      edgeId: edge.id,
+      fromId: edge.fromId,
+      toId: edge.toId,
+      reverse: true,
+    };
+    const fromEdges = adjacency.get(edge.fromId) ?? [];
+    fromEdges.push({ nodeId: edge.toId, segment: forward });
+    adjacency.set(edge.fromId, fromEdges);
+    const toEdges = adjacency.get(edge.toId) ?? [];
+    toEdges.push({ nodeId: edge.fromId, segment: reverse });
+    adjacency.set(edge.toId, toEdges);
+  }
+  const queue: Array<{ nodeId: string; segments: NetgraphPulseSegment[] }> = [{ nodeId: fromId, segments: [] }];
+  const visited = new Set([fromId]);
+  for (let cursor = 0; cursor < queue.length && visited.size <= maxVisited; cursor += 1) {
+    const current = queue[cursor]!;
+    if (current.segments.length >= maxHops) continue;
+    for (const next of adjacency.get(current.nodeId) ?? []) {
+      if (visited.has(next.nodeId)) continue;
+      const segments = [...current.segments, next.segment];
+      if (next.nodeId === toId) return segments;
+      visited.add(next.nodeId);
+      queue.push({ nodeId: next.nodeId, segments });
+    }
   }
   return null;
 }
