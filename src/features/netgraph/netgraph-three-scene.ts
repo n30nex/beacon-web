@@ -126,22 +126,37 @@ export function createNetgraphSceneStage(options: {
 }
 
 export function makeLabelSprite(text: string, color: string): THREE.Sprite {
-  const font = "750 32px Inter, ui-sans-serif, system-ui, sans-serif";
+  const font = "800 36px Inter, ui-sans-serif, system-ui, sans-serif";
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d")!;
   context.font = font;
   const metrics = context.measureText(text);
-  canvas.width = Math.min(720, Math.max(180, Math.ceil(metrics.width + 52)));
-  canvas.height = 70;
+  canvas.width = Math.min(860, Math.max(220, Math.ceil(metrics.width + 76)));
+  canvas.height = 88;
   context.font = font;
   context.textBaseline = "middle";
-  context.lineWidth = 8;
+  context.lineJoin = "round";
+  context.lineWidth = 9;
+  context.strokeStyle = "rgba(0,0,0,0.94)";
+  context.fillStyle = color;
+  const plateInset = 6;
+  const plateRadius = 18;
+  context.beginPath();
+  context.roundRect(plateInset, plateInset, canvas.width - plateInset * 2, canvas.height - plateInset * 2, plateRadius);
+  context.fillStyle = "rgba(4,10,22,0.84)";
+  context.fill();
+  context.lineWidth = 3;
+  context.strokeStyle = color;
+  context.globalAlpha = 0.62;
+  context.stroke();
+  context.globalAlpha = 1;
+  context.lineWidth = 9;
   context.strokeStyle = "rgba(0,0,0,0.94)";
   context.fillStyle = color;
   context.shadowColor = "rgba(0,0,0,0.96)";
   context.shadowBlur = 14;
-  context.strokeText(text, 26, canvas.height / 2);
-  context.fillText(text, 26, canvas.height / 2);
+  context.strokeText(text, 38, canvas.height / 2 + 1);
+  context.fillText(text, 38, canvas.height / 2 + 1);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.generateMipmaps = false;
@@ -154,8 +169,8 @@ export function makeLabelSprite(text: string, color: string): THREE.Sprite {
     depthWrite: false,
   });
   const sprite = new THREE.Sprite(material);
-  sprite.scale.set(canvas.width / 15.5, canvas.height / 15.5, 1);
-  sprite.renderOrder = 60;
+  sprite.scale.set(canvas.width / 9.8, canvas.height / 9.8, 1);
+  sprite.renderOrder = 120;
   return sprite;
 }
 
@@ -193,10 +208,10 @@ export function createNodeLabelSprites(options: {
     if (!node) continue;
     const labelColor = options.selectedNodeId === id || options.searchMatches.has(id) || options.selectedNodes.has(id) ? "#ffffff" : options.roleColors[node.role];
     const sprite = makeLabelSprite(node.label, labelColor);
-    sprite.scale.multiplyScalar(options.labelScale);
+    sprite.scale.multiplyScalar(options.labelScale * (options.denseGraph ? 1.36 : 1.16));
     const labelRadius = node.radius * options.labelScale;
-    const labelDrop = labelRadius * (options.narrowViewport ? 3.4 : 2.65) + sprite.scale.y * 0.48;
-    sprite.position.set(node.position.x, node.position.y - labelDrop, node.position.z + labelRadius * 0.82 + 5.5);
+    const labelDrop = labelRadius * (options.narrowViewport ? 2.7 : 2.08) + sprite.scale.y * 0.34;
+    sprite.position.set(node.position.x, node.position.y - labelDrop, node.position.z + labelRadius * 1.22 + 8);
     options.group.add(sprite);
     sprites.push(sprite);
   }
