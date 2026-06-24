@@ -77,7 +77,7 @@ export const DEFAULT_NETGRAPH_VISUAL_PROFILE: NetgraphVisualProfile = {
   orbitControlSpeed: 1,
   orbitDamping: 0.07,
   nodeScale: 2.35,
-  labelScale: 1.18,
+  labelScale: 1.36,
   edgeOpacity: 1.14,
   labelDensity: 1,
   pulseDensity: 1.32,
