@@ -516,7 +516,9 @@ export function packetObservationToNetgraphLiveVisual(
   const segments =
     bridgedLiveSegments(graph, livePathIds.filter((nodeId) => graph.nodeById.has(nodeId))) ??
     adjacentLiveSegments(graph, livePathIds);
-  if (segments && segments.length > 0) {
+  const fallbackSegment = segments ? null : fallbackLiveTrafficSegment(graph, event, txNodeId, rxNodeId);
+  const pulseSegments = segments ?? (fallbackSegment ? [fallbackSegment] : null);
+  if (pulseSegments && pulseSegments.length > 0) {
     return {
       type: "pulse",
       pulse: {
@@ -528,8 +530,8 @@ export function packetObservationToNetgraphLiveVisual(
         txColor: "#7ab7ff",
         rxColor: "#54e1a6",
         startedAt: now,
-        durationMs: Math.min(5600, Math.max(2200, segments.length * 900)),
-        segments,
+        durationMs: Math.min(5600, Math.max(2200, pulseSegments.length * 900)),
+        segments: pulseSegments,
       },
     };
   }
@@ -549,6 +551,35 @@ export function packetObservationToNetgraphLiveVisual(
     };
   }
   return null;
+}
+
+function fallbackLiveTrafficSegment(
+  graph: NetgraphGraph,
+  event: WsPacketObservation["data"],
+  txNodeId: string | undefined,
+  rxNodeId: string | undefined,
+): NetgraphPulseSegment | null {
+  if (graph.edges.length === 0) return null;
+  const preferredNodeId = rxNodeId ?? txNodeId;
+  const seed = `${event.packetHash}:${event.observation.id ?? event.observation.heardAt}`;
+  const candidates = preferredNodeId
+    ? graph.edges.filter((edge) => edge.fromId === preferredNodeId || edge.toId === preferredNodeId)
+    : [];
+  const pool = candidates.length > 0 ? candidates : graph.edges;
+  const edge = pool[stableHash(seed) % pool.length];
+  if (!edge) return null;
+  let reverse = Boolean(stableHash(`${seed}:direction`) % 2);
+  if (rxNodeId && (edge.fromId === rxNodeId || edge.toId === rxNodeId)) {
+    reverse = edge.fromId === rxNodeId;
+  } else if (txNodeId && (edge.fromId === txNodeId || edge.toId === txNodeId)) {
+    reverse = edge.toId === txNodeId;
+  }
+  return {
+    edgeId: edge.id,
+    fromId: edge.fromId,
+    toId: edge.toId,
+    reverse,
+  };
 }
 
 function liveTrafficPathIds(nodeIds: string[], observerNodeId: string | undefined): string[] {

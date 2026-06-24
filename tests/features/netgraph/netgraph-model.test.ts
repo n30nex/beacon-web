@@ -334,17 +334,42 @@ describe("packetObservationToNetgraphLiveVisual", () => {
     expect(visual.pulse.segments.map((segment) => segment.edgeId)).toEqual(["node-alpha>node-bravo", "node-bravo>node-charlie"]);
   });
 
-  it("uses a node glow when only one path node can be matched", () => {
+  it("uses a nearby topology pulse when only one path node can be matched", () => {
     const graph = buildNetgraph(snapshot());
     const visual = packetObservationToNetgraphLiveVisual(packetData(["node-alpha"]), graph, 5000);
 
-    expect(visual).toMatchObject({ type: "glow", glow: { nodeId: "node-alpha", direction: "rx" } });
+    expect(visual?.type).toBe("pulse");
+    if (visual?.type !== "pulse") return;
+    expect(visual.pulse.txNodeId).toBe("node-alpha");
+    expect(visual.pulse.rxNodeId).toBe("node-alpha");
+    expect(visual.pulse.segments[0]?.edgeId).toBe("node-alpha>node-bravo");
   });
 
-  it("uses an observer rx glow when the route path is unavailable", () => {
+  it("uses an observer-adjacent pulse when the route path is unavailable", () => {
     const graph = buildNetgraph(snapshot());
     const visual = packetObservationToNetgraphLiveVisual(packetData([], "node-bravo"), graph, 5000);
 
-    expect(visual).toMatchObject({ type: "glow", glow: { nodeId: "node-bravo", direction: "rx" } });
+    expect(visual?.type).toBe("pulse");
+    if (visual?.type !== "pulse") return;
+    expect(visual.pulse.rxNodeId).toBe("node-bravo");
+    expect(visual.pulse.segments[0]?.edgeId).toMatch(/node-(alpha|bravo)>node-(bravo|charlie)/);
+  });
+
+  it("uses an ambient topology pulse when no packet endpoint is present in the graph", () => {
+    const graph = buildNetgraph(snapshot());
+    const visual = packetObservationToNetgraphLiveVisual(packetData(["node-missing"], "observer-missing"), graph, 5000);
+
+    expect(visual?.type).toBe("pulse");
+    if (visual?.type !== "pulse") return;
+    expect(visual.pulse.txNodeId).toBeUndefined();
+    expect(visual.pulse.rxNodeId).toBeUndefined();
+    expect(visual.pulse.segments).toHaveLength(1);
+  });
+
+  it("falls back to a node glow only when the topology has no edges to carry traffic", () => {
+    const graph = buildNetgraph(snapshot({ edges: [] }));
+    const visual = packetObservationToNetgraphLiveVisual(packetData(["node-alpha"]), graph, 5000);
+
+    expect(visual).toMatchObject({ type: "glow", glow: { nodeId: "node-alpha", direction: "rx" } });
   });
 });

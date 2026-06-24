@@ -253,7 +253,7 @@ export function NetgraphView({ selectedNodeId, onSelectNode, wsManager }: Netgra
           <div className="flex min-w-0 items-baseline justify-between gap-2 md:block">
             <h1 className="text-base font-semibold text-text-bright">Netgraph</h1>
             <p className="shrink-0 font-mono text-[10px] text-text-normal md:hidden">
-              {formatCount(graph.nodes.length)} nodes / {formatCount(graph.edges.length)} links / {pulses.length} live
+              {formatCount(graph.nodes.length)} nodes / {formatCount(graph.edges.length)} links / {liveStats.visualCount} live
             </p>
             <p className="hidden font-mono text-[11px] text-text-normal md:block">
               {formatCount(graph.nodes.length)} connected nodes / {formatCount(graph.edges.length)} public pathways
@@ -346,7 +346,7 @@ export function NetgraphView({ selectedNodeId, onSelectNode, wsManager }: Netgra
         <div className="pointer-events-auto absolute bottom-2 left-2 z-10 hidden max-w-[calc(100%-1rem)] items-center gap-2 rounded-sm border border-border bg-bg-surface/92 px-2 py-1.5 font-mono text-[10px] shadow-2xl backdrop-blur md:bottom-3 md:left-3 md:inline-flex md:px-3 md:py-2 md:text-[11px]">
           <ActivityIcon size={14} className="text-primary" />
           <span className="text-text-muted">{wsManager?.getStatus() ?? "offline"}</span>
-          <b className="text-green">{pulses.length} live pulses</b>
+          <b className="text-green">{liveStats.visualCount} live pulses</b>
           <span className="hidden text-text-dim sm:inline">TX {formatCount(liveStats.txCount)} / RX {formatCount(liveStats.rxCount)}</span>
         </div>
         <NodeInspector graph={graph} selectedNodeId={selectedRouteId == null ? effectiveSelectedNodeId : null} onFocusNode={focusNodeMode} onViewNodeOnMap={viewNodeOnMap} onClearNode={clearNode} />

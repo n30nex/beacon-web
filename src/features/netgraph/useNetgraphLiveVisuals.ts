@@ -98,6 +98,7 @@ export function useNetgraphLiveVisuals({
     for (const pulse of pulses) payloads.add(pulse.payloadTypeName);
     for (const glow of glows) payloads.add(glow.payloadTypeName);
     return {
+      visualCount: pulses.length + glows.length,
       txCount: pulses.filter((pulse) => pulse.txNodeId).length + glows.filter((glow) => glow.direction === "tx").length,
       rxCount: pulses.filter((pulse) => pulse.rxNodeId).length + glows.filter((glow) => glow.direction === "rx").length,
       payloadText: Array.from(payloads).slice(0, 3).join(" / "),
