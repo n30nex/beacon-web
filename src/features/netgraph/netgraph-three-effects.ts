@@ -23,6 +23,7 @@ import {
 
 const MAX_PULSE_MESHES = 96;
 const MAX_GLOW_MESHES = 64;
+const LIVE_VISIBILITY_BOOST = 1.55;
 
 export interface PulseVisuals {
   pulseMeshes: THREE.Mesh[];
@@ -72,13 +73,13 @@ export function createPulseVisuals(options: {
         : options.narrowViewport
           ? 36
           : MAX_PULSE_MESHES;
-  const pulseBudget = Math.max(0, Math.floor(basePulseBudget * options.pulseDensity * options.cometScale));
+  const pulseBudget = Math.max(0, Math.floor(basePulseBudget * options.pulseDensity * options.cometScale * LIVE_VISIBILITY_BOOST));
   const pulseMeshes = Array.from({ length: pulseBudget }, () => {
     const material = new THREE.MeshStandardMaterial({
       map: options.defaultPulseHeadMap ?? undefined,
       color: options.green,
       emissive: options.green,
-      emissiveIntensity: 1.25 * options.glowIntensityScale,
+      emissiveIntensity: 2.05 * options.glowIntensityScale,
       metalness: 0.08,
       roughness: 0.24,
       transparent: true,
@@ -97,7 +98,7 @@ export function createPulseVisuals(options: {
       map: options.defaultPulseTailMap ?? undefined,
       color: options.green,
       emissive: options.green,
-      emissiveIntensity: 0.7 * options.glowIntensityScale,
+      emissiveIntensity: 1.22 * options.glowIntensityScale,
       metalness: 0.02,
       roughness: 0.34,
       transparent: true,
@@ -122,7 +123,7 @@ export function createPulseVisuals(options: {
       map: options.defaultEndpointPulseMap ?? undefined,
       color: options.green,
       emissive: options.green,
-      emissiveIntensity: 0.95 * options.glowIntensityScale,
+      emissiveIntensity: 1.65 * options.glowIntensityScale,
       metalness: 0.05,
       roughness: 0.28,
       transparent: true,
@@ -136,9 +137,9 @@ export function createPulseVisuals(options: {
     return mesh;
   });
 
-  const pulseLightBudget = options.richPacketLighting ? (options.narrowViewport ? 1 : 2) : 0;
+  const pulseLightBudget = options.richPacketLighting ? (options.narrowViewport ? 2 : 4) : 0;
   const pulseLights = Array.from({ length: pulseLightBudget }, () => {
-    const light = new THREE.PointLight(options.green, 0, options.narrowViewport ? 18 : 26, 2.1);
+    const light = new THREE.PointLight(options.green, 0, options.narrowViewport ? 26 : 38, 1.85);
     options.group.add(light);
     return light;
   });
@@ -157,7 +158,7 @@ export function createPulseVisuals(options: {
         : options.narrowViewport
           ? 24
           : MAX_GLOW_MESHES;
-  const glowBudget = Math.max(0, Math.floor(baseGlowBudget * options.glowDensity * options.effectScale));
+  const glowBudget = Math.max(0, Math.floor(baseGlowBudget * options.glowDensity * options.effectScale * LIVE_VISIBILITY_BOOST));
   const glowMeshes = Array.from({ length: glowBudget }, () => {
     const material = new THREE.MeshBasicMaterial({
       map: options.defaultGlowMap ?? undefined,
@@ -264,11 +265,11 @@ export function renderNetgraphEffectFrame(options: {
     }
     material.color.set(colorValue);
     material.emissive.set(colorValue);
-    material.emissiveIntensity = (0.9 + Math.sin(options.time / 190 + phase) * 0.14) * options.glowIntensityScale;
-    material.opacity = (0.5 + Math.sin(options.time / 160 + phase) * 0.16) * clamp(options.glowIntensityScale, 0.2, 3);
+    material.emissiveIntensity = (1.72 + Math.sin(options.time / 150 + phase) * 0.28) * options.glowIntensityScale;
+    material.opacity = (0.82 + Math.sin(options.time / 128 + phase) * 0.18) * clamp(options.glowIntensityScale, 0.2, 3);
     mesh.position.copy(options.endpointPosition);
     mesh.quaternion.copy(options.cameraQuaternion);
-    mesh.scale.setScalar(nodeScale(node, options.nodeScaleFactor) * (options.narrowViewport ? 2.8 : 2.25) * wave);
+    mesh.scale.setScalar(nodeScale(node, options.nodeScaleFactor) * (options.narrowViewport ? 3.55 : 3.05) * wave);
     mesh.visible = true;
     endpointIndex += 1;
   };
@@ -296,16 +297,16 @@ export function renderNetgraphEffectFrame(options: {
     }
     material.color.set(pulse.color);
     material.emissive.set(pulse.color);
-    material.emissiveIntensity = (options.narrowViewport ? 1.08 : 1.35) * options.glowIntensityScale;
-    material.opacity = (0.72 + Math.sin(options.time / 130 + pulseIndex) * 0.14) * clamp(options.glowIntensityScale, 0.2, 3);
+    material.emissiveIntensity = (options.narrowViewport ? 2.05 : 2.35) * options.glowIntensityScale;
+    material.opacity = (0.94 + Math.sin(options.time / 110 + pulseIndex) * 0.12) * clamp(options.glowIntensityScale, 0.2, 3);
     mesh.position.copy(position);
-    mesh.scale.setScalar(head * (options.narrowViewport ? 1.42 : 1.16) * (0.72 + options.renderTier.cometScale * 0.28));
+    mesh.scale.setScalar(head * (options.narrowViewport ? 2.18 : 1.82) * (0.66 + options.renderTier.cometScale * 0.34));
     mesh.visible = true;
     const light = options.pulseLights[pulseLightIndex];
     if (light) {
       light.color.set(pulse.color);
       light.position.copy(position);
-      light.intensity = (options.narrowViewport ? 0.95 : 1.35) * clamp(options.glowIntensityScale, 0.2, 3);
+      light.intensity = (options.narrowViewport ? 2.2 : 3.15) * clamp(options.glowIntensityScale, 0.2, 3);
       pulseLightIndex += 1;
     }
 
@@ -330,14 +331,14 @@ export function renderNetgraphEffectFrame(options: {
           tailMaterial.needsUpdate = true;
         }
         const tailLength = Math.max(1.2, tailPosition.distanceTo(position));
-        const tailWidth = head * (options.narrowViewport ? 0.9 : 0.66) * (0.72 + options.renderTier.cometScale * 0.28);
+        const tailWidth = head * (options.narrowViewport ? 1.35 : 1.05) * (0.66 + options.renderTier.cometScale * 0.34);
         options.tailDirection.subVectors(position, tailPosition);
         if (options.tailDirection.lengthSq() > 0.001) tailMesh.quaternion.setFromUnitVectors(options.pulseTailAxis, options.tailDirection.normalize());
         options.tailMidpoint.lerpVectors(tailPosition, position, 0.48);
         tailMaterial.color.set(pulse.color);
         tailMaterial.emissive.set(pulse.color);
-        tailMaterial.emissiveIntensity = (options.narrowViewport ? 0.58 : 0.76) * options.glowIntensityScale;
-        tailMaterial.opacity = 0.28 + Math.sin(options.time / 170 + pulseIndex) * 0.06;
+        tailMaterial.emissiveIntensity = (options.narrowViewport ? 1.18 : 1.45) * options.glowIntensityScale;
+        tailMaterial.opacity = 0.52 + Math.sin(options.time / 148 + pulseIndex) * 0.1;
         tailMesh.position.copy(options.tailMidpoint);
         tailMesh.scale.set(tailWidth, tailLength, tailWidth);
         tailMesh.visible = true;
@@ -371,9 +372,9 @@ export function renderNetgraphEffectFrame(options: {
       material.needsUpdate = true;
     }
     material.color.set(glow.color);
-    material.opacity = (1 - progress) * 0.55 * clamp(options.glowIntensityScale, 0.2, 3);
+    material.opacity = (1 - progress) * 0.86 * clamp(options.glowIntensityScale, 0.2, 3);
     mesh.position.copy(options.glowPosition);
-    mesh.scale.setScalar(nodeScale(node, options.nodeScaleFactor) * (1.8 + progress * 2.8));
+    mesh.scale.setScalar(nodeScale(node, options.nodeScaleFactor) * (2.4 + progress * 4.2));
     mesh.visible = true;
     glowIndex += 1;
   }
