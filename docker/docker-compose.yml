@@ -1,23 +1,28 @@
 services:
   caddy:
-    image: caddy:2-alpine
+    build:
+      context: ./caddy
+      args:
+        CADDY_RATELIMIT_MODULE: ${CADDY_RATELIMIT_MODULE:-github.com/mholt/caddy-ratelimit@v0.1.0}
+    image: ${CADDY_IMAGE:-beacon-caddy-ratelimit:2}
     ports:
-      - "80:80"
-      - "443:443"
+      - "${CADDY_HTTP_PORT:-80}:${CADDY_HTTP_TARGET_PORT:-80}"
+      - "${CADDY_HTTPS_PORT:-443}:443"
+    extra_hosts:
+      - "host.docker.internal:${HOST_DOCKER_INTERNAL_IP:-host-gateway}"
     environment:
       - DOMAIN=${DOMAIN:?DOMAIN environment variable is required}
+      - BEACON_WEB_UPSTREAM=${BEACON_WEB_UPSTREAM:-host.docker.internal:5174}
+      - BEACON_API_UPSTREAM=${BEACON_API_UPSTREAM:-host.docker.internal:8080}
+      - BEACON_WS_UPSTREAM=${BEACON_WS_UPSTREAM:-host.docker.internal:8080}
+      - CADDY_API_RATE_LIMIT_EVENTS=${CADDY_API_RATE_LIMIT_EVENTS:-600}
+      - CADDY_API_RATE_LIMIT_WINDOW=${CADDY_API_RATE_LIMIT_WINDOW:-1m}
+      - CADDY_HEALTH_RATE_LIMIT_EVENTS=${CADDY_HEALTH_RATE_LIMIT_EVENTS:-120}
+      - CADDY_HEALTH_RATE_LIMIT_WINDOW=${CADDY_HEALTH_RATE_LIMIT_WINDOW:-1m}
+      - CADDY_WS_RATE_LIMIT_EVENTS=${CADDY_WS_RATE_LIMIT_EVENTS:-60}
+      - CADDY_WS_RATE_LIMIT_WINDOW=${CADDY_WS_RATE_LIMIT_WINDOW:-1m}
     volumes:
       - ./data/Caddy/CaddyFile/Caddyfile.proxy:/etc/caddy/Caddyfile
       - ./data/Caddy/data:/data/caddy/
       - ./data/Caddy/config:/config/caddy/
-    restart: unless-stopped
-
-  beacon-web:
-    image: ghcr.io/meshcore-beacon/beacon-web:latest
-    environment:
-      - VITE_API_BASE=${VITE_API_BASE:?VITE_API_BASE environment variable is required}
-      - VITE_WS_URL=${VITE_WS_URL:?VITE_WS_URL environment variable is required}
-      # Optional "All" map view; unset = world overview
-      - VITE_MAP_CENTER=${VITE_MAP_CENTER:-}
-      - VITE_MAP_ZOOM=${VITE_MAP_ZOOM:-}
     restart: unless-stopped

@@ -14,46 +14,54 @@ import {
 import { ThemeProvider } from "./hooks/useTheme";
 import { useIsMobile } from "./hooks/useMediaQuery";
 import { AppShell } from "./components/AppShell";
+import { RuntimeStatusPanel } from "./components/RuntimeStatusPanel";
 import { SplashScreen } from "./components/SplashScreen";
-import { PacketList } from "./features/packets/PacketList";
-import { PacketAnalyzerDrawer } from "./features/packets/PacketAnalyzerDrawer";
-import { PacketAnalyzerOverlay } from "./features/packets/PacketAnalyzerOverlay";
-import { NodeTable } from "./features/nodes/NodeTable";
-import { NodeDetailPanel } from "./features/nodes/NodeDetailPanel";
-import { NodeDetailOverlay } from "./features/nodes/NodeDetailOverlay";
-import { ObserverTable } from "./features/observers/ObserverTable";
-import { RouteTable } from "./features/routes/RouteTable";
-import { TraceList } from "./features/traces/TraceList";
-import { ChannelList } from "./features/channels/ChannelList";
 import { TerminalLoadingState } from "./components/TerminalLoader";
 import { GlobalSearchPalette } from "./components/GlobalSearchPalette";
 import { getPacketDetail } from "./api/client";
 import { WsManager } from "./api/ws-manager";
-import { WS_URL, TABS } from "./lib/constants";
+import { WS_URL } from "./lib/constants";
+import {
+  applyNavigationParams,
+  canonicalizeNavigationParams,
+  moduleLabel,
+  navigationForTarget,
+  navigationFromParams,
+  type NavigationState,
+  type PageTab,
+} from "./lib/navigation";
 import type { GlobalSearchResult } from "./types/api";
 import { WS_EVENT_TYPES } from "./types/ws";
 
-// All map-bearing tabs are lazy so maplibre-gl (~800KB) leaves the entry graph entirely and streams
-// in its own cacheable chunk instead of blocking first paint. Atlas/Live are the default landing
-// tabs, so AppInner idle-prefetches their chunk right after the shell mounts (see effect below) —
-// perceived load on the default view is unchanged, but users who deep-link to a non-map tab
-// (?tab=Packets/Nodes/Stats/…) never download the WebGL engine.
-const AtlasView = lazy(() => import("./features/atlas/AtlasView").then((m) => ({ default: m.AtlasView })));
+// Map-bearing pages are lazy so maplibre-gl (~800KB) leaves the entry graph entirely and streams
+// in its own cacheable chunk instead of blocking first paint. AppInner idle-prefetches those chunks
+// only when the user starts on a map-heavy page.
+const HomeView = lazy(() => import("./features/home/HomeView").then((m) => ({ default: m.HomeView })));
 const LiveView = lazy(() => import("./features/live/LiveView").then((m) => ({ default: m.LiveView })));
 const MapView = lazy(() => import("./features/map/MapView").then((m) => ({ default: m.MapView })));
+const PacketList = lazy(() => import("./features/packets/PacketList").then((m) => ({ default: m.PacketList })));
+const ChannelList = lazy(() => import("./features/channels/ChannelList").then((m) => ({ default: m.ChannelList })));
+const NodeTable = lazy(() => import("./features/nodes/NodeTable").then((m) => ({ default: m.NodeTable })));
+const ObserverTable = lazy(() => import("./features/observers/ObserverTable").then((m) => ({ default: m.ObserverTable })));
+const RouteTable = lazy(() => import("./features/routes/RouteTable").then((m) => ({ default: m.RouteTable })));
+const NetgraphView = lazy(() => import("./features/netgraph/NetgraphView").then((m) => ({ default: m.NetgraphView })));
+const TraceList = lazy(() => import("./features/traces/TraceList").then((m) => ({ default: m.TraceList })));
+const PacketAnalyzerDrawer = lazy(() => import("./features/packets/PacketAnalyzerDrawer").then((m) => ({ default: m.PacketAnalyzerDrawer })));
+const PacketAnalyzerOverlay = lazy(() => import("./features/packets/PacketAnalyzerOverlay").then((m) => ({ default: m.PacketAnalyzerOverlay })));
+const NodeDetailPanel = lazy(() => import("./features/nodes/NodeDetailPanel").then((m) => ({ default: m.NodeDetailPanel })));
+const NodeDetailOverlay = lazy(() => import("./features/nodes/NodeDetailOverlay").then((m) => ({ default: m.NodeDetailOverlay })));
 
-// Stats pulls in ECharts (~150-200KB gz), so lazy-load it too — the chunk loads on first visit to Stats.
+// Analytics pulls in ECharts (~150-200KB gz), so lazy-load it too.
 const StatsOverview = lazy(() => import("./features/stats/StatsOverview").then((m) => ({ default: m.StatsOverview })));
 
-// Warm the maplibre-backed chunks during idle once the shell is up, so landing on the default Atlas
-// tab (or switching to Live/Map) doesn't wait on a cold fetch. Safe to call repeatedly — the dynamic
-// import is cached after the first hit.
+// Warm the maplibre-backed chunks during idle for map-heavy entry points. Safe to call repeatedly —
+// the dynamic import is cached after the first hit.
 function prefetchMapChunks() {
-  void import("./features/atlas/AtlasView");
   void import("./features/live/LiveView");
+  void import("./features/map/MapView");
 }
 
-const MAP_PREFETCH_TABS = new Set(["Atlas", "Live", "Map"]);
+const MAP_PREFETCH_TABS = new Set<PageTab>(["Live", "Map"]);
 
 // global singletons
 
@@ -129,24 +137,64 @@ function SelectionResetOnRegion({ onRegionChange }: { onRegionChange: () => void
   return null;
 }
 
+function workspaceKey(navigation: NavigationState): string {
+  return navigation.tab;
+}
+
+function clearDetailParamsForNavigation(params: URLSearchParams, navigation: NavigationState) {
+  if (navigation.tab !== "Packets" && navigation.tab !== "Channels") {
+    params.delete("hash");
+    params.delete("channelId");
+  }
+  if (navigation.tab !== "Nodes" && navigation.tab !== "Live" && navigation.tab !== "Map" && navigation.tab !== "Netgraph") {
+    params.delete("nodeId");
+  }
+  if (navigation.tab !== "Observers" && navigation.tab !== "Analytics") {
+    params.delete("observerId");
+  }
+  if (navigation.tab !== "Routes" && navigation.tab !== "Map" && navigation.tab !== "Netgraph") {
+    params.delete("routeId");
+    params.delete("routeReplay");
+  }
+  if (navigation.tab !== "Map") {
+    params.delete("mapFocus");
+  }
+  if (navigation.tab !== "Traces") {
+    params.delete("traceTag");
+  }
+  if (navigation.tab !== "Analytics") {
+    params.delete("statsTab");
+    params.delete("compare");
+    params.delete("compareIds");
+  }
+}
+
+function SystemView({ wsManager }: { wsManager: WsManager }) {
+  return (
+    <div className="flex min-h-0 flex-1 overflow-y-auto bg-bg-base p-3 md:p-4">
+      <RuntimeStatusPanel wsManager={wsManager} variant="page" />
+    </div>
+  );
+}
+
 // tab state and region init
 
 function AppInner() {
   const [searchParams, setSearchParams] = useSearchParams();
   const isMobile = useIsMobile();
-  // The URL is the single source of truth for the active tab; back/forward just work, and an
-  // unknown ?tab value falls back to Atlas instead of rendering a blank pane.
-  const tabParam = searchParams.get("tab");
-  const activeTab = (TABS as readonly string[]).includes(tabParam ?? "") ? (tabParam as string) : "Atlas";
+  // The URL is the single source of truth for the active destination.
+  // Legacy ?tab=Atlas/Investigate/Ops links are normalized into the direct IA below.
+  const activeNavigation = navigationFromParams(searchParams);
+  const activeTab = activeNavigation.tab;
   const shouldPrefetchMapChunksOnMountRef = useRef(MAP_PREFETCH_TABS.has(activeTab));
   // Resolve the starting selection once from URL → storage → legacy key (see computeInitialSelection).
   const [initialSelection] = useState(() => computeInitialSelection(searchParams));
 
   const [analyzerHash, setAnalyzerHash] = useState<string | null>(() => searchParams.get("hash"));
   const [selectedObservationId, setSelectedObservationId] = useState<number | null>(null);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(() => searchParams.get("nodeId"));
   // lifted (like selectedNodeId) so a node's "View observer" link can select it before the tab mounts
-  const [selectedObserverId, setSelectedObserverId] = useState<string | null>(null);
+  const [selectedObserverId, setSelectedObserverId] = useState<string | null>(() => searchParams.get("observerId"));
   const [searchOpen, setSearchOpen] = useState(false);
   // node detail shown as a modal over the packet analyzer (e.g. clicking a resolved path hop)
   const [overlayNodeId, setOverlayNodeId] = useState<string | null>(null);
@@ -169,12 +217,19 @@ function AppInner() {
     staleTime: 30_000,
   });
 
+  useEffect(() => {
+    const canonical = canonicalizeNavigationParams(searchParams);
+    if (canonical.toString() !== searchParams.toString()) {
+      setSearchParams(canonical, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const handleAnalyze = useCallback((hash: string | null) => {
     setAnalyzerHash(hash);
     setSelectedObservationId(null);
-  }, []);
+  }, [setAnalyzerHash, setSelectedObservationId]);
 
-  const handleTabChange = (tab: string) => {
+  const navigateToState = useCallback((navigation: NavigationState, replace = false) => {
     setOverlayNodeId(null);
     setOverlayPacketHash(null);
     // On mobile a detail panel fills the screen, so leaving its tab must close it; desktop side
@@ -186,19 +241,24 @@ function AppInner() {
       setSelectedObserverId(null);
     }
     setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set("tab", tab);
-      // stats sub-state shouldn't haunt the URL on other tabs
-      if (tab !== "Stats") {
-        next.delete("statsTab");
-        next.delete("observerId");
-        next.delete("compare");
-        next.delete("compareIds");
-        next.delete("range");
-      }
+      const next = applyNavigationParams(prev, navigation);
+      clearDetailParamsForNavigation(next, navigation);
       return next;
-    });
-  };
+    }, { replace });
+  }, [
+    isMobile,
+    setAnalyzerHash,
+    setOverlayNodeId,
+    setOverlayPacketHash,
+    setSearchParams,
+    setSelectedNodeId,
+    setSelectedObservationId,
+    setSelectedObserverId,
+  ]);
+
+  const handleTabChange = useCallback((tab: string) => {
+    navigateToState(navigationForTarget(tab));
+  }, [navigateToState]);
 
   const navigateToSearchResult = useCallback(
     (result: GlobalSearchResult) => {
@@ -209,7 +269,7 @@ function AppInner() {
       setSelectedNodeId(null);
       setSelectedObserverId(null);
       const url = new URL(result.url, window.location.origin);
-      const next = new URLSearchParams(searchParams);
+      let next = new URLSearchParams(searchParams);
       for (const key of Array.from(next.keys())) {
         if (["hash", "nodeId", "observerId", "channelId", "traceTag", "routeId", "routeReplay", "statsTab", "compare", "compareIds"].includes(key)) {
           next.delete(key);
@@ -220,30 +280,31 @@ function AppInner() {
       switch (result.type) {
       case "packet":
         setAnalyzerHash(String(result.metadata?.packetHash ?? result.id));
-        next.set("tab", "Packets");
+        next = applyNavigationParams(next, { tab: "Packets" });
         next.set("hash", String(result.metadata?.packetHash ?? result.id));
         break;
       case "node":
         setSelectedNodeId(result.id);
-        next.set("tab", "Nodes");
+        next = applyNavigationParams(next, { tab: "Nodes" });
         next.set("nodeId", result.id);
         break;
       case "observer":
         setSelectedObserverId(result.id);
-        next.set("tab", "Observers");
+        next = applyNavigationParams(next, { tab: "Observers" });
         next.set("observerId", result.id);
         break;
       case "route":
         next.set("tab", "Map");
+        next.delete("module");
         next.set("routeId", result.id);
         next.set("routeReplay", "1");
         break;
       case "channel":
-        next.set("tab", "Channels");
+        next = applyNavigationParams(next, { tab: "Channels" });
         next.set("channelId", result.id);
         break;
       case "trace":
-        next.set("tab", "Traces");
+        next = applyNavigationParams(next, { tab: "Traces" });
         next.set("traceTag", result.id);
         break;
       default:
@@ -251,7 +312,16 @@ function AppInner() {
       }
       setSearchParams(next);
     },
-    [searchParams, setSearchParams],
+    [
+      searchParams,
+      setAnalyzerHash,
+      setOverlayNodeId,
+      setOverlayPacketHash,
+      setSearchParams,
+      setSelectedNodeId,
+      setSelectedObservationId,
+      setSelectedObserverId,
+    ],
   );
 
   const clearSelection = useCallback(() => {
@@ -259,22 +329,21 @@ function AppInner() {
     setOverlayNodeId(null);
     setOverlayPacketHash(null);
     setSelectedObserverId(null);
-  }, []);
+  }, [setOverlayNodeId, setOverlayPacketHash, setSelectedNodeId, setSelectedObserverId]);
 
-  // Jump from an observer's detail panel to its telemetry on the Stats tab (Stats → Observer, preselected).
+  // Jump from an observer's detail panel to its telemetry on Analytics, preselected.
   const handleViewObserverStats = useCallback(
     (id: string) => {
       setOverlayNodeId(null);
       setOverlayPacketHash(null);
       setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set("tab", "Stats");
+        const next = applyNavigationParams(prev, { tab: "Analytics" });
         next.set("statsTab", "observers");
         next.set("observerId", id);
         return next;
       });
     },
-    [setSearchParams],
+    [setOverlayNodeId, setOverlayPacketHash, setSearchParams],
   );
 
   useEffect(() => {
@@ -296,8 +365,7 @@ function AppInner() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // Prefetch the maplibre-backed view chunks during idle so the default Atlas tab (and a hop to
-  // Live/Map) renders from cache instead of a cold network fetch.
+  // Prefetch maplibre-backed view chunks during idle for map-heavy entry points.
   useEffect(() => {
     if (!shouldPrefetchMapChunksOnMountRef.current) return;
     const ric = (window as Window & { requestIdleCallback?: (cb: () => void) => number; cancelIdleCallback?: (id: number) => void }).requestIdleCallback;
@@ -309,20 +377,27 @@ function AppInner() {
     return () => window.clearTimeout(t);
   }, []);
 
-  const tabContent: Record<string, React.ReactNode> = {
-    Atlas: <AtlasView wsManager={wsManager} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} nodePanelOpen={Boolean(selectedNodeId)} />,
+  const tabContent: Record<PageTab, React.ReactNode> = {
+    Home: <HomeView wsManager={wsManager} onNavigate={handleTabChange} />,
     Live: <LiveView wsManager={wsManager} onAnalyze={setOverlayPacketHash} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} nodePanelOpen={Boolean(selectedNodeId)} />,
     Packets: <PacketList wsManager={wsManager} onAnalyze={handleAnalyze} />,
     Nodes: <NodeTable wsManager={wsManager} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />,
     Observers: <ObserverTable wsManager={wsManager} selectedObserverId={selectedObserverId} onSelectObserver={setSelectedObserverId} onAnalyzePacket={setOverlayPacketHash} onViewStats={handleViewObserverStats} />,
     Routes: <RouteTable />,
+    Netgraph: <NetgraphView selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} wsManager={wsManager} />,
     // analyze opens the packet overlay (modal) rather than the side drawer, which suits the
     // master/detail layout and renders on any tab — same path NodeDetailPanel's onAnalyzePacket uses
     Traces: <TraceList onAnalyze={setOverlayPacketHash} onViewNode={setOverlayNodeId} />,
     Channels: <ChannelList wsManager={wsManager} onAnalyze={handleAnalyze} />,
-    Stats: <StatsOverview wsManager={wsManager} />,
+    Analytics: <StatsOverview wsManager={wsManager} />,
+    System: <SystemView wsManager={wsManager} />,
     Map: <MapView wsManager={wsManager} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />,
   };
+
+  const contentKey = workspaceKey(activeNavigation);
+  const contentLabel = moduleLabel(activeNavigation);
+  const packetAnalyzerInMainWorkspace = activeTab === "Packets" || activeTab === "Channels";
+  const nodePanelInMainWorkspace = activeTab === "Live" || activeTab === "Map" || activeTab === "Nodes";
 
   return (
     <RegionProvider defaultSelection={initialSelection}>
@@ -330,55 +405,63 @@ function AppInner() {
       <RegionUrlSync />
       <SelectionResetOnRegion onRegionChange={clearSelection} />
       <AppShell activeTab={activeTab} onTabChange={handleTabChange} wsManager={wsManager} onOpenSearch={() => setSearchOpen(true)}>
-        <div className="relative flex flex-1 min-h-0">
-          <div key={activeTab} className="flex flex-1 min-h-0 fade-in">
-            <Suspense fallback={<TerminalLoadingState label={`LOADING ${activeTab}`} detail="MODULE TRANSFER IN PROGRESS" />}>
+        <div className="relative flex flex-1 min-h-0 min-w-0">
+          <div key={contentKey} className="flex flex-1 min-h-0 min-w-0 fade-in">
+            <Suspense fallback={<TerminalLoadingState label={`LOADING ${contentLabel}`} detail="MODULE TRANSFER IN PROGRESS" />}>
               {tabContent[activeTab]}
             </Suspense>
           </div>
-          {analyzerHash && (activeTab === "Packets" || activeTab === "Channels") && (
-            <PacketAnalyzerDrawer
-              detail={analyzerDetail}
-              loading={analyzerLoading}
-              selectedObservationId={selectedObservationId}
-              onSelectObservation={setSelectedObservationId}
-              onClose={() => handleAnalyze(null)}
-              onViewNode={setOverlayNodeId}
-            />
+          {analyzerHash && packetAnalyzerInMainWorkspace && (
+            <Suspense fallback={null}>
+              <PacketAnalyzerDrawer
+                detail={analyzerDetail}
+                loading={analyzerLoading}
+                selectedObservationId={selectedObservationId}
+                onSelectObservation={setSelectedObservationId}
+                onClose={() => handleAnalyze(null)}
+                onViewNode={setOverlayNodeId}
+              />
+            </Suspense>
           )}
-          {(activeTab === "Atlas" || activeTab === "Live" || activeTab === "Map" || activeTab === "Nodes") && selectedNodeId && (
-            <NodeDetailPanel
-              nodeId={selectedNodeId}
-              onClose={() => setSelectedNodeId(null)}
-              onViewObserver={(observerId) => {
-                handleTabChange("Observers");
-                setSelectedObserverId(observerId);
-              }}
-              onViewNode={setSelectedNodeId}
-              onAnalyzePacket={setOverlayPacketHash}
-            />
+          {nodePanelInMainWorkspace && selectedNodeId && (
+            <Suspense fallback={null}>
+              <NodeDetailPanel
+                nodeId={selectedNodeId}
+                onClose={() => setSelectedNodeId(null)}
+                onViewObserver={(observerId) => {
+                  handleTabChange("Observers");
+                  setSelectedObserverId(observerId);
+                }}
+                onViewNode={setSelectedNodeId}
+                onAnalyzePacket={setOverlayPacketHash}
+              />
+            </Suspense>
           )}
           {overlayNodeId && (
-            <NodeDetailOverlay
-              nodeId={overlayNodeId}
-              onClose={() => setOverlayNodeId(null)}
-              onViewObserver={(observerId) => {
-                handleTabChange("Observers");
-                setSelectedObserverId(observerId);
-              }}
-              onViewNode={setOverlayNodeId}
-            />
+            <Suspense fallback={null}>
+              <NodeDetailOverlay
+                nodeId={overlayNodeId}
+                onClose={() => setOverlayNodeId(null)}
+                onViewObserver={(observerId) => {
+                  handleTabChange("Observers");
+                  setSelectedObserverId(observerId);
+                }}
+                onViewNode={setOverlayNodeId}
+              />
+            </Suspense>
           )}
           {overlayPacketHash && (
-            <PacketAnalyzerOverlay
-              detail={overlayPacketDetail}
-              loading={overlayPacketLoading}
-              onClose={() => setOverlayPacketHash(null)}
-              onViewObserver={(observerId) => {
-                handleTabChange("Observers");
-                setSelectedObserverId(observerId);
-              }}
-            />
+            <Suspense fallback={null}>
+              <PacketAnalyzerOverlay
+                detail={overlayPacketDetail}
+                loading={overlayPacketLoading}
+                onClose={() => setOverlayPacketHash(null)}
+                onViewObserver={(observerId) => {
+                  handleTabChange("Observers");
+                  setSelectedObserverId(observerId);
+                }}
+              />
+            </Suspense>
           )}
           <GlobalSearchPalette open={searchOpen} onClose={() => setSearchOpen(false)} onSelect={navigateToSearchResult} />
         </div>

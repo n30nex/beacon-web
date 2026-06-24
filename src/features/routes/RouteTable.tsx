@@ -248,7 +248,7 @@ export function RouteTable() {
   // client-side below (a region can span several IATAs, which the endpoint can't express).
   // Page the route set on demand (50 at a time, cursor = last route's lastSeen ms) — the DataTable
   // pulls the next page via loadMore() as you scroll, instead of eagerly loading the whole set.
-  const { items: listRoutes, loadedCount, isPaging, isError, isLoading: listLoading, loadMore, hasMore } =
+  const { items: listRoutes, loadedCount, isPaging, isError, isLoading: listLoading, loadMore, hasMore, updatedAt } =
     useInfinitePages<KnownRoute>({
       queryKey: ["routes", regionKey],
       queryFn: (cursor) => getKnownRoutesPage({ iatas, cursor }),
@@ -430,7 +430,7 @@ export function RouteTable() {
               renderCard={renderRouteCard}
             />
             {!search && (
-              <LoadingPill loading={isPaging} error={isError} count={loadedCount} noun="routes" position="bottom-3 right-3" />
+              <LoadingPill loading={isPaging} error={isError} count={loadedCount} noun="routes" position="bottom-3 right-3" showFreshness updatedAt={updatedAt} />
             )}
           </div>
         )}

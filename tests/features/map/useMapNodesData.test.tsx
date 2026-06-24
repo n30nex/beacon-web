@@ -39,7 +39,7 @@ describe("useMapNodesData", () => {
     expect(result.current.loadedCount).toBe(3);
     expect(mockGetNodesPage).toHaveBeenCalledTimes(2);
     // second call paginates with the previous page's nextCursor
-    expect(mockGetNodesPage).toHaveBeenLastCalledWith(["YYZ"], { cursor: 2 });
+    expect(mockGetNodesPage).toHaveBeenLastCalledWith(["YYZ"], { cursor: 2, limit: 500 });
   });
 
   it("stops after a single page when hasMore is false", async () => {

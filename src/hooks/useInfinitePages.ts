@@ -29,7 +29,7 @@ export function useInfinitePages<T>({
   auto = true,
   enabled = true,
 }: UseInfinitePagesOptions<T>) {
-  const { data, fetchNextPage, hasNextPage, isFetching, isFetchingNextPage, isError, isFetchNextPageError, isLoading } =
+  const { data, dataUpdatedAt, fetchNextPage, hasNextPage, isFetching, isFetchingNextPage, isError, isFetchNextPageError, isLoading } =
     useInfiniteQuery({
       queryKey,
       queryFn: ({ pageParam }) => queryFn(pageParam),
@@ -73,6 +73,7 @@ export function useInfinitePages<T>({
     isPaging: (isFetching || (auto && hasNextPage)) && !errored,
     isError: errored,
     isLoading,
+    updatedAt: dataUpdatedAt || null,
     hasMore: hasNextPage && !errored,
     loadMore,
   };

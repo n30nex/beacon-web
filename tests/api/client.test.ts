@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getNodesPage, getObserversPage, getScopes, getKnownRoutesPage, searchKnownRoutes, getChannels, getChannelMessagesPage, getTraces, getTraceDetail, getHealth, getReadiness } from "../../src/api/client";
+import { getNodesPage, getObserversPage, getScopes, getKnownRoutesPage, getNetgraphSnapshot, searchKnownRoutes, getChannels, getChannelMessagesPage, getTraces, getTraceDetail, getHealth, getReadiness } from "../../src/api/client";
 import type { NodeSummary } from "../../src/features/nodes/types";
 import type { ObserverSummary } from "../../src/features/observers/types";
 import type { ChannelMessage, ChannelSummary } from "../../src/features/channels/types";
-import type { KnownRoute, TraceTagSummary, TraceDetail } from "../../src/types/api";
+import type { KnownRoute, NetgraphSnapshot, TraceDetail, TraceTagSummary } from "../../src/types/api";
 
 // Capture the URL the client fetches and hand back a canned CursorPage.
 function mockFetchOnce(body: unknown): () => string {
@@ -180,6 +180,44 @@ describe("getKnownRoutesPage", () => {
     expect(page.items).toEqual([route]);
     expect(page.hasMore).toBe(false);
     expect(page.nextCursor).toBeNull();
+  });
+});
+
+describe("getNetgraphSnapshot", () => {
+  const snapshot: NetgraphSnapshot = {
+    serverTime: 123,
+    stats: {
+      sourceRouteCount: 0,
+      mappedRouteCount: 0,
+      nodeCount: 0,
+      edgeCount: 0,
+      observationCount: 0,
+      activeIatas: 0,
+      truncatedRoutes: false,
+      truncatedNodes: false,
+      truncatedEdges: false,
+    },
+    limits: {
+      routeLimit: 2500,
+      nodeLimit: 2600,
+      edgeLimit: 4200,
+    },
+    nodes: [],
+    edges: [],
+  };
+
+  it("hits /netgraph and forwards region, iatas, and caps", async () => {
+    const getUrl = mockFetchOnce(snapshot);
+
+    await getNetgraphSnapshot({ iatas: ["YVR", "YYC"], region: "west", routeLimit: 1600, nodeLimit: 1200, edgeLimit: 2200 });
+
+    const url = getUrl();
+    expect(url).toContain("/netgraph");
+    expect(url).toContain("iatas=YVR%2CYYC");
+    expect(url).toContain("region=west");
+    expect(url).toContain("routeLimit=1600");
+    expect(url).toContain("nodeLimit=1200");
+    expect(url).toContain("edgeLimit=2200");
   });
 });
 

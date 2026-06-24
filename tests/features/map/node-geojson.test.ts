@@ -46,6 +46,11 @@ describe("nodesToFeatureCollection", () => {
     });
   });
 
+  it("strips map glyphs that OpenFreeMap cannot serve", () => {
+    const fc = nodesToFeatureCollection([node({ name: "Relay \u{10990} North" })]);
+    expect(fc.features[0]!.properties.name).toBe("Relay North");
+  });
+
   it("defaults isObserver to false and reflects it when set", () => {
     const fc = nodesToFeatureCollection([
       node({ id: "plain" }),

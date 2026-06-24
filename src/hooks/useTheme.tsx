@@ -33,7 +33,7 @@ const ThemeContext = createContext<ThemeCtx>({
   themeId: DEFAULT_THEME_ID,
   themes: [],
   setThemeId: () => {},
-  designMode: "retro",
+  designMode: "modern",
   modernStyleId: DEFAULT_MODERN_STYLE_ID,
   modernStyles: [],
   setDesignMode: () => {},
@@ -58,7 +58,7 @@ function writeStorage(key: string, value: string) {
 }
 
 function readDesignMode(): DesignMode {
-  return readStorage(DESIGN_MODE_STORAGE_KEY) === "modern" ? "modern" : "retro";
+  return readStorage(DESIGN_MODE_STORAGE_KEY) === "retro" ? "retro" : "modern";
 }
 
 function applySelection(mode: DesignMode, theme: Theme, modernStyle: ModernDesignStyle) {

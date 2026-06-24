@@ -13,6 +13,7 @@ export type WsStatus = "connected" | "connecting" | "disconnected" | "error";
 export interface WsDiagnostics {
   status: WsStatus;
   lastEventTimestamp: number;
+  connectedAt: number | null;
   reconnectAttempt: number;
   parseFailureCount: number;
   lastParseFailureAt: number | null;
@@ -21,6 +22,12 @@ export interface WsDiagnostics {
   lastLaggedDroppedCount: number | null;
   lastLaggedSince: number | null;
   activeSubscriptionId: string | null;
+}
+
+declare global {
+  interface Window {
+    __beaconWsDiagnostics?: WsDiagnostics;
+  }
 }
 
 type PacketHandler = (data: WsPacketObservation["data"]) => void;
@@ -40,6 +47,7 @@ export class WsManager {
   private everConnected = false;
   private status: WsStatus = "disconnected";
   private reconnectAttempt = 0;
+  private connectedAt: number | null = null;
   private intentionalClose = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
@@ -78,6 +86,7 @@ export class WsManager {
     this.diagnosticsSnapshot = {
       status: this.status,
       lastEventTimestamp: this.lastEventTimestamp,
+      connectedAt: this.connectedAt,
       reconnectAttempt: this.reconnectAttempt,
       parseFailureCount: this.parseFailureCount,
       lastParseFailureAt: this.lastParseFailureAt,
@@ -167,6 +176,7 @@ export class WsManager {
     this.teardownSocket();
     this.subscriptionId = null;
     this.lastSubscribeId = null;
+    this.connectedAt = null;
     this.setStatus("disconnected");
     this.emitDiagnostics();
   }
@@ -186,7 +196,8 @@ export class WsManager {
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
-      this.reconnectAttempt = 0;
+      this.lastEventTimestamp = Date.now();
+      this.emitDiagnostics();
     };
 
     this.ws.onmessage = (e: MessageEvent) => {
@@ -228,9 +239,12 @@ export class WsManager {
       case "hello": {
         const isReconnect = this.everConnected;
         this.everConnected = true;
+        this.connectedAt = Date.now();
+        this.lastEventTimestamp = this.connectedAt;
+        this.reconnectAttempt = 0;
         this.setStatus("connected");
         this.startPing();
-        this.sendSubscribe();
+        if (!this.lastSubscribeId) this.sendSubscribe();
         if (isReconnect) {
           // we were dark during the outage — synthesize a lag notice so live views heal the gap
           const notice: WsLagged = { v: 1, type: "lagged", droppedCount: 0, since: this.lastEventTimestamp };
@@ -372,6 +386,9 @@ export class WsManager {
   private emitDiagnostics(): void {
     this.diagnosticsSnapshot = null;
     const diagnostics = this.getDiagnostics();
+    if (typeof window !== "undefined") {
+      window.__beaconWsDiagnostics = diagnostics;
+    }
     for (const handler of this.diagnosticsHandlers) {
       handler(diagnostics);
     }

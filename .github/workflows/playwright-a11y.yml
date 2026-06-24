@@ -1,0 +1,36 @@
+# Copyright 2026 Beacon Contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: Playwright Accessibility
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/playwright-a11y.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "playwright.config.ts"
+      - "src/**"
+      - "tests/e2e/**"
+  workflow_dispatch:
+  schedule:
+    - cron: "37 10 * * 2"
+
+jobs:
+  axe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run scheduled axe and contrast checks
+        run: npm run test:e2e:a11y

@@ -36,17 +36,17 @@ afterEach(() => {
 });
 
 describe("SplashScreen", () => {
-  it("shows the terminal boot once per session", () => {
+  it("shows the glass loading screen once per session", () => {
     const first = render(<SplashScreen />);
-    expect(screen.getByRole("status", { name: /terminal boot/i })).toHaveTextContent("MU/TH/UR LINK");
+    expect(screen.getByRole("status", { name: /loading sequence/i })).toHaveTextContent("Opening network view");
     expect(sessionStorage.getItem(BOOT_KEY)).toBe("1");
 
-    act(() => vi.advanceTimersByTime(4700));
-    expect(screen.queryByRole("status", { name: /terminal boot/i })).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(1400));
+    expect(screen.queryByRole("status", { name: /loading sequence/i })).not.toBeInTheDocument();
     first.unmount();
 
     render(<SplashScreen />);
-    expect(screen.queryByRole("status", { name: /terminal boot/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("status", { name: /loading sequence/i })).not.toBeInTheDocument();
   });
 
   it("supports skip and force preview query params", () => {
@@ -58,15 +58,15 @@ describe("SplashScreen", () => {
 
     setUrl("?boot=1");
     render(<SplashScreen />);
-    expect(screen.getByRole("status", { name: /terminal boot/i })).toHaveTextContent("WY-STYLE DIAGNOSTIC");
+    expect(screen.getByRole("status", { name: /loading sequence/i })).toHaveTextContent("Opening network view");
   });
 
   it("uses a shorter sequence when reduced motion is requested", () => {
     installMatchMedia(true);
     render(<SplashScreen />);
-    expect(screen.getByRole("status", { name: /terminal boot/i })).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: /loading sequence/i })).toBeInTheDocument();
 
-    act(() => vi.advanceTimersByTime(1100));
-    expect(screen.queryByRole("status", { name: /terminal boot/i })).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(580));
+    expect(screen.queryByRole("status", { name: /loading sequence/i })).not.toBeInTheDocument();
   });
 });

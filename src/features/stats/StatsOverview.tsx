@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
+import "../shared/responsive-panels.css";
 import type { WsManager } from "../../api/ws-manager";
 import { StatsSubHeader } from "./StatsSubHeader";
 import { OverviewTab } from "./OverviewTab";

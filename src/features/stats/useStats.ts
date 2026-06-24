@@ -20,6 +20,7 @@ import {
   getRadioPresets,
   getStatsScopes,
   getStatsNodeTypes,
+  getStatsHome,
 } from "../../api/client";
 import { RANGE_MS, type StatsRange } from "./types";
 
@@ -56,6 +57,19 @@ export function useStatsSummary(range: StatsRange) {
     queryFn: () => getStatsSummary(iatas, { range }),
     ...common,
     refetchInterval: 60_000,
+  });
+}
+
+export function useStatsHome(range: StatsRange = "24h") {
+  const { iatas, regionKey } = useStatsIatas();
+  return useQuery({
+    queryKey: ["stats-home", regionKey, range],
+    queryFn: () => getStatsHome(iatas, { range }),
+    staleTime: 45_000,
+    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
+    refetchInterval: 60_000,
+    notifyOnChangeProps: ["data", "error", "isError", "isLoading"],
   });
 }
 
@@ -134,12 +148,13 @@ export function useStatsRFHealth(range: StatsRange) {
   });
 }
 
-export function useStatsObserverHealth(range: StatsRange, limit = 50) {
+export function useStatsObserverHealth(range: StatsRange, limit = 50, enabled = true) {
   const { iatas, regionKey } = useStatsIatas();
   return useQuery({
     queryKey: ["stats-observer-health", regionKey, range, limit],
     queryFn: () => getStatsObserverHealth(iatas, { range, limit }),
     ...common,
+    enabled,
   });
 }
 

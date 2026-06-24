@@ -22,4 +22,9 @@ describe("LoadingPill", () => {
     const { container } = render(<LoadingPill loading={false} count={0} noun="nodes" />);
     expect(container).toBeEmptyDOMElement();
   });
+
+  it("can render an idle freshness label", () => {
+    render(<LoadingPill loading={false} count={12} noun="routes" showFreshness updatedAt={1_000} now={91_000} />);
+    expect(screen.getByRole("status")).toHaveTextContent("12 routes loaded / refreshed 1m ago");
+  });
 });

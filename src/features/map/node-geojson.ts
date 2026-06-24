@@ -5,11 +5,23 @@ import { nullableDisplayLabel } from "../../lib/display-label";
 // Build the maplibre GeoJSON source from the nodes API response. Properties stay primitive because
 // clustering serializes them, and there's no maplibre import, so this stays unit-testable.
 
+const ASTRAL_CODEPOINT_RE = /[\uD800-\uDFFF]/g;
+const WHITESPACE_RE = /\s+/g;
+
 export interface NodeFeatureProps {
   id: string;
   name: string | null;
   nodeTypeName: string;
   isObserver: boolean; // role flag; selects the observer-pip marker variant (default false)
+}
+
+function mapDisplayLabel(value: string | null | undefined): string | null {
+  const label = nullableDisplayLabel(value);
+  if (!label) return null;
+  // OpenFreeMap's bundled glyph PBFs do not cover astral-plane symbols; strip them only from map
+  // labels so a single unusual node name cannot spam 404 glyph-range warnings.
+  const cleaned = label.replace(ASTRAL_CODEPOINT_RE, "").replace(WHITESPACE_RE, " ").trim();
+  return cleaned || null;
 }
 
 export function nodesToFeatureCollection(
@@ -26,7 +38,7 @@ export function nodesToFeatureCollection(
       geometry: { type: "Point", coordinates: [n.lng, n.lat] },
       properties: {
         id: n.id,
-        name: nullableDisplayLabel(n.name),
+        name: mapDisplayLabel(n.name),
         nodeTypeName: n.nodeTypeName,
         isObserver: !!n.isObserver,
       },

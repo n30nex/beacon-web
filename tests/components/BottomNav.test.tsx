@@ -3,29 +3,39 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { BottomNav } from "../../src/components/BottomNav";
 
 describe("BottomNav", () => {
-  it("marks the active primary tab with aria-selected", () => {
+  it("marks a direct page as current", () => {
     render(<BottomNav activeTab="Map" onTabChange={() => {}} />);
-    expect(screen.getByRole("tab", { name: "Map" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: "Packets" })).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByRole("button", { name: "Map" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "Home" })).not.toHaveAttribute("aria-current");
   });
 
-  it("opens the More sheet and selects an overflow tab", () => {
+  it("renders the five grouped mobile destinations", () => {
+    render(<BottomNav activeTab="Packets" onTabChange={() => {}} />);
+    expect(screen.getAllByRole("button").map((button) => button.getAttribute("aria-label"))).toEqual(["Home", "Live", "Map", "Data", "System"]);
+    expect(screen.queryByText("Atlas")).not.toBeInTheDocument();
+    expect(screen.queryByText("Investigate")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ops")).not.toBeInTheDocument();
+  });
+
+  it("opens Data and selects a data page", () => {
     const onTabChange = vi.fn();
-    render(<BottomNav activeTab="Packets" onTabChange={onTabChange} />);
+    render(<BottomNav activeTab="Live" onTabChange={onTabChange} />);
 
-    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText("More"));
-    expect(screen.getByRole("menu", { name: "More tabs" })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("menuitem", { name: "Routes" }));
-    expect(onTabChange).toHaveBeenCalledWith("Routes");
-    // sheet closes after a pick
+    fireEvent.click(screen.getByRole("button", { name: "Data" }));
+    expect(screen.getByRole("menu", { name: "Data" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Observers" }));
+    expect(onTabChange).toHaveBeenCalledWith("Observers");
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
-  it("highlights More when an overflow tab is active", () => {
-    render(<BottomNav activeTab="Stats" onTabChange={() => {}} />);
-    const more = screen.getByText("More").closest("button")!;
-    expect(more.className).toContain("text-primary");
+  it("opens System and selects a tool page", () => {
+    const onTabChange = vi.fn();
+    render(<BottomNav activeTab="Analytics" onTabChange={onTabChange} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "System" }));
+    expect(screen.getByRole("menu", { name: "System" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Netgraph" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Traces" }));
+    expect(onTabChange).toHaveBeenCalledWith("Traces");
   });
 });

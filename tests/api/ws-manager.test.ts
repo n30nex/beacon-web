@@ -323,6 +323,9 @@ describe("WsManager", () => {
     ws.simulateMessage({ v: 1, type: "hello", serverTime: 1, connectionId: "c1" });
     ws.simulateMessage({ v: 1, type: "hello", serverTime: 2, connectionId: "c1" });
 
+    const subscribes = ws.sent.map((s) => JSON.parse(s)).filter((m) => m.type === "subscribe");
+    expect(subscribes).toHaveLength(1);
+
     ws.sent = [];
     vi.advanceTimersByTime(30_000);
     expect(ws.sent.map((s) => JSON.parse(s)).filter((m) => m.type === "ping")).toHaveLength(1);

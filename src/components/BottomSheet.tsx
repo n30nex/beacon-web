@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 
 // Mobile-only slide-up sheet. Mount it conditionally (don't toggle a prop) so the focus trap runs
@@ -20,9 +21,9 @@ export function BottomSheet({ onClose, label, role = "dialog", children }: {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  return (
+  const sheet = (
     <div
-      className="fixed inset-0 z-50 md:hidden flex flex-col justify-end bg-black/50 fade-in"
+      className="fixed inset-0 z-[140] md:hidden flex flex-col justify-end bg-black/50 fade-in"
       onClick={onClose}
     >
       <div
@@ -41,4 +42,6 @@ export function BottomSheet({ onClose, label, role = "dialog", children }: {
       </div>
     </div>
   );
+
+  return createPortal(sheet, document.body);
 }

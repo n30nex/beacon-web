@@ -103,14 +103,16 @@ export function StatsSubHeader({ tab, onTabChange, range, onRangeChange, wsManag
 
   return (
     <div className="sticky top-0 z-20 flex shrink-0 flex-col gap-1.5 border-b border-border bg-bg-surface px-2 py-1.5 md:static md:gap-2 md:px-4 md:py-2.5 lg:flex-row lg:items-center lg:justify-between">
-      <Segmented
-        options={TAB_OPTIONS}
-        value={tab}
-        onChange={(v) => onTabChange(v as StatsTab)}
-        ariaLabel="Stats section"
-        size="md"
-        className="max-w-full overflow-x-auto"
-      />
+      <div className="stats-tab-scroll relative max-w-full min-w-0 overflow-hidden">
+        <Segmented
+          options={TAB_OPTIONS}
+          value={tab}
+          onChange={(v) => onTabChange(v as StatsTab)}
+          ariaLabel="Analytics section"
+          size="md"
+          className="max-w-full overflow-x-auto pr-6"
+        />
+      </div>
       <div className="flex items-center justify-between gap-2 lg:justify-end">
         <Segmented
           options={RANGE_OPTIONS}

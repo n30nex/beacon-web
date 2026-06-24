@@ -5,6 +5,7 @@ import { Badge } from "../../components/Badge";
 import { DetailPanel, Section, Field } from "../../components/DetailPanel";
 import { IataChip } from "../../components/IataChip";
 import { TerminalLoadingState } from "../../components/TerminalLoader";
+import { FreshnessLine } from "../../components/FreshnessLine";
 import { formatHex, formatSnr, snrLevel, formatRadio, SIGNAL_LEVEL_CLASSES } from "../../lib/formatters";
 import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { Timestamp } from "../../components/Timestamp";
@@ -442,7 +443,7 @@ interface NodeDetailPanelProps {
 
 export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, onAnalyzePacket }: NodeDetailPanelProps) {
   const { iatas, regionKey } = useRegion();
-  const { data: node, isLoading } = useQuery({
+  const { data: node, dataUpdatedAt: nodeUpdatedAt, isFetching: nodeFetching, isLoading } = useQuery({
     queryKey: ["node", nodeId],
     queryFn: () => getNode(nodeId),
     staleTime: 30_000,
@@ -450,32 +451,32 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, o
   const nodeLabel = node ? sanitizeDisplayLabel(node.name, formatHex(node.id)) : "";
   const hasNodeName = Boolean(node?.name && nodeLabel !== formatHex(node.id));
 
-  const { data: observations } = useQuery({
+  const { data: observations, dataUpdatedAt: observationsUpdatedAt, isFetching: observationsFetching } = useQuery({
     queryKey: ["node-observations", nodeId],
     queryFn: () => getNodeObservations(nodeId, { limit: 50 }),
     staleTime: 30_000,
   });
 
-  const { data: adverts } = useQuery({
+  const { data: adverts, dataUpdatedAt: advertsUpdatedAt, isFetching: advertsFetching } = useQuery({
     queryKey: ["node-adverts", nodeId],
     queryFn: () => getNodeAdverts(nodeId, { limit: 24 }),
     staleTime: 30_000,
   });
 
-  const { data: neighbors } = useQuery({
+  const { data: neighbors, dataUpdatedAt: neighborsUpdatedAt, isFetching: neighborsFetching } = useQuery({
     queryKey: ["node-neighbors", nodeId],
     queryFn: () => getNodeNeighbors(nodeId),
     staleTime: 30_000,
   });
 
-  const { data: analytics, isLoading: analyticsLoading } = useQuery({
+  const { data: analytics, dataUpdatedAt: analyticsUpdatedAt, isFetching: analyticsFetching, isLoading: analyticsLoading } = useQuery({
     queryKey: ["node-analytics", nodeId, regionKey],
     queryFn: () => getNodeAnalytics(nodeId, iatas),
     enabled: !!node,
     staleTime: 30_000,
   });
 
-  const { data: reach, isLoading: reachLoading } = useQuery({
+  const { data: reach, dataUpdatedAt: reachUpdatedAt, isFetching: reachFetching, isLoading: reachLoading } = useQuery({
     queryKey: ["node-reach", nodeId, regionKey],
     queryFn: () => getNodeReach(nodeId, { iatas, maxHops: 5 }),
     enabled: !!node,
@@ -514,6 +515,7 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, o
       {node && (
         <>
           <Section title="Summary" first>
+              <FreshnessLine source="Detail" updatedAt={nodeUpdatedAt || undefined} fetching={nodeFetching} />
               <div className="flex items-center gap-2 mb-2">
                 <span className={`font-mono text-xs font-semibold tracking-wider ${hasNodeName ? "text-primary" : "text-text-dim italic"}`}>
                   {nodeLabel}
@@ -563,6 +565,7 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, o
             </Section>
 
             <Section title="Analytics">
+              <FreshnessLine source="Analytics" updatedAt={analyticsUpdatedAt || undefined} fetching={analyticsFetching} />
               {analyticsLoading ? (
                 <div role="status" className="font-mono text-[12px] uppercase tracking-wider text-text-dim">QUERYING NODE ANALYTICS...</div>
               ) : analytics ? (
@@ -601,6 +604,7 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, o
             </Section>
 
             <Section title="Verified Reach">
+              <FreshnessLine source="Reach" updatedAt={reachUpdatedAt || undefined} fetching={reachFetching} />
               {reachLoading ? (
                 <TerminalLoadingState compact label="QUERYING REACH" detail="VERIFIED ROUTES" />
               ) : reach ? (
@@ -651,6 +655,7 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, o
             </Section>
 
             <Section title="Neighbors">
+              <FreshnessLine source="Neighbors" updatedAt={neighborsUpdatedAt || undefined} fetching={neighborsFetching} />
               {neighbors && neighbors.length > 0 ? (
                 <div className="flex flex-col gap-1.5">
                   {neighbors.map((n) => (
@@ -668,6 +673,7 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, o
             </Section>
 
             <Section title="Advert Timeline">
+              <FreshnessLine source="Adverts" updatedAt={advertsUpdatedAt || undefined} fetching={advertsFetching} />
               {adverts && adverts.items.length > 0 ? (
                 <div className="flex flex-col gap-1.5">
                   {adverts.items.map((advert) => (
@@ -684,6 +690,7 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, o
             </Section>
 
             <Section title="Observations">
+              <FreshnessLine source="Observations" updatedAt={observationsUpdatedAt || undefined} fetching={observationsFetching} />
               {observations && observations.items.length > 0 ? (
                 <div className="flex flex-col gap-1.5">
                   {observations.items.map((obs) => (

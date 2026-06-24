@@ -23,6 +23,16 @@ build/
 # Testing
 coverage/
 .references/
+test-results/
+
+# Local Beacon runtime and verification artifacts
+*.log
+tmp-*.log
+desktop-*.png
+mobile-*.png
+debug-*.png
+docker/data/Caddy/data/
+docker/data/Caddy/config/
 
 # Claude
 .claude/

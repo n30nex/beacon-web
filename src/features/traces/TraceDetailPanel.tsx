@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getTraceDetail } from "../../api/client";
 import { DetailPanel, Section, Field } from "../../components/DetailPanel";
 import { Badge } from "../../components/Badge";
+import { FreshnessLine } from "../../components/FreshnessLine";
 import { Timestamp } from "../../components/Timestamp";
 import { ResolvedHopBlock } from "../packets/PathData";
 import { ScopeTag } from "../../components/ScopeTag";
@@ -97,7 +98,7 @@ interface TraceDetailPanelProps {
 // packets stand in for the packet analyzer's "Observations": a "Packets" section listing each packet,
 // any of which opens the packet analyzer.
 export function TraceDetailPanel({ tag, iatas, scope, range, since, until, onClose, onAnalyze, onViewNode }: TraceDetailPanelProps) {
-  const { data: detail, isLoading } = useQuery({
+  const { data: detail, dataUpdatedAt: detailUpdatedAt, isFetching: detailFetching, isLoading } = useQuery({
     queryKey: ["trace", tag, iatas?.join(",") ?? "", scope ?? "", range ?? "", since ?? 0, until ?? 0],
     queryFn: () => getTraceDetail(tag, iatas, { scope: scope || undefined, range, since, until }),
     staleTime: 30_000,
@@ -109,6 +110,7 @@ export function TraceDetailPanel({ tag, iatas, scope, range, since, until, onClo
   return (
     <DetailPanel title={tag.toUpperCase()} onClose={onClose} isLoading={isLoading}>
       <Section title="Packets" first>
+        <FreshnessLine source="Trace" updatedAt={detailUpdatedAt || undefined} fetching={detailFetching} />
         {packets.length > 0 ? (
           <div className="flex flex-col gap-2">
             <span className="text-text-dim text-[11px] font-mono">

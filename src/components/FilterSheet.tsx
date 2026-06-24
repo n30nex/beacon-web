@@ -10,7 +10,8 @@ export function FiltersButton({ activeCount, onClick }: { activeCount: number; o
       type="button"
       onClick={onClick}
       aria-haspopup="dialog"
-      className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-sm border font-mono cursor-pointer transition-all shrink-0 ${
+      aria-label={active ? `Open filters, ${activeCount} active` : "Open filters"}
+      className={`flex items-center gap-1.5 text-[11px] px-2 py-1 min-[360px]:px-2.5 rounded-sm border font-mono cursor-pointer transition-all shrink-0 ${
         active
           ? "border-primary-dim bg-primary/6 text-primary"
           : "border-border bg-bg-surface text-text-muted hover:border-text-dim hover:text-text-normal"
@@ -19,7 +20,7 @@ export function FiltersButton({ activeCount, onClick }: { activeCount: number; o
       <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
         <path d="M2 3h12l-4.5 5.5V13L6.5 11.5V8.5L2 3z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
       </svg>
-      Filters
+      <span className="hidden min-[360px]:inline">Filters</span>
       {active && (
         <span className="text-[9px] px-1 rounded-sm bg-primary/15 min-w-[1ch] text-center">{activeCount}</span>
       )}

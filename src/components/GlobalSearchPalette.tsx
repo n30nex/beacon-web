@@ -14,16 +14,18 @@ interface GlobalSearchPaletteProps {
 }
 
 const PAGE_RESULTS: GlobalSearchResult[] = [
-  { type: "page", id: "atlas", label: "Atlas", subtitle: "Regional mesh atlas", url: "/?tab=Atlas", score: 300, matched: "page" },
+  { type: "page", id: "home", label: "Home", subtitle: "Beacon data overview", url: "/?tab=Home", score: 300, matched: "page" },
   { type: "page", id: "live", label: "Live", subtitle: "Live packet operations map", url: "/?tab=Live", score: 299, matched: "page" },
-  { type: "page", id: "packets", label: "Packets", subtitle: "Packet feed and analyzer", url: "/?tab=Packets", score: 298, matched: "page" },
-  { type: "page", id: "channels", label: "Channels", subtitle: "Decoded channel messages", url: "/?tab=Channels", score: 297, matched: "page" },
-  { type: "page", id: "map", label: "Map", subtitle: "Node map and route replay", url: "/?tab=Map", score: 296, matched: "page" },
+  { type: "page", id: "map", label: "Map", subtitle: "Node map and route replay", url: "/?tab=Map", score: 298, matched: "page" },
+  { type: "page", id: "packets", label: "Packets", subtitle: "Packet feed and analyzer", url: "/?tab=Packets", score: 297, matched: "page" },
+  { type: "page", id: "channels", label: "Channels", subtitle: "Decoded channel messages", url: "/?tab=Channels", score: 296, matched: "page" },
   { type: "page", id: "nodes", label: "Nodes", subtitle: "Node directory", url: "/?tab=Nodes", score: 295, matched: "page" },
   { type: "page", id: "observers", label: "Observers", subtitle: "Observer fleet", url: "/?tab=Observers", score: 294, matched: "page" },
-  { type: "page", id: "routes", label: "Routes", subtitle: "Known route catalogue", url: "/?tab=Routes", score: 293, matched: "page" },
-  { type: "page", id: "traces", label: "Traces", subtitle: "Trace and ping series", url: "/?tab=Traces", score: 292, matched: "page" },
-  { type: "page", id: "stats", label: "Stats", subtitle: "Analytics and RF health", url: "/?tab=Stats", score: 291, matched: "page" },
+  { type: "page", id: "analytics", label: "Analytics", subtitle: "Mesh analytics and RF data", url: "/?tab=Analytics", score: 293, matched: "page" },
+  { type: "page", id: "netgraph", label: "Netgraph", subtitle: "Experimental 3D route topology", url: "/?tab=Netgraph", score: 292, matched: "page" },
+  { type: "page", id: "routes", label: "Routes", subtitle: "Known route catalogue", url: "/?tab=Routes", score: 291, matched: "page" },
+  { type: "page", id: "traces", label: "Traces", subtitle: "Trace and ping series", url: "/?tab=Traces", score: 290, matched: "page" },
+  { type: "page", id: "system", label: "System", subtitle: "API, readiness, broker, and live bus status", url: "/?tab=System", score: 289, matched: "page" },
 ];
 
 const TYPE_LABEL: Record<GlobalSearchResultType, string> = {

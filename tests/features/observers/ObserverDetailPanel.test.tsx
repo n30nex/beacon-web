@@ -113,6 +113,9 @@ describe("ObserverDetailPanel adverts", () => {
     renderPanel();
 
     expect(await screen.findByText("Adverts heard")).toBeInTheDocument();
+    expect(await screen.findByText(/Observer refreshed \d+s ago/)).toBeInTheDocument();
+    expect(await screen.findByText(/Topology refreshed \d+s ago/)).toBeInTheDocument();
+    expect(await screen.findByText(/Adverts refreshed \d+s ago/)).toBeInTheDocument();
     expect(await screen.findByText("Node Alpha")).toBeInTheDocument();
     expect(screen.getByText("Node Beta")).toBeInTheDocument();
     expect(mockGetObserverAdverts).toHaveBeenCalledWith("obs-1", { limit: 50 });

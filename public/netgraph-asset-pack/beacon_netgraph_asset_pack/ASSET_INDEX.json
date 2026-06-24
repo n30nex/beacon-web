@@ -1,0 +1,1862 @@
+{
+  "pack": "Beacon NetGraph Asset Pack",
+  "seed_family": 872133,
+  "runtime_asset_count": 204,
+  "indexed_file_count": 206,
+  "assets": [
+    {
+      "name": "dust_sheet_soft",
+      "category": "ambient",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/active/dust_sheet_soft.png",
+      "sha256": "5b559af5ac376cb0b3a0faf11bfe2f26c19411e18ef3e6f9cc807e527cd76654"
+    },
+    {
+      "name": "edge_beam_fuzzy",
+      "category": "ambient",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/active/edge_beam_fuzzy.png",
+      "sha256": "fb09e54cb2a80a10dbd67fab320f6a8fcfbe8214b6db1b7a286f85ad8d3b9874"
+    },
+    {
+      "name": "edge_beam_solid",
+      "category": "ambient",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/active/edge_beam_solid.png",
+      "sha256": "002dbd471cf9d2ea6d67f7f9eed4389a26f2b4655dcadf942fa27f47582bbb65"
+    },
+    {
+      "name": "focus_pulse",
+      "category": "ambient",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/active/focus_pulse.png",
+      "sha256": "c19b22227d40f62c5af933c1842c9d8aed4e29b94745a8cf7820b017b8ce0f46"
+    },
+    {
+      "name": "halo_focus",
+      "category": "ambient",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/active/halo_focus.png",
+      "sha256": "a7eb91e48b31a7d58f27fadd88739108c668256c2e9fee849c88e001487c756b"
+    },
+    {
+      "name": "scan_grid_overlay",
+      "category": "ambient",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/active/scan_grid_overlay.png",
+      "sha256": "6a48804b31d407a743fe18c0370a3d26ccd0d245ea971329f0af4d70b80bcd56"
+    },
+    {
+      "name": "star_drift_layer",
+      "category": "ambient",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/active/star_drift_layer.png",
+      "sha256": "700920a561e328948b367ba09d6895713e18b6caf36c44a784169b711dd0e98b"
+    },
+    {
+      "name": "dust_sheet_soft",
+      "category": "ambient",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/alert/dust_sheet_soft.png",
+      "sha256": "9ceee71d7842ed9e59530d2f45e89579ace4f9d680f95548ac9dc84cd790dd2a"
+    },
+    {
+      "name": "edge_beam_fuzzy",
+      "category": "ambient",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/alert/edge_beam_fuzzy.png",
+      "sha256": "df4c0e9a38706b5c37c01e18a112e6a7a6ff332e629d48de118c79bae5fa13b7"
+    },
+    {
+      "name": "edge_beam_solid",
+      "category": "ambient",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/alert/edge_beam_solid.png",
+      "sha256": "e17917633b4e1f6db695469bdac133690236424dc4b833f131621cc26f13854e"
+    },
+    {
+      "name": "focus_pulse",
+      "category": "ambient",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/alert/focus_pulse.png",
+      "sha256": "d90795dcbc31a93b6951e9ad30fb626675d002a4af32ff249b5f48accfb0c22b"
+    },
+    {
+      "name": "halo_focus",
+      "category": "ambient",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/alert/halo_focus.png",
+      "sha256": "8f22f482cf9fbfb82dbabd3c2e437b2aa6e29dbcb644d91e60612aae8817d030"
+    },
+    {
+      "name": "scan_grid_overlay",
+      "category": "ambient",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/alert/scan_grid_overlay.png",
+      "sha256": "811ea4d8f83167e368e15630b87db67481408aad0918876e61fdc4fd82c3ad2e"
+    },
+    {
+      "name": "star_drift_layer",
+      "category": "ambient",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/alert/star_drift_layer.png",
+      "sha256": "43cbefbb900834e6a4a1853e431c0bad9a0d3848da9cbd0d8a1e4d11048c8efe"
+    },
+    {
+      "name": "dust_sheet_soft",
+      "category": "ambient",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/default/dust_sheet_soft.png",
+      "sha256": "49120e6827a12e52b40493f1fe05bab2c5ff188821adaa6831843eeb1803cb3e"
+    },
+    {
+      "name": "edge_beam_fuzzy",
+      "category": "ambient",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/default/edge_beam_fuzzy.png",
+      "sha256": "d6185533d80a01edc796d7cdc145dab40921313b3c2eca8b3eb873af9afc1e5c"
+    },
+    {
+      "name": "edge_beam_solid",
+      "category": "ambient",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/default/edge_beam_solid.png",
+      "sha256": "0112350b613d65d8dfb20956cfe91f77880c99448a557e219b91f2322aab4fe5"
+    },
+    {
+      "name": "focus_pulse",
+      "category": "ambient",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/default/focus_pulse.png",
+      "sha256": "8048b2c78cb8793f08917d13ef5d474211fe09077646272b3887235be65fb8be"
+    },
+    {
+      "name": "halo_focus",
+      "category": "ambient",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/default/halo_focus.png",
+      "sha256": "170e79fd61a81263d7f45adcceef96d50c2b1c6dfcad2a9d229f072b2816d347"
+    },
+    {
+      "name": "scan_grid_overlay",
+      "category": "ambient",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/default/scan_grid_overlay.png",
+      "sha256": "9eef07b7130f1ec5f7c6402bbcaec26008fc33d9aca2f2b03606156b39f07467"
+    },
+    {
+      "name": "star_drift_layer",
+      "category": "ambient",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/default/star_drift_layer.png",
+      "sha256": "b98462140f8162828110674091c1f73f6d2a30fda05636be1348ee7f353203b7"
+    },
+    {
+      "name": "dust_sheet_soft",
+      "category": "ambient",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/soft/dust_sheet_soft.png",
+      "sha256": "03a7f7cf75252043cc34d78d262f4c1e9406d4d5f3bc787c08b698219f022cfe"
+    },
+    {
+      "name": "edge_beam_fuzzy",
+      "category": "ambient",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/soft/edge_beam_fuzzy.png",
+      "sha256": "fd01f1a16963e90189bf981386f896ada2a16741a5f3d1b0ba14d9c9df053bdf"
+    },
+    {
+      "name": "edge_beam_solid",
+      "category": "ambient",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/soft/edge_beam_solid.png",
+      "sha256": "46cede934fa3ac0ebf611af83d96460ef71b4dd669c344a0f0333b61825cf807"
+    },
+    {
+      "name": "focus_pulse",
+      "category": "ambient",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/soft/focus_pulse.png",
+      "sha256": "2202a32754a55db15f19f5c9a15485b1e2fbad984c910ca5c59e16a7939e9d28"
+    },
+    {
+      "name": "halo_focus",
+      "category": "ambient",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/soft/halo_focus.png",
+      "sha256": "e80286afddaaa48e39b8f0878d3b499528a243d02dd340261e4015b8cd9eb5a1"
+    },
+    {
+      "name": "scan_grid_overlay",
+      "category": "ambient",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/soft/scan_grid_overlay.png",
+      "sha256": "0ac056fc751e2f02de7668a5b4e0e20d02eb69aff96f3b872ce2dae9fe0ff2ab"
+    },
+    {
+      "name": "star_drift_layer",
+      "category": "ambient",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ambient/soft/star_drift_layer.png",
+      "sha256": "22d513be0e4946bb9f41f6a1a2e4343c7550da66ae6c41c30b74f11e94063889"
+    },
+    {
+      "name": "bg_dark_matter_grid",
+      "category": "backgrounds",
+      "variant": null,
+      "resolution": "1920x1080",
+      "alpha": false,
+      "path": "backgrounds/1920x1080/bg_dark_matter_grid.png",
+      "sha256": "baef33ca4e134828600b76c287c993ca9dd4c560d66f4f3e1dd5a12d9b61c028"
+    },
+    {
+      "name": "bg_deep_space_particles",
+      "category": "backgrounds",
+      "variant": null,
+      "resolution": "1920x1080",
+      "alpha": false,
+      "path": "backgrounds/1920x1080/bg_deep_space_particles.png",
+      "sha256": "c30b588a9248b25f05ee0f74d4478e4e5df3fa8548ee6559fc2126a157c7596b"
+    },
+    {
+      "name": "bg_nebula_drift_core",
+      "category": "backgrounds",
+      "variant": null,
+      "resolution": "1920x1080",
+      "alpha": false,
+      "path": "backgrounds/1920x1080/bg_nebula_drift_core.png",
+      "sha256": "7c89061dcaadac1628ca5b326c12675372735525fee9fef4c005055bc5087e60"
+    },
+    {
+      "name": "bg_nebula_spiral_field",
+      "category": "backgrounds",
+      "variant": null,
+      "resolution": "1920x1080",
+      "alpha": false,
+      "path": "backgrounds/1920x1080/bg_nebula_spiral_field.png",
+      "sha256": "619eb670c542de54e0bb7be13e05c0a2903f0a47fc2bb6bab192a2acee154c5c"
+    },
+    {
+      "name": "bg_dark_matter_grid",
+      "category": "backgrounds",
+      "variant": null,
+      "resolution": "2560x1440",
+      "alpha": false,
+      "path": "backgrounds/2560x1440/bg_dark_matter_grid.png",
+      "sha256": "f5c23627e61421ea9b54ce0bb62ff5f33ad63b5ea4e405e8263a773b946cfe94"
+    },
+    {
+      "name": "bg_deep_space_particles",
+      "category": "backgrounds",
+      "variant": null,
+      "resolution": "2560x1440",
+      "alpha": false,
+      "path": "backgrounds/2560x1440/bg_deep_space_particles.png",
+      "sha256": "f460cb3936d7063b5ce2edfee3637b56f9e686c9b0ee0d5bf38b5edd62bfcbc7"
+    },
+    {
+      "name": "bg_nebula_drift_core",
+      "category": "backgrounds",
+      "variant": null,
+      "resolution": "2560x1440",
+      "alpha": false,
+      "path": "backgrounds/2560x1440/bg_nebula_drift_core.png",
+      "sha256": "475756d091decb4b7cfe2ea3b95cb64559daaa0438bb2f64663bde56b941e7c4"
+    },
+    {
+      "name": "bg_nebula_spiral_field",
+      "category": "backgrounds",
+      "variant": null,
+      "resolution": "2560x1440",
+      "alpha": false,
+      "path": "backgrounds/2560x1440/bg_nebula_spiral_field.png",
+      "sha256": "00e78845f2f3ef2f8387b657df4f90e6da492b548a0729a9e98b859806eb4d7a"
+    },
+    {
+      "name": "node_ai",
+      "category": "nodes",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/active/node_ai.png",
+      "sha256": "512a546a482d9259e624d10911bd2a7047bd5ee1836cd021541c2159e6130de3"
+    },
+    {
+      "name": "node_core",
+      "category": "nodes",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/active/node_core.png",
+      "sha256": "f930ba9f805e6852cbd0e5639d4004d8b930cb60297a8870311339e83b677f08"
+    },
+    {
+      "name": "node_data_cluster",
+      "category": "nodes",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/active/node_data_cluster.png",
+      "sha256": "d687780de357e8d9dcdfae57ff3ce7a0050252c6690c9a4aad63b21096fc66a8"
+    },
+    {
+      "name": "node_edge",
+      "category": "nodes",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/active/node_edge.png",
+      "sha256": "b64cbf001d7a5558af4ab9fdc280c26b507d79d373969d1ec904e8743fd39941"
+    },
+    {
+      "name": "node_external",
+      "category": "nodes",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/active/node_external.png",
+      "sha256": "86dd77eabd25261adda1a7f26735018a68c47735ce85e99aefe6c304fc79a081"
+    },
+    {
+      "name": "node_gateway",
+      "category": "nodes",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/active/node_gateway.png",
+      "sha256": "8febb19bbeeed566418d9da39fc4ee43b94f4ee5a8f37aaf7a18e6997dd77420"
+    },
+    {
+      "name": "node_hub",
+      "category": "nodes",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/active/node_hub.png",
+      "sha256": "31818de17a02ed7bdb1cda2e8a80213ca77bd9739edb6c11c0bcdf88c436ec81"
+    },
+    {
+      "name": "node_relay",
+      "category": "nodes",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/active/node_relay.png",
+      "sha256": "60a9fc12434cc6abbbbb907c7311ebb1997ead8bc6677ed87935514c8997f7ab"
+    },
+    {
+      "name": "node_sensor",
+      "category": "nodes",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/active/node_sensor.png",
+      "sha256": "8599b2f71c8f907bf6b4fe8c8bbfdcb889291493e53f0007dbf529bb23d0673d"
+    },
+    {
+      "name": "node_service",
+      "category": "nodes",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/active/node_service.png",
+      "sha256": "412ec9367c2ce9849718ca749b3966abadf919f5a75e208677fda850ea6b4637"
+    },
+    {
+      "name": "node_storage",
+      "category": "nodes",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/active/node_storage.png",
+      "sha256": "29027c50ff1106daa89bd21985037663e1759a5b2e438d7efdaadbd8e0f0900d"
+    },
+    {
+      "name": "node_unknown",
+      "category": "nodes",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/active/node_unknown.png",
+      "sha256": "42fd33e4401754b0b92505deaabb129cc2d17d3cd0df665d0a78554eed8497d9"
+    },
+    {
+      "name": "node_user",
+      "category": "nodes",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/active/node_user.png",
+      "sha256": "b97df9db8eb13bb0c1edf650d839d73e4f21e4432769072dbce336ee3fa1b09e"
+    },
+    {
+      "name": "node_ai",
+      "category": "nodes",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/default/node_ai.png",
+      "sha256": "c4c6ca7f94fb4769c3e1ac4bea99ff31ae33c3774b19c41878a5072a1c9ebfab"
+    },
+    {
+      "name": "node_core",
+      "category": "nodes",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/default/node_core.png",
+      "sha256": "8c9f82b4ddd5ddfad3d16d993c017e9aa1cec79f698902bee0c544e535d0f7b6"
+    },
+    {
+      "name": "node_data_cluster",
+      "category": "nodes",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/default/node_data_cluster.png",
+      "sha256": "c01ef710a7be55be4b288be28d3de36f28e3f8c0be04a2839717f9c394d4ab3e"
+    },
+    {
+      "name": "node_edge",
+      "category": "nodes",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/default/node_edge.png",
+      "sha256": "bfb1ef75197f955db052ec5579aa550ac3d85cb1bc3011ec9c0a8bdba2b218ee"
+    },
+    {
+      "name": "node_external",
+      "category": "nodes",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/default/node_external.png",
+      "sha256": "dc36a7ade8cbecee4f3cc394955afe41c98822c02abf7f63c1db2eb81ed251e5"
+    },
+    {
+      "name": "node_gateway",
+      "category": "nodes",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/default/node_gateway.png",
+      "sha256": "fd884a269773db240c03104dccd8b2597c0b960aa7fd3c15a4e6a2698973e0ae"
+    },
+    {
+      "name": "node_hub",
+      "category": "nodes",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/default/node_hub.png",
+      "sha256": "01d569b25051da852b287d5b8b743cc04f27255f92815fc92d3aa87f45209902"
+    },
+    {
+      "name": "node_relay",
+      "category": "nodes",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/default/node_relay.png",
+      "sha256": "51c578b9fb0e1241bfd990285720edb8b69d2df7c1700336dad051882c8670de"
+    },
+    {
+      "name": "node_sensor",
+      "category": "nodes",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/default/node_sensor.png",
+      "sha256": "1e78e7e8b4f4658b9c03c664a8c02e17abf2f3a2a97815b270a59550b71d2556"
+    },
+    {
+      "name": "node_service",
+      "category": "nodes",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/default/node_service.png",
+      "sha256": "29871e022990df6708864297cb8b9ac9fbbb869d9558d78ca71e55b214d52d82"
+    },
+    {
+      "name": "node_storage",
+      "category": "nodes",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/default/node_storage.png",
+      "sha256": "2530e856f54341b140a4c7fc274dae39c03391e733affaf04e0a8d5b51242ed3"
+    },
+    {
+      "name": "node_unknown",
+      "category": "nodes",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/default/node_unknown.png",
+      "sha256": "ff362e8b2b02e9052fedd88d4a6bd73e5ce5c815a2d822ceca497861fbd1c6e7"
+    },
+    {
+      "name": "node_user",
+      "category": "nodes",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/default/node_user.png",
+      "sha256": "744f06f0e1bb64d8f92f3cb960b45ff904f36d8cedf57254cb8edb937a3b116e"
+    },
+    {
+      "name": "node_ai",
+      "category": "nodes",
+      "variant": "selected",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/selected/node_ai.png",
+      "sha256": "5527ccb229d74c6ce148878483e244f74881886464a4fc6671eb5f8803ae730b"
+    },
+    {
+      "name": "node_core",
+      "category": "nodes",
+      "variant": "selected",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/selected/node_core.png",
+      "sha256": "9a9b3c8755838534e089a96bde3e9fa68556b423fae57cfe424cad38e8caac5f"
+    },
+    {
+      "name": "node_data_cluster",
+      "category": "nodes",
+      "variant": "selected",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/selected/node_data_cluster.png",
+      "sha256": "0ab72ed65cd59d1e1172522dfede95fc00bf3af0b56c1425a3e92d0d55a124a1"
+    },
+    {
+      "name": "node_edge",
+      "category": "nodes",
+      "variant": "selected",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/selected/node_edge.png",
+      "sha256": "ce8dbe9574bc2a63f97cc5f079cc91dd8e647748756eaa6a0cb2981af3b7b1fd"
+    },
+    {
+      "name": "node_external",
+      "category": "nodes",
+      "variant": "selected",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/selected/node_external.png",
+      "sha256": "3cec503110e5b3d8a2f1e832920b53504a36bc4109f43cbeb80bf23e8001ff12"
+    },
+    {
+      "name": "node_gateway",
+      "category": "nodes",
+      "variant": "selected",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/selected/node_gateway.png",
+      "sha256": "44f81817e7ed4f6eeb3e91778467703fa909dce8c5aea9416bb03cd03da97b58"
+    },
+    {
+      "name": "node_hub",
+      "category": "nodes",
+      "variant": "selected",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/selected/node_hub.png",
+      "sha256": "9accdd2d0053334a0b963b12e5959cb46133407eb0b2681a70fddd87c3a14920"
+    },
+    {
+      "name": "node_relay",
+      "category": "nodes",
+      "variant": "selected",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/selected/node_relay.png",
+      "sha256": "af30217f9e40906aa70db2ae9fe62a966682cd6635eadeee3407b8bdeefe1da0"
+    },
+    {
+      "name": "node_sensor",
+      "category": "nodes",
+      "variant": "selected",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/selected/node_sensor.png",
+      "sha256": "08056c7b0ada27511b59a8db9d4dccf720826094949d163f8c0e59c67f880f13"
+    },
+    {
+      "name": "node_service",
+      "category": "nodes",
+      "variant": "selected",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/selected/node_service.png",
+      "sha256": "1cbbf12c55af563e32966e8be490a48f40b20bf2172e2c3482b131ed8c912020"
+    },
+    {
+      "name": "node_storage",
+      "category": "nodes",
+      "variant": "selected",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/selected/node_storage.png",
+      "sha256": "9dd51600261e1d5d35e92a9fd4c9ff759bb4b2241c7a84d8cf44d3380b0c7861"
+    },
+    {
+      "name": "node_unknown",
+      "category": "nodes",
+      "variant": "selected",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/selected/node_unknown.png",
+      "sha256": "f261db8b5aa42c6668e28d2d3af1767f60a85dff1f730fb1ce3303dbf5fb6dda"
+    },
+    {
+      "name": "node_user",
+      "category": "nodes",
+      "variant": "selected",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/selected/node_user.png",
+      "sha256": "6ac5437db79143e1ad43aead34341a36f1a3afb9fa37d6187887b6ca22d3a556"
+    },
+    {
+      "name": "node_ai",
+      "category": "nodes",
+      "variant": "warning",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/warning/node_ai.png",
+      "sha256": "9566a9228a6d2a50cd7ed7397ffe61950fbe34cd35066330ed65bf059e4e8a0a"
+    },
+    {
+      "name": "node_core",
+      "category": "nodes",
+      "variant": "warning",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/warning/node_core.png",
+      "sha256": "536a2938f18749d9db7d04fa7c57e665679507200abaed4441a00ff711c9bc24"
+    },
+    {
+      "name": "node_data_cluster",
+      "category": "nodes",
+      "variant": "warning",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/warning/node_data_cluster.png",
+      "sha256": "6ba88ba43ed1f705c01a8982644f4915e8368f80e94541b69c193b03f9a59af6"
+    },
+    {
+      "name": "node_edge",
+      "category": "nodes",
+      "variant": "warning",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/warning/node_edge.png",
+      "sha256": "9f505d726e6f624bfe73efb2872e435a171bc72287a51773258ba70a8686a6de"
+    },
+    {
+      "name": "node_external",
+      "category": "nodes",
+      "variant": "warning",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/warning/node_external.png",
+      "sha256": "bb53cbaed58bd9a2e52053a8b5a0bdeb95e8cc65f35c95d032015e7689bf326d"
+    },
+    {
+      "name": "node_gateway",
+      "category": "nodes",
+      "variant": "warning",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/warning/node_gateway.png",
+      "sha256": "9bf8a41eb182866ffd8420bfd3e80f4e02aaf95b26a1f72e33f1b13843bf1e86"
+    },
+    {
+      "name": "node_hub",
+      "category": "nodes",
+      "variant": "warning",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/warning/node_hub.png",
+      "sha256": "9405494187c242dffc6d82897797aedbe87ddab90017bb9bb97b7b524dbdcd03"
+    },
+    {
+      "name": "node_relay",
+      "category": "nodes",
+      "variant": "warning",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/warning/node_relay.png",
+      "sha256": "89f22bfb1737f58844c0c2678d5fc0dbb1de24379732796a843d098a6883bbda"
+    },
+    {
+      "name": "node_sensor",
+      "category": "nodes",
+      "variant": "warning",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/warning/node_sensor.png",
+      "sha256": "891295843af0dfdd8cc8affb61b48b62f92cbb1757d9f108b0cc41cd6ea418ee"
+    },
+    {
+      "name": "node_service",
+      "category": "nodes",
+      "variant": "warning",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/warning/node_service.png",
+      "sha256": "f346ba7dc70d0c8aec71d29393f30a18e47958653ea5fef5fb6f58e8a56c0c6d"
+    },
+    {
+      "name": "node_storage",
+      "category": "nodes",
+      "variant": "warning",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/warning/node_storage.png",
+      "sha256": "6afef64fc2f308f2b0d607bdcdbdbf076c98d9804fe6b14eb9dd26a87e6d6ab0"
+    },
+    {
+      "name": "node_unknown",
+      "category": "nodes",
+      "variant": "warning",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/warning/node_unknown.png",
+      "sha256": "4a69226e6626b39b7c0ecdf55fd399a29f51226bfeb5a24e20d4487014840fbe"
+    },
+    {
+      "name": "node_user",
+      "category": "nodes",
+      "variant": "warning",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "nodes/warning/node_user.png",
+      "sha256": "3daa1e91783d0171235b95550e3d65653bb666c627415e3fa4396a5a7c29316b"
+    },
+    {
+      "name": "comet_beacon",
+      "category": "packets_trails_comets",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/active/comet_beacon.png",
+      "sha256": "495087d7e8a13099c7457774fd72c5e94717ca8e4789b0eeb59a353f82a61fc2"
+    },
+    {
+      "name": "comet_data",
+      "category": "packets_trails_comets",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/active/comet_data.png",
+      "sha256": "80ba47ff6319fc81a60acd97cd6dfc5ee8f94fca91fc13059c8f132fd3ba057f"
+    },
+    {
+      "name": "comet_fast",
+      "category": "packets_trails_comets",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/active/comet_fast.png",
+      "sha256": "ed3637768064a8da9c0c45ce9342a2a45f9933d8497987cb1b2e8901970371d5"
+    },
+    {
+      "name": "packet_corrupted_glow",
+      "category": "packets_trails_comets",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/active/packet_corrupted_glow.png",
+      "sha256": "21edcc7cf9e6fd6c0618556c79907fe096a1aef6c4e6067bfa622d5c28e50733"
+    },
+    {
+      "name": "packet_encrypted",
+      "category": "packets_trails_comets",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/active/packet_encrypted.png",
+      "sha256": "8e19e1d6c0122af70e995202717836312ab7be55842ce2ae8b3be6bdaff34cb4"
+    },
+    {
+      "name": "packet_priority_large",
+      "category": "packets_trails_comets",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/active/packet_priority_large.png",
+      "sha256": "5c8206255355e8574417e31754dfd930547501d3f72039e97b0504a1df388ca3"
+    },
+    {
+      "name": "packet_priority_medium",
+      "category": "packets_trails_comets",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/active/packet_priority_medium.png",
+      "sha256": "c8f318170f140d40fe8ee0fbd5bcbd2d495de8716720d432a41a2eb24d2d9188"
+    },
+    {
+      "name": "packet_priority_small",
+      "category": "packets_trails_comets",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/active/packet_priority_small.png",
+      "sha256": "62d4646a44d9034c39f1660d230984c643afdb3b8503fadd59d8e4ce80bad780"
+    },
+    {
+      "name": "packet_standard_large",
+      "category": "packets_trails_comets",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/active/packet_standard_large.png",
+      "sha256": "a01582a275d45710a1f03dfd91479dc71a69e868495cba2205d13a7fc4943833"
+    },
+    {
+      "name": "packet_standard_medium",
+      "category": "packets_trails_comets",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/active/packet_standard_medium.png",
+      "sha256": "fa687fada4acd05039d92ed17679955a758e8ea1605f96e6ba948fdbecd7c669"
+    },
+    {
+      "name": "packet_standard_small",
+      "category": "packets_trails_comets",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/active/packet_standard_small.png",
+      "sha256": "cb4d3981f09d0181749c1e8e09db5da9fe571e6a520df09d57d7abc09c384e36"
+    },
+    {
+      "name": "trail_curved",
+      "category": "packets_trails_comets",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/active/trail_curved.png",
+      "sha256": "bb3dccc1d17def9045415210ee0f00d6d7d9eebc21227cb3acb771403665f631"
+    },
+    {
+      "name": "trail_long",
+      "category": "packets_trails_comets",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/active/trail_long.png",
+      "sha256": "6e7901875b7670e9ca128b7ba8ade7afc9d432c437576141de9d6f5da9436b76"
+    },
+    {
+      "name": "trail_medium",
+      "category": "packets_trails_comets",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/active/trail_medium.png",
+      "sha256": "837b98b3931b014fda0d65c95c4547561aca2cb05c11d48ca6ad663a971de84b"
+    },
+    {
+      "name": "trail_short",
+      "category": "packets_trails_comets",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/active/trail_short.png",
+      "sha256": "49cc4cf6f59ee8da1e852e4ee5f2dff956132d981c7aeac60340e5c0292344f5"
+    },
+    {
+      "name": "trail_spiral",
+      "category": "packets_trails_comets",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/active/trail_spiral.png",
+      "sha256": "7ab267b381608d461176dbe7732df6882044a2899d1fa3cbf984c68dd86d0cc9"
+    },
+    {
+      "name": "comet_beacon",
+      "category": "packets_trails_comets",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/alert/comet_beacon.png",
+      "sha256": "efbe8fda3b0c45720d6b393679a34bdd1b47a55737df845ce036e7a66b73283c"
+    },
+    {
+      "name": "comet_data",
+      "category": "packets_trails_comets",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/alert/comet_data.png",
+      "sha256": "25081661dc7db7228a7e064b6ebf7b3386ea84bc19886c831dd2ab53144e7a05"
+    },
+    {
+      "name": "comet_fast",
+      "category": "packets_trails_comets",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/alert/comet_fast.png",
+      "sha256": "a2af0e008da63da2318f6b443707bfd0ecf28f9ed4466d60acd952c5e40fd91b"
+    },
+    {
+      "name": "packet_corrupted_glow",
+      "category": "packets_trails_comets",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/alert/packet_corrupted_glow.png",
+      "sha256": "5950a0a343f5ce4bab985f32fe9574a9c6d12be01e0df80d556d156eced82a44"
+    },
+    {
+      "name": "packet_encrypted",
+      "category": "packets_trails_comets",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/alert/packet_encrypted.png",
+      "sha256": "2502ea3a39d029a8d734092f6f9606c82e92029f39f99f59eb532e0a0b2a2c5b"
+    },
+    {
+      "name": "packet_priority_large",
+      "category": "packets_trails_comets",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/alert/packet_priority_large.png",
+      "sha256": "ef95d16b4ea8ec112cb2dac678f15db5738b174e1861de9620b8b4b99bffaa92"
+    },
+    {
+      "name": "packet_priority_medium",
+      "category": "packets_trails_comets",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/alert/packet_priority_medium.png",
+      "sha256": "45a7c7cfb944d8cf0f1f44cc2c4d8e1b1ca6b046e3bdec24e1bbabdc574afba8"
+    },
+    {
+      "name": "packet_priority_small",
+      "category": "packets_trails_comets",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/alert/packet_priority_small.png",
+      "sha256": "22706b152372e103392cbae83174704a63f2059a1b742fd43687669076c21fd5"
+    },
+    {
+      "name": "packet_standard_large",
+      "category": "packets_trails_comets",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/alert/packet_standard_large.png",
+      "sha256": "bfb9ae4219d4e0b8b39c8c90e2e5ce07531db0b2e34771b9ede41852255cb08a"
+    },
+    {
+      "name": "packet_standard_medium",
+      "category": "packets_trails_comets",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/alert/packet_standard_medium.png",
+      "sha256": "8932408a5fcf6fabf00b8c305acbe7fe0c4fa1648b560f92b54ff1aadc477f44"
+    },
+    {
+      "name": "packet_standard_small",
+      "category": "packets_trails_comets",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/alert/packet_standard_small.png",
+      "sha256": "7cfcb55433ba4763230c301bebc262aee5c16dc1e1ee1a4ae2e0f768bd54eb2b"
+    },
+    {
+      "name": "trail_curved",
+      "category": "packets_trails_comets",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/alert/trail_curved.png",
+      "sha256": "767baf2a6de608d9f365e74a0bede88cb4c5b300c3e39dcd54760c9684f37029"
+    },
+    {
+      "name": "trail_long",
+      "category": "packets_trails_comets",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/alert/trail_long.png",
+      "sha256": "a6da838c81d75526d820ac16c99d8e84647305c7b600b6ffcc785f3ea3244eaa"
+    },
+    {
+      "name": "trail_medium",
+      "category": "packets_trails_comets",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/alert/trail_medium.png",
+      "sha256": "f718d6ef1045829426f428df7e1e89aaeece385c454ed1a659860d04994e3f7b"
+    },
+    {
+      "name": "trail_short",
+      "category": "packets_trails_comets",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/alert/trail_short.png",
+      "sha256": "f3a4089dfc68eb5760667dd551cad23d6c1d738ba18a2177d00495eb07e2f171"
+    },
+    {
+      "name": "trail_spiral",
+      "category": "packets_trails_comets",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/alert/trail_spiral.png",
+      "sha256": "b173ca867fac1cd864c2c094715321a92e0a5e883260fc0433e0aeec0bc77ec9"
+    },
+    {
+      "name": "comet_beacon",
+      "category": "packets_trails_comets",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/default/comet_beacon.png",
+      "sha256": "ca38593ede65e65c87515fd56a9a8dd74e6e9b9e1649a5a46c014bfd63ad5633"
+    },
+    {
+      "name": "comet_data",
+      "category": "packets_trails_comets",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/default/comet_data.png",
+      "sha256": "75db5a280718be1a96aa6fe5b257e676dbde735f9aef57aa41e763c7a8642d7a"
+    },
+    {
+      "name": "comet_fast",
+      "category": "packets_trails_comets",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/default/comet_fast.png",
+      "sha256": "90d0fd464da7e58dc66f80db880ec40f3c9516b936a68dd210e9a2f9ad5b36de"
+    },
+    {
+      "name": "packet_corrupted_glow",
+      "category": "packets_trails_comets",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/default/packet_corrupted_glow.png",
+      "sha256": "ebb2a0fb658549a20500fa15b4a5028887d51f529bdc7db0970d5d9d2e637031"
+    },
+    {
+      "name": "packet_encrypted",
+      "category": "packets_trails_comets",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/default/packet_encrypted.png",
+      "sha256": "45eaee0fa9bee67a7909dffb483d3aa64ea21e3b3bce0a692e9fadd299cb044d"
+    },
+    {
+      "name": "packet_priority_large",
+      "category": "packets_trails_comets",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/default/packet_priority_large.png",
+      "sha256": "ceaae50fb5026a751b56b58c7140bb6346461b431ffb6987d88a929dc6f9ff15"
+    },
+    {
+      "name": "packet_priority_medium",
+      "category": "packets_trails_comets",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/default/packet_priority_medium.png",
+      "sha256": "7602709103f7635f28b656bff05211bc3c1644b1386207235dd171d7f5e2e5ad"
+    },
+    {
+      "name": "packet_priority_small",
+      "category": "packets_trails_comets",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/default/packet_priority_small.png",
+      "sha256": "e00b601d9861b471db92824bd820ae85b57ba6b0e6b7e9c88607badfa2dd74a0"
+    },
+    {
+      "name": "packet_standard_large",
+      "category": "packets_trails_comets",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/default/packet_standard_large.png",
+      "sha256": "a3dec7ec1990f0fdab94f5fe1945f52330ecdeb36b3edacbf7b56e9759cf7056"
+    },
+    {
+      "name": "packet_standard_medium",
+      "category": "packets_trails_comets",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/default/packet_standard_medium.png",
+      "sha256": "98da718d02939c50d4224e86d49e2796d394c49cf184fc07a1814dc597728adf"
+    },
+    {
+      "name": "packet_standard_small",
+      "category": "packets_trails_comets",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/default/packet_standard_small.png",
+      "sha256": "a376195fdfc29c8f9300eb106ba7f26ecd440ab25833a869b96c4b9ec3ca6bf9"
+    },
+    {
+      "name": "trail_curved",
+      "category": "packets_trails_comets",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/default/trail_curved.png",
+      "sha256": "bd92f9481e21c413859e1d2c678e6dee5205e4334c433ede5f182d86343ca7cb"
+    },
+    {
+      "name": "trail_long",
+      "category": "packets_trails_comets",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/default/trail_long.png",
+      "sha256": "8bab2d2862e7743bcb75fc7431bd4b18d9483943c9e0b35b82cc37c925df7275"
+    },
+    {
+      "name": "trail_medium",
+      "category": "packets_trails_comets",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/default/trail_medium.png",
+      "sha256": "c267eba72c035e9d7b2f92203f4336303d8aa1639dd044e6477a78670d83b5f8"
+    },
+    {
+      "name": "trail_short",
+      "category": "packets_trails_comets",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/default/trail_short.png",
+      "sha256": "5b436a873fde45940a4a8a49a1972ebc362f721bb0360e215d574caac65c9772"
+    },
+    {
+      "name": "trail_spiral",
+      "category": "packets_trails_comets",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/default/trail_spiral.png",
+      "sha256": "184167ec1b854a9b5b5f1c838e5182c605c6d4c7c9e0b18744a09ae9056fb319"
+    },
+    {
+      "name": "comet_beacon",
+      "category": "packets_trails_comets",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/soft/comet_beacon.png",
+      "sha256": "c25f25246fbceb2b637dd6ed6f8538e4e29c7f3dca7f0076e0e4cc1426d1f681"
+    },
+    {
+      "name": "comet_data",
+      "category": "packets_trails_comets",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/soft/comet_data.png",
+      "sha256": "eeb9ec1c8aa7ffe72b61e87af33e1666cc31cc6913b4e59086c218ba208517bf"
+    },
+    {
+      "name": "comet_fast",
+      "category": "packets_trails_comets",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/soft/comet_fast.png",
+      "sha256": "2712c4bb1e669d1f8e5f3c44e983759111a7323f2cca5642bcc4e48933212463"
+    },
+    {
+      "name": "packet_corrupted_glow",
+      "category": "packets_trails_comets",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/soft/packet_corrupted_glow.png",
+      "sha256": "61701d0eff128e0998008745973ef5c701def288f6009b5f573cb91aeae06106"
+    },
+    {
+      "name": "packet_encrypted",
+      "category": "packets_trails_comets",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/soft/packet_encrypted.png",
+      "sha256": "e0eedbc5e1790c4423df1f231dae019e5c5ad11cad243699dd71d18b92979af1"
+    },
+    {
+      "name": "packet_priority_large",
+      "category": "packets_trails_comets",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/soft/packet_priority_large.png",
+      "sha256": "82061e3571dfe5102122aa9b065c1b2c97ca695e2276048e2e28fab958c3ad8f"
+    },
+    {
+      "name": "packet_priority_medium",
+      "category": "packets_trails_comets",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/soft/packet_priority_medium.png",
+      "sha256": "7fa552c5a39bf1eed611efcb592df03e0c8eab00d3f242edf2eac19944ff2dde"
+    },
+    {
+      "name": "packet_priority_small",
+      "category": "packets_trails_comets",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/soft/packet_priority_small.png",
+      "sha256": "8e27b140b3c646ab11086098d636b0d679457e2d9c38f453b05b5c0612162f93"
+    },
+    {
+      "name": "packet_standard_large",
+      "category": "packets_trails_comets",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/soft/packet_standard_large.png",
+      "sha256": "f71e8e364a8a51260e363b4c3369b173b6272b8f873de4e2cbdf3bbd1efdbaba"
+    },
+    {
+      "name": "packet_standard_medium",
+      "category": "packets_trails_comets",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/soft/packet_standard_medium.png",
+      "sha256": "aa80dd595099e07423b7a702213cf2ac6814e2ff2527e26956a31af0f3facf2d"
+    },
+    {
+      "name": "packet_standard_small",
+      "category": "packets_trails_comets",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/soft/packet_standard_small.png",
+      "sha256": "82861eafae39f68c7440e26bd1b32d864db6ee50135047383e7f4686c9e77004"
+    },
+    {
+      "name": "trail_curved",
+      "category": "packets_trails_comets",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/soft/trail_curved.png",
+      "sha256": "99a40f30f36dbf4d330e79e905f5542f920c5a817cfb16e5c24344d57c35d2f9"
+    },
+    {
+      "name": "trail_long",
+      "category": "packets_trails_comets",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/soft/trail_long.png",
+      "sha256": "99069c4a1649596fab13b034f2956d5b5dc9c2cff2ebc0544fd30a28a74c9ed5"
+    },
+    {
+      "name": "trail_medium",
+      "category": "packets_trails_comets",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/soft/trail_medium.png",
+      "sha256": "ef532c13c462d32d58881ec685d625d1981a6761cfbd98a15d2a364b033fb169"
+    },
+    {
+      "name": "trail_short",
+      "category": "packets_trails_comets",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/soft/trail_short.png",
+      "sha256": "cb23f8298391ab8ecf3ac79a0a8c030aaeac7f674e276e4b29743b042d5f3cb6"
+    },
+    {
+      "name": "trail_spiral",
+      "category": "packets_trails_comets",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "packets_trails_comets/1024/soft/trail_spiral.png",
+      "sha256": "f7b4cc7b9b54a6cfd18feada73a6e944e206ac3000f626f1a60a2fa12314a770"
+    },
+    {
+      "name": "comet_beacon",
+      "category": "packets_trails_comets",
+      "variant": "default_desktop_2048",
+      "resolution": "2048x2048",
+      "alpha": true,
+      "path": "packets_trails_comets/2048/default/comet_beacon.png",
+      "sha256": "26f640c0de18c7ff3e81096c8c28bee5a521ee315495574f562adb2fab04c566"
+    },
+    {
+      "name": "comet_data",
+      "category": "packets_trails_comets",
+      "variant": "default_desktop_2048",
+      "resolution": "2048x2048",
+      "alpha": true,
+      "path": "packets_trails_comets/2048/default/comet_data.png",
+      "sha256": "4666295f4f6daf979ba5a541504a5cd3c7807256597536ddaa37c37ec2965105"
+    },
+    {
+      "name": "comet_fast",
+      "category": "packets_trails_comets",
+      "variant": "default_desktop_2048",
+      "resolution": "2048x2048",
+      "alpha": true,
+      "path": "packets_trails_comets/2048/default/comet_fast.png",
+      "sha256": "755db03d341bc6a3d2bfc500d40bdd5809586f9c971c94ad4c59ae0402e16254"
+    },
+    {
+      "name": "packet_corrupted_glow",
+      "category": "packets_trails_comets",
+      "variant": "default_desktop_2048",
+      "resolution": "2048x2048",
+      "alpha": true,
+      "path": "packets_trails_comets/2048/default/packet_corrupted_glow.png",
+      "sha256": "bdb1ae285088487cb106697297ccc0f4d54922d96da49f5cff0a5c7b688c13a1"
+    },
+    {
+      "name": "packet_encrypted",
+      "category": "packets_trails_comets",
+      "variant": "default_desktop_2048",
+      "resolution": "2048x2048",
+      "alpha": true,
+      "path": "packets_trails_comets/2048/default/packet_encrypted.png",
+      "sha256": "1fe304e7d9dc61038a0a90aa3ef506acb40a94966ca5a1b51475d60b7cd54f22"
+    },
+    {
+      "name": "packet_priority_large",
+      "category": "packets_trails_comets",
+      "variant": "default_desktop_2048",
+      "resolution": "2048x2048",
+      "alpha": true,
+      "path": "packets_trails_comets/2048/default/packet_priority_large.png",
+      "sha256": "b34dfcdc82384c0ae1c5f2b8b13cdaa6770b5d03bfa6c904d69936d8cc90166e"
+    },
+    {
+      "name": "packet_priority_medium",
+      "category": "packets_trails_comets",
+      "variant": "default_desktop_2048",
+      "resolution": "2048x2048",
+      "alpha": true,
+      "path": "packets_trails_comets/2048/default/packet_priority_medium.png",
+      "sha256": "33c7e97d20c727a2ad85a177c309c61bbdf078ce49ebab6f1b28021369d67d10"
+    },
+    {
+      "name": "packet_priority_small",
+      "category": "packets_trails_comets",
+      "variant": "default_desktop_2048",
+      "resolution": "2048x2048",
+      "alpha": true,
+      "path": "packets_trails_comets/2048/default/packet_priority_small.png",
+      "sha256": "1a5bdfa272ac13c2af2fa89b78b1777010f6aee791c9bda562da4e6e49956b88"
+    },
+    {
+      "name": "packet_standard_large",
+      "category": "packets_trails_comets",
+      "variant": "default_desktop_2048",
+      "resolution": "2048x2048",
+      "alpha": true,
+      "path": "packets_trails_comets/2048/default/packet_standard_large.png",
+      "sha256": "139226c738f1a7d7f2e68e990ca33977df983d3d4f22b323ec6e6dfce20f295f"
+    },
+    {
+      "name": "packet_standard_medium",
+      "category": "packets_trails_comets",
+      "variant": "default_desktop_2048",
+      "resolution": "2048x2048",
+      "alpha": true,
+      "path": "packets_trails_comets/2048/default/packet_standard_medium.png",
+      "sha256": "a5f856c7801431172718a3948e13301cf8ab16f9e09e96fa0ee4c496feab277e"
+    },
+    {
+      "name": "packet_standard_small",
+      "category": "packets_trails_comets",
+      "variant": "default_desktop_2048",
+      "resolution": "2048x2048",
+      "alpha": true,
+      "path": "packets_trails_comets/2048/default/packet_standard_small.png",
+      "sha256": "4be0694a1f67beda254b101d59219558e94ac85521fe12267849e3fcea1c3202"
+    },
+    {
+      "name": "trail_curved",
+      "category": "packets_trails_comets",
+      "variant": "default_desktop_2048",
+      "resolution": "2048x2048",
+      "alpha": true,
+      "path": "packets_trails_comets/2048/default/trail_curved.png",
+      "sha256": "7457ce4ce4f965d76e40940c540ea47c852737f5ba3eea24d04994542ff27ebf"
+    },
+    {
+      "name": "trail_long",
+      "category": "packets_trails_comets",
+      "variant": "default_desktop_2048",
+      "resolution": "2048x2048",
+      "alpha": true,
+      "path": "packets_trails_comets/2048/default/trail_long.png",
+      "sha256": "92de826ba832c41a64706450c7611d209ec1bf4257f7fe5237095e859b7ca03a"
+    },
+    {
+      "name": "trail_medium",
+      "category": "packets_trails_comets",
+      "variant": "default_desktop_2048",
+      "resolution": "2048x2048",
+      "alpha": true,
+      "path": "packets_trails_comets/2048/default/trail_medium.png",
+      "sha256": "72a5147cece5697c04c239d419a78f47f6315a978b3155d1a1e836db8409b4db"
+    },
+    {
+      "name": "trail_short",
+      "category": "packets_trails_comets",
+      "variant": "default_desktop_2048",
+      "resolution": "2048x2048",
+      "alpha": true,
+      "path": "packets_trails_comets/2048/default/trail_short.png",
+      "sha256": "76021dcef76bb7c5ed400d2c74c8b02e69cbf5bf4c35dde66499f61cbdc1ba26"
+    },
+    {
+      "name": "trail_spiral",
+      "category": "packets_trails_comets",
+      "variant": "default_desktop_2048",
+      "resolution": "2048x2048",
+      "alpha": true,
+      "path": "packets_trails_comets/2048/default/trail_spiral.png",
+      "sha256": "b00305b780465f59bc9ebc1bffeb2fa820bb308116c8ce2fe82399df2452c39f"
+    },
+    {
+      "name": "beacon_netgraph_preview_sheet",
+      "category": "previews",
+      "variant": null,
+      "resolution": "1362x1194",
+      "alpha": false,
+      "path": "previews/beacon_netgraph_preview_sheet.png",
+      "sha256": "b52dad2d7752b0ee8d1b58c812ad5caff27644a5c209326d6d1db81bec64ddc1"
+    },
+    {
+      "name": "image_gen_reference_sheet_not_runtime_asset",
+      "category": "previews",
+      "variant": null,
+      "resolution": "1024x1536",
+      "alpha": false,
+      "path": "previews/image_gen_reference_sheet_not_runtime_asset.png",
+      "sha256": "f27037cb8633eb861701f73d42db9eb788037739f9c955364386fa77f87ebbf2"
+    },
+    {
+      "name": "badge_status_error",
+      "category": "ui",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/active/badge_status_error.png",
+      "sha256": "976e658c7f0ccd2b30f0c3a1727c555f9e736a4ace42c4744b2b7f109ddbde89"
+    },
+    {
+      "name": "badge_status_ok",
+      "category": "ui",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/active/badge_status_ok.png",
+      "sha256": "38ec6b632b989efdec1d68a964bfdd9b1ec919de66950abae1a2c9c4259fa151"
+    },
+    {
+      "name": "badge_status_warn",
+      "category": "ui",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/active/badge_status_warn.png",
+      "sha256": "e4690c68ff4346d8aaa31d627b5c59b05c3c5eee6d9a8cc6539c0472331a7154"
+    },
+    {
+      "name": "button_primary_glow",
+      "category": "ui",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/active/button_primary_glow.png",
+      "sha256": "8babf1a19112a9190611473c984927a567c1f0852f7e1d8fca69231b16e089e5"
+    },
+    {
+      "name": "button_secondary_soft",
+      "category": "ui",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/active/button_secondary_soft.png",
+      "sha256": "2f3ca0b38fb35cf80413f04173a3217c4a2c86879c8bfce3f8dbba81f870acff"
+    },
+    {
+      "name": "corner_rim_frame",
+      "category": "ui",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/active/corner_rim_frame.png",
+      "sha256": "bf659aa82de8767d6bd6fa4cfc5161a83e56df0ee477e4dfaada02e990c6a1b3"
+    },
+    {
+      "name": "divider_fiber_glow",
+      "category": "ui",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/active/divider_fiber_glow.png",
+      "sha256": "96200a1082a876a5d4148217e7620d11eeab0274f3306fa4152c2403d2b2a87d"
+    },
+    {
+      "name": "microgrid_tiling_texture",
+      "category": "ui",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/active/microgrid_tiling_texture.png",
+      "sha256": "6b94a4f09888313ac4e47bce01d730ab29afd153765b581eccdfd2061e3e48dc"
+    },
+    {
+      "name": "panel_glass_floating",
+      "category": "ui",
+      "variant": "active",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/active/panel_glass_floating.png",
+      "sha256": "79218481581f2539c8bee09cc3243d041de31edc0edc4882ef79c064806c2736"
+    },
+    {
+      "name": "badge_status_error",
+      "category": "ui",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/alert/badge_status_error.png",
+      "sha256": "fb2215279c53631969ee9083ab47fe932c942cd713a2cf38e3782328a77ddb5d"
+    },
+    {
+      "name": "badge_status_ok",
+      "category": "ui",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/alert/badge_status_ok.png",
+      "sha256": "34cedcebcbb92681c0470ff2bd6ac0b743372ae995f8602926aabdd025fb20d3"
+    },
+    {
+      "name": "badge_status_warn",
+      "category": "ui",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/alert/badge_status_warn.png",
+      "sha256": "26cf2e8e3a86d3696823ba5461b3ee009d8088084a001ab070b755456c6582ab"
+    },
+    {
+      "name": "button_primary_glow",
+      "category": "ui",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/alert/button_primary_glow.png",
+      "sha256": "7366ba4bba6dab13961d1f766e26b9a112e6accb2e7487675e497f9759a2d71f"
+    },
+    {
+      "name": "button_secondary_soft",
+      "category": "ui",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/alert/button_secondary_soft.png",
+      "sha256": "cac7e988823f4f43efaaf6d79f052d26371e92dc2cd39df246ee700ac3f7c0cd"
+    },
+    {
+      "name": "corner_rim_frame",
+      "category": "ui",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/alert/corner_rim_frame.png",
+      "sha256": "8e882da1475253b2ff84f967396b1a1e73063c8ceda0575510568bbdba2dfad8"
+    },
+    {
+      "name": "divider_fiber_glow",
+      "category": "ui",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/alert/divider_fiber_glow.png",
+      "sha256": "aa50a2f1e2f83d031872dcf89f619a8da7f14df00096ba035545f063d0ee6256"
+    },
+    {
+      "name": "microgrid_tiling_texture",
+      "category": "ui",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/alert/microgrid_tiling_texture.png",
+      "sha256": "6c359b1d1c100c78062b0ccdb666519664980bc6212d535053f0064de88c8b1d"
+    },
+    {
+      "name": "panel_glass_floating",
+      "category": "ui",
+      "variant": "alert",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/alert/panel_glass_floating.png",
+      "sha256": "051fb2f8fdee307d8015a9cf88f497eddbcf4d97ca97ea58845192347880a0c6"
+    },
+    {
+      "name": "badge_status_error",
+      "category": "ui",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/default/badge_status_error.png",
+      "sha256": "be0259a06ac7e0df398de70dedbe403eff21be32bc60ba1ca2dc8f257378ebc8"
+    },
+    {
+      "name": "badge_status_ok",
+      "category": "ui",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/default/badge_status_ok.png",
+      "sha256": "5f9a22657b339a3e7eea69d30420e9c56aaa71c6c75099b67d7cc50777f401b1"
+    },
+    {
+      "name": "badge_status_warn",
+      "category": "ui",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/default/badge_status_warn.png",
+      "sha256": "853c971e32b7fda1ab1b75ee7812b69d7d4d7d48945ba1eac49d963e722e00ec"
+    },
+    {
+      "name": "button_primary_glow",
+      "category": "ui",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/default/button_primary_glow.png",
+      "sha256": "76c0a8706912cfe8b8591ead085ae3068c370f14853fc86229b1fc68e735d9f4"
+    },
+    {
+      "name": "button_secondary_soft",
+      "category": "ui",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/default/button_secondary_soft.png",
+      "sha256": "8c8e709c9602d655f2436508b3474c5e92923c0d19a199630a2d5c496b95459e"
+    },
+    {
+      "name": "corner_rim_frame",
+      "category": "ui",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/default/corner_rim_frame.png",
+      "sha256": "1a51887cb8fc8a5491b4b0695f81341a534497c55fa424f6c8b88e8f1de34d22"
+    },
+    {
+      "name": "divider_fiber_glow",
+      "category": "ui",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/default/divider_fiber_glow.png",
+      "sha256": "c4127754487e5b9438aa09993e37e9d3a4b5ecfaeebfec874ce73b7eeeadad9f"
+    },
+    {
+      "name": "microgrid_tiling_texture",
+      "category": "ui",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/default/microgrid_tiling_texture.png",
+      "sha256": "86aa8c8186d4175d6e1b15a0e74b9f8f795f62bfa76546754e72a569ce6709b2"
+    },
+    {
+      "name": "panel_glass_floating",
+      "category": "ui",
+      "variant": "default",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/default/panel_glass_floating.png",
+      "sha256": "8f903bfe76868fafd4e94ba5c734f8f63b1d5c440fdb303409b164e38e399b9e"
+    },
+    {
+      "name": "badge_status_error",
+      "category": "ui",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/soft/badge_status_error.png",
+      "sha256": "242ed33b88f4d117d87611e675be9ab0c60b1a58ff8f5e1a7561515a718e3b58"
+    },
+    {
+      "name": "badge_status_ok",
+      "category": "ui",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/soft/badge_status_ok.png",
+      "sha256": "412f4fd24d134ab4db2b798d7af40926de559301cc0410e3640df0178a7e44e9"
+    },
+    {
+      "name": "badge_status_warn",
+      "category": "ui",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/soft/badge_status_warn.png",
+      "sha256": "c4449f7795da3be665c9c50b109841819b44f44457857f6d4c8b2563fe17f3c9"
+    },
+    {
+      "name": "button_primary_glow",
+      "category": "ui",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/soft/button_primary_glow.png",
+      "sha256": "8079ff1c3d2a8fa7b0ae8592b72543bda0c9a0a0fc663914c9f7fd1ec0fe90dd"
+    },
+    {
+      "name": "button_secondary_soft",
+      "category": "ui",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/soft/button_secondary_soft.png",
+      "sha256": "cd88153118dcd6b77945c27116cd9ebc47770785678de1c8860fa91094b1ed82"
+    },
+    {
+      "name": "corner_rim_frame",
+      "category": "ui",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/soft/corner_rim_frame.png",
+      "sha256": "ebe8a228ba32b55bb008489e37e5d729ae420bb4182aa814e64f7a24dc18b8c6"
+    },
+    {
+      "name": "divider_fiber_glow",
+      "category": "ui",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/soft/divider_fiber_glow.png",
+      "sha256": "ba4b87fd28cdaa6ec5e341dcc37e88cd8148635b859dd6fc0b81b32602b34b1d"
+    },
+    {
+      "name": "microgrid_tiling_texture",
+      "category": "ui",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/soft/microgrid_tiling_texture.png",
+      "sha256": "58ad5a347bc885059df55cc4ffd4b3601f1d165e6a1ec81ac4f0c5807c9c4d5d"
+    },
+    {
+      "name": "panel_glass_floating",
+      "category": "ui",
+      "variant": "soft",
+      "resolution": "1024x1024",
+      "alpha": true,
+      "path": "ui/soft/panel_glass_floating.png",
+      "sha256": "0958119bfb8c1f0236ca5a6bee764e56aed5aec166f2963df16270c84c3f1e0c"
+    }
+  ]
+}

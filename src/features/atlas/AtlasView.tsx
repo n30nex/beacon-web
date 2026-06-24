@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import type { FeatureCollection, Point } from "geojson";
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
+import "../map/map.css";
 import type { WsNodeUpdate } from "../../types/ws";
 import type { WsManager } from "../../api/ws-manager";
 import { getAtlasBriefing } from "../../api/client";
@@ -15,6 +16,7 @@ import { useTheme } from "../../hooks/useTheme";
 import { useWsNodeUpdateHandler } from "../../hooks/useWsHandlers";
 import { LoadingPill } from "../../components/LoadingPill";
 import { EmptyState } from "../../components/EmptyState";
+import { RouteStatePanel } from "../../components/RouteStatePanel";
 import { formatCount, timeAgoMs } from "../../lib/formatters";
 import { sanitizeDisplayLabel } from "../../lib/display-label";
 import type {
@@ -521,9 +523,29 @@ export function AtlasView({ wsManager, selectedNodeId, onSelectNode, nodePanelOp
           </div>
         </header>
 
-        {briefing.isError ? (
+        {briefing.isLoading ? (
+          <div className="crt-panel min-h-[360px] rounded-sm border border-border bg-bg-raised/72">
+            <RouteStatePanel
+              title="Preparing Atlas briefing"
+              subtitle="Gathering regional health, hotspots, verified routes, and investigation priorities for the selected window."
+            />
+          </div>
+        ) : briefing.isError ? (
           <div className="crt-panel min-h-[320px] rounded-sm border border-border bg-bg-raised/72">
-            <EmptyState title="Atlas briefing unavailable" subtitle="The prepared briefing endpoint did not return a payload." />
+            <RouteStatePanel
+              title="Atlas briefing unavailable"
+              subtitle="The prepared briefing endpoint did not return a payload. Retry after the API, cache, or database recovers."
+              tone="danger"
+              action={
+                <button
+                  type="button"
+                  className="rounded-sm border border-danger/45 bg-danger/10 px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-danger transition-colors hover:bg-danger/15"
+                  onClick={() => void briefing.refetch()}
+                >
+                  Retry Atlas briefing
+                </button>
+              }
+            />
           </div>
         ) : (
           <>

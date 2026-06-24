@@ -69,6 +69,10 @@ const reach: NodeReach = {
   reachableNodes: 9,
   verifiedEdges: 7,
   routeCount: 11,
+  sourceRouteCount: 12,
+  queryCount: 3,
+  routeLimit: 300,
+  truncated: false,
   observationCount: 44,
   hopBuckets: [{ hopDistance: 1, nodeCount: 3, edgeCount: 3, routeCount: 4, observationCount: 12 }],
   topNodes: [],
@@ -139,6 +143,12 @@ describe("NodeDetailPanel neighbors", () => {
     renderPanel();
 
     expect(await screen.findByText("Analytics")).toBeInTheDocument();
+    expect(await screen.findByText(/Detail refreshed \d+s ago/)).toBeInTheDocument();
+    expect(await screen.findByText(/Analytics refreshed \d+s ago/)).toBeInTheDocument();
+    expect(await screen.findByText(/Reach refreshed \d+s ago/)).toBeInTheDocument();
+    expect(await screen.findByText(/Neighbors refreshed \d+s ago/)).toBeInTheDocument();
+    expect(await screen.findByText(/Adverts refreshed \d+s ago/)).toBeInTheDocument();
+    expect(await screen.findByText(/Observations refreshed \d+s ago/)).toBeInTheDocument();
     expect(await screen.findByText("34")).toBeInTheDocument();
     expect(screen.getByText("advert")).toBeInTheDocument();
     expect(screen.getByText("5..10")).toBeInTheDocument();

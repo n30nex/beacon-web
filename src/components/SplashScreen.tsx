@@ -4,10 +4,10 @@ import { BeaconLogo } from "./BeaconLogo";
 import { TerminalCursor, TerminalSpinner } from "./TerminalLoader";
 
 const BOOT_KEY = "beacon-terminal-boot-shown";
-const VISIBLE_MS = 4200;
-const FADE_MS = 450;
-const REDUCED_VISIBLE_MS = 900;
-const REDUCED_FADE_MS = 120;
+const VISIBLE_MS = 1200;
+const FADE_MS = 200;
+const REDUCED_VISIBLE_MS = 500;
+const REDUCED_FADE_MS = 80;
 
 interface BootVariant {
   eyebrow: string;
@@ -103,6 +103,22 @@ const BOOT_VARIANTS: Record<string, BootVariant> = {
   },
 };
 
+const MODERN_BOOT_VARIANT: BootVariant = {
+  eyebrow: "BEACON",
+  title: "Beacon",
+  subtitle: "Mesh telemetry console",
+  prompt: "Opening network view",
+  signal: "Glass signal layer",
+  matrix: ["HOME", "LIVE", "MAP", "DATA"],
+  diagnostics: [["API", "READY"], ["WS", "SYNC"], ["MAP", "READY"], ["DATA", "READY"]],
+  stages: [
+    "Preparing live feed",
+    "Loading packet index",
+    "Syncing observer map",
+    "Opening Beacon home",
+  ],
+};
+
 function getBootParam(): "force" | "skip" | null {
   if (typeof window === "undefined") return null;
   const boot = new URLSearchParams(window.location.search).get("boot");
@@ -128,12 +144,13 @@ function shouldRenderBoot() {
 }
 
 export function SplashScreen() {
-  const { themeId } = useTheme();
+  const { themeId, designMode } = useTheme();
   const [render, setRender] = useState(shouldRenderBoot);
   const [fading, setFading] = useState(false);
   const reducedMotion = useMemo(() => prefersReducedMotion(), []);
   const forced = getBootParam() === "force";
-  const variant = BOOT_VARIANTS[themeId] ?? BOOT_VARIANTS["crt-amber"];
+  const modern = designMode === "modern";
+  const variant = modern ? MODERN_BOOT_VARIANT : BOOT_VARIANTS[themeId] ?? BOOT_VARIANTS["crt-amber"];
   const visibleMs = reducedMotion ? REDUCED_VISIBLE_MS : VISIBLE_MS;
   const fadeMs = reducedMotion ? REDUCED_FADE_MS : FADE_MS;
 
@@ -160,8 +177,8 @@ export function SplashScreen() {
     <div
       role="status"
       aria-live="polite"
-      aria-label="Beacon terminal boot sequence"
-      className={`terminal-boot-screen fixed inset-0 z-[9999] flex items-center justify-center p-3 text-primary transition-opacity ease-out ${
+      aria-label="Beacon loading sequence"
+      className={`terminal-boot-screen ${modern ? "terminal-boot-screen-modern" : ""} fixed inset-0 z-[9999] flex items-center justify-center p-3 text-primary transition-opacity ease-out ${
         fading ? "pointer-events-none opacity-0" : "opacity-100"
       }`}
       style={{ transitionDuration: `${fadeMs}ms` }}
@@ -195,12 +212,12 @@ export function SplashScreen() {
                 <div
                   key={stage}
                   className="terminal-boot-line flex items-center gap-2"
-                  style={reducedMotion ? { opacity: 1, transform: "none", animation: "none" } : { animationDelay: `${360 + i * 430}ms` }}
+                  style={reducedMotion ? { opacity: 1, transform: "none", animation: "none" } : { animationDelay: `${160 + i * 140}ms` }}
                 >
                   <span className="text-primary">&gt;</span>
                   <span className="min-w-0 flex-1 truncate">{stage}</span>
                   <span className="terminal-boot-stage-meter" aria-hidden>
-                    <span style={reducedMotion ? { width: "100%", animation: "none" } : { animationDelay: `${520 + i * 430}ms` }} />
+                    <span style={reducedMotion ? { width: "100%", animation: "none" } : { animationDelay: `${220 + i * 140}ms` }} />
                   </span>
                   <span className="text-green">OK</span>
                 </div>
@@ -232,7 +249,7 @@ export function SplashScreen() {
               ))}
             </div>
             <div className="terminal-boot-ticker mt-3 border-t border-border-subtle pt-2 text-primary">
-              <span>{variant.prompt} // CREWNET // BROKER BUS // BEACON OPS READY</span>
+              <span>{modern ? "HOME // LIVE // MAP // DATA // SYSTEM READY" : `${variant.prompt} // CREWNET // BROKER BUS // BEACON OPS READY`}</span>
             </div>
           </div>
         </div>

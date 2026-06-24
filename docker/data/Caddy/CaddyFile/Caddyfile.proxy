@@ -1,3 +1,49 @@
 {$DOMAIN} {
-	reverse_proxy beacon-web:80
+	rate_limit {
+		zone public_api {
+			match {
+				path /api*
+			}
+			key {remote_host}
+			window {$CADDY_API_RATE_LIMIT_WINDOW:1m}
+			events {$CADDY_API_RATE_LIMIT_EVENTS:600}
+			ipv6_prefix 64
+		}
+		zone health {
+			match {
+				path /healthz* /readyz*
+			}
+			key {remote_host}
+			window {$CADDY_HEALTH_RATE_LIMIT_WINDOW:1m}
+			events {$CADDY_HEALTH_RATE_LIMIT_EVENTS:120}
+			ipv6_prefix 64
+		}
+		zone websocket_handshake {
+			match {
+				path /ws*
+			}
+			key {remote_host}
+			window {$CADDY_WS_RATE_LIMIT_WINDOW:1m}
+			events {$CADDY_WS_RATE_LIMIT_EVENTS:60}
+			ipv6_prefix 64
+		}
+	}
+
+	# API and websocket requests should continue to beacon-server while the
+	# frontend is served by a host-vite process.
+	handle /api* {
+		reverse_proxy {$BEACON_API_UPSTREAM}
+	}
+	handle /healthz* {
+		reverse_proxy {$BEACON_API_UPSTREAM}
+	}
+	handle /readyz* {
+		reverse_proxy {$BEACON_API_UPSTREAM}
+	}
+	handle /ws* {
+		reverse_proxy {$BEACON_WS_UPSTREAM}
+	}
+	handle {
+		reverse_proxy {$BEACON_WEB_UPSTREAM}
+	}
 }

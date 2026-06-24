@@ -156,6 +156,10 @@ export interface NodeReach {
   reachableNodes: number;
   verifiedEdges: number;
   routeCount: number;
+  sourceRouteCount: number;
+  queryCount: number;
+  routeLimit: number;
+  truncated: boolean;
   observationCount: number;
   hopBuckets: NodeReachHopBucket[];
   topNodes: NodeReachNode[];

@@ -8,6 +8,7 @@ import { formatUptime, formatBattery, formatHex, formatSnr, snrLevel, SIGNAL_LEV
 import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { Timestamp } from "../../components/Timestamp";
 import { TerminalLoadingState } from "../../components/TerminalLoader";
+import { FreshnessLine } from "../../components/FreshnessLine";
 import { useTick } from "../../hooks/useTick";
 import { useRegion } from "../../hooks/useRegion";
 import { deriveObserverStatus } from "./observer-status";
@@ -178,19 +179,19 @@ interface ObserverDetailPanelProps {
 
 export function ObserverDetailPanel({ observerId, range, onClose, onAnalyzePacket, onViewStats }: ObserverDetailPanelProps) {
   const { iatas, regionKey } = useRegion();
-  const { data: observer, isLoading } = useQuery({
+  const { data: observer, dataUpdatedAt: observerUpdatedAt, isFetching: observerFetching, isLoading } = useQuery({
     queryKey: ["observer", observerId],
     queryFn: () => getObserver(observerId),
     staleTime: 30_000,
   });
 
-  const { data: topology, isLoading: topologyLoading } = useQuery({
+  const { data: topology, dataUpdatedAt: topologyUpdatedAt, isFetching: topologyFetching, isLoading: topologyLoading } = useQuery({
     queryKey: ["observer-topology", observerId, regionKey, range],
     queryFn: () => getObserverTopology(observerId, iatas, { range, limit: 12 }),
     staleTime: 30_000,
   });
 
-  const { data: adverts } = useQuery({
+  const { data: adverts, dataUpdatedAt: advertsUpdatedAt, isFetching: advertsFetching } = useQuery({
     queryKey: ["observer-adverts", observerId],
     queryFn: () => getObserverAdverts(observerId, { limit: 50 }),
     staleTime: 30_000,
@@ -232,6 +233,7 @@ export function ObserverDetailPanel({ observerId, range, onClose, onAnalyzePacke
       {observer && (
         <>
           <Section title="Summary" first>
+              <FreshnessLine source="Observer" updatedAt={observerUpdatedAt || undefined} fetching={observerFetching} />
               <div className="flex items-center gap-2 mb-2">
                 <span className="font-mono text-xs font-semibold text-primary tracking-wider">
                   {observerLabel}
@@ -310,6 +312,7 @@ export function ObserverDetailPanel({ observerId, range, onClose, onAnalyzePacke
             )}
 
             <Section title="Topology Window">
+              <FreshnessLine source="Topology" updatedAt={topologyUpdatedAt || undefined} fetching={topologyFetching} />
               {topologyLoading ? (
                 <TerminalLoadingState label="QUERYING OBSERVER TOPOLOGY" detail="PLEASE WAIT" />
               ) : topology ? (
@@ -389,6 +392,7 @@ export function ObserverDetailPanel({ observerId, range, onClose, onAnalyzePacke
             )}
 
             <Section title="Adverts heard">
+              <FreshnessLine source="Adverts" updatedAt={advertsUpdatedAt || undefined} fetching={advertsFetching} />
               {adverts && adverts.items.length > 0 ? (
                 <div className="flex flex-col gap-1.5">
                   {adverts.items.map((a) => (

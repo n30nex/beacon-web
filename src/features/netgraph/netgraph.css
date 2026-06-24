@@ -1,0 +1,50 @@
+.netgraph-canvas-host {
+  min-height: 0;
+}
+
+.netgraph-three-canvas {
+  display: block;
+  height: 100%;
+  touch-action: none;
+  width: 100%;
+}
+
+.netgraph-range {
+  appearance: none;
+  background: color-mix(in srgb, var(--color-bg-base) 82%, var(--color-primary) 18%);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 28%, var(--color-border-subtle));
+  border-radius: 999px;
+  height: 8px;
+  outline: none;
+}
+
+.netgraph-range::-webkit-slider-thumb {
+  appearance: none;
+  background: var(--color-primary);
+  border: 1px solid color-mix(in srgb, var(--color-text-bright) 56%, var(--color-primary));
+  border-radius: 999px;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 42%, transparent);
+  height: 16px;
+  width: 16px;
+}
+
+.netgraph-range::-moz-range-thumb {
+  background: var(--color-primary);
+  border: 1px solid color-mix(in srgb, var(--color-text-bright) 56%, var(--color-primary));
+  border-radius: 999px;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 42%, transparent);
+  height: 16px;
+  width: 16px;
+}
+
+.netgraph-range::-moz-range-track {
+  background: transparent;
+  border: 0;
+}
+
+@media (min-width: 1024px) {
+  .netgraph-canvas-host {
+    height: 100%;
+    min-height: 0;
+  }
+}

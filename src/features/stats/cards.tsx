@@ -70,9 +70,20 @@ export function StatCard({
   );
 }
 
-function Centered({ children }: { children: ReactNode }) {
+function ChartState({
+  title,
+  subtitle,
+  tone = "text-text-dim",
+}: {
+  title: string;
+  subtitle: string;
+  tone?: string;
+}) {
   return (
-    <div className="flex h-full items-center justify-center font-mono text-[11px] text-text-dim">{children}</div>
+    <div className="flex h-full flex-col items-center justify-center gap-1.5 px-4 text-center font-mono">
+      <div className={`text-[11px] font-semibold uppercase tracking-wider ${tone}`}>{title}</div>
+      <div className="max-w-xs text-[10px] leading-relaxed text-text-dim">{subtitle}</div>
+    </div>
   );
 }
 
@@ -104,11 +115,18 @@ export function ChartCard({
     <Card title={title} right={right} className={className}>
       <div style={{ height: resolvedHeight }}>
         {isError ? (
-          <Centered>Failed to load</Centered>
+          <ChartState
+            title="Chart data unavailable"
+            subtitle="The stats endpoint did not respond. Try refreshing or changing the window."
+            tone="text-danger"
+          />
         ) : isLoading ? (
           <TerminalLoadingState label="QUERYING CHART" detail="PLEASE WAIT" className="h-full" />
         ) : isEmpty ? (
-          <Centered>No data</Centered>
+          <ChartState
+            title="No matching telemetry"
+            subtitle="This region and time window returned no series for the selected metric."
+          />
         ) : (
           <EChart option={option} onEvents={onEvents} />
         )}

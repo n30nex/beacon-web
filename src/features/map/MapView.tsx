@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import "./map.css";
 import { useMapLibre } from "./useMapLibre";
 import { useMapNodes } from "./useMapNodes";
 import { useMapNodesData } from "./useMapNodesData";
@@ -245,7 +246,7 @@ export function MapView({ wsManager, selectedNodeId, onSelectNode }: MapViewProp
     () => resolveMapStyle(localStorage.getItem(MAP_STYLE_STORAGE_KEY) ?? DEFAULT_STYLE_ID).id,
   );
   const [topographyEnabled, setTopographyEnabled] = useState(
-    () => localStorage.getItem(MAP_TOPOGRAPHY_STORAGE_KEY) !== "false",
+    () => localStorage.getItem(MAP_TOPOGRAPHY_STORAGE_KEY) === "true",
   );
 
   const handleStyleChange = useCallback((id: string) => {
@@ -269,6 +270,7 @@ export function MapView({ wsManager, selectedNodeId, onSelectNode }: MapViewProp
   const routeIdParam = searchParams.get("routeId");
   const routeId = routeIdParam && /^\d+$/.test(routeIdParam) ? Number(routeIdParam) : null;
   const routeReplayActive = routeId != null && searchParams.get("routeReplay") === "1";
+  const mapFocus = searchParams.get("mapFocus");
 
   const { iatas: selectedIatas, regionKey } = useRegion();
   const queryClient = useQueryClient();
@@ -302,7 +304,7 @@ export function MapView({ wsManager, selectedNodeId, onSelectNode }: MapViewProp
   // Nodes for the selected region, keyed independently from the Nodes-table filters/page cap.
   // The pager auto-chains until the full regional set is present; nodesKey matches the hook's key.
   const nodesKey = useMemo(() => ["map-nodes", regionKey], [regionKey]);
-  const { nodes, loadedCount, isPaging, isError: nodesError } = useMapNodesData(selectedIatas, regionKey);
+  const { nodes, loadedCount, isPaging, isError: nodesError, updatedAt: nodesUpdatedAt } = useMapNodesData(selectedIatas, regionKey);
 
   // patch-or-insert the live update into the paged node cache (the shared helper preserves refs
   // when nothing changed, so a same-values re-advert doesn't trigger a full map repaint); brand-new
@@ -338,14 +340,35 @@ export function MapView({ wsManager, selectedNodeId, onSelectNode }: MapViewProp
 
   const { containerRef, mapRef, isReady, error } = useMapLibre(styleId, fitPoints, handleStyleError, {
     topographyEnabled,
-    topographyAlwaysVisible: true,
-    topographyForce3d: true,
     visualProfile,
   });
   const isDark = resolveMapStyle(styleId).dark; // drives marker theming + maplibre control chrome
 
   useMapNodes(mapRef, isReady, geojson, isDark, profileKey, clustered, onSelectNode, selectedNodeId, `${regionKey}:${typeFilter}`);
   useVerifiedRouteNeighborhoodOverlay(mapRef, isReady, selectedNodeId, selectedIatas, profileKey);
+
+  useEffect(() => {
+    if (mapFocus !== "node" || !selectedNodeId || !isReady) return;
+    const map = mapRef.current;
+    if (!map) return;
+    const node = nodes.find((item) => item.id === selectedNodeId);
+    if (!node && isPaging) return;
+    if (!node || node.lat == null || node.lng == null) return;
+    map.flyTo({
+      center: [node.lng, node.lat],
+      zoom: Math.max(map.getZoom(), 13.2),
+      pitch: topographyEnabled ? Math.max(map.getPitch(), 48) : map.getPitch(),
+      bearing: map.getBearing(),
+      speed: 0.78,
+      curve: 1.24,
+      essential: true,
+    });
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("mapFocus");
+      return next;
+    }, { replace: true });
+  }, [isPaging, isReady, mapFocus, mapRef, nodes, selectedNodeId, setSearchParams, topographyEnabled]);
 
   const closeRouteReplay = useCallback(() => {
     setSearchParams((prev) => {
@@ -393,7 +416,7 @@ export function MapView({ wsManager, selectedNodeId, onSelectNode }: MapViewProp
         />
       )}
       {/* The count climbs as the full regional node set lands, then the pill disappears. */}
-      <LoadingPill loading={isPaging} error={nodesError} count={loadedCount} noun="nodes" />
+      <LoadingPill loading={isPaging} error={nodesError} count={loadedCount} noun="nodes" showFreshness updatedAt={nodesUpdatedAt} />
       {error && (
         // z-20 so the failure overlay covers the settings card (z-10) instead of it floating on top
         <div className="absolute inset-0 z-20 bg-bg-base">

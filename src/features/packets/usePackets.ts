@@ -211,6 +211,8 @@ export function usePackets() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    isFetching,
+    dataUpdatedAt,
   } = useInfiniteQuery({
     queryKey: ["packets", regionKey],
     // first load and every scroll page are the default 50; getPackets fills in the limit
@@ -269,6 +271,8 @@ export function usePackets() {
     fetchNextPage,
     hasNextPage: hasNextPage ?? false,
     isFetchingNextPage,
+    isRefreshingHistory: isFetching && !isFetchingNextPage,
+    historyUpdatedAt: dataUpdatedAt || null,
     observersByHash,
     handlePacketObservation,
     handleLagged,

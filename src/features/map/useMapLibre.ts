@@ -25,6 +25,7 @@ const fitKey = (points: [number, number][] | null) =>
 // Keeps the imperative MapLibre lifecycle out of MapView; exposes mapRef + isReady for overlays.
 
 const TERRAIN_SOURCE_ID = "terrain-dem";
+const HILLSHADE_SOURCE_ID = "hillshade-dem";
 const HILLSHADE_LAYER_ID = "hillshade";
 
 // Terrain only adds depth once the camera is tilted or zoomed in enough to read relief; a flat world
@@ -33,9 +34,6 @@ const HILLSHADE_LAYER_ID = "hillshade";
 const TERRAIN_ENGAGE_PITCH = 10;
 const TERRAIN_ENGAGE_ZOOM = IATA_ZOOM;
 
-// Terrain and the hillshade layer pull the same terrarium tiles. maplibre emits a cosmetic console
-// warning when a raster-dem source is shared, but sharing one source is fully supported and halves
-// DEM tile fetches + terrarium PNG decodes versus describing it twice — so we add it once.
 const demSource = (): RasterDEMSourceSpecification => ({
   type: "raster-dem",
   tiles: DEM_TILES,
@@ -45,10 +43,10 @@ const demSource = (): RasterDEMSourceSpecification => ({
   attribution: DEM_ATTRIBUTION,
 });
 
-// Declare the DEM source (cheap — tiles only fetch when terrain/hillshade actually render). Idempotent
-// and safe to run on 'load' and every 'style.load' (setStyle drops imperatively-added sources).
-function ensureTerrainSource(map: MapLibreMap) {
-  if (!map.getSource(TERRAIN_SOURCE_ID)) map.addSource(TERRAIN_SOURCE_ID, demSource());
+// Declare DEM sources lazily. MapLibre warns when one raster-dem source backs both hillshade and 3D
+// terrain, so each render path gets its own source and only loads when that path is enabled.
+function ensureDemSource(map: MapLibreMap, sourceId: string) {
+  if (!map.getSource(sourceId)) map.addSource(sourceId, demSource());
 }
 
 // Engage/disengage the 3D draped terrain + hillshade relief from the live camera. Idempotent and
@@ -59,6 +57,7 @@ interface UseMapLibreOptions {
   topographyEnabled?: boolean;
   topographyAlwaysVisible?: boolean;
   topographyForce3d?: boolean;
+  resetKey?: string | number;
   visualProfile?: MapVisualProfile;
 }
 
@@ -77,11 +76,11 @@ function applyTerrainState(
     map.getContainer().dataset.topography = "off";
     return;
   }
-  ensureTerrainSource(map);
   const engaged = force3d || map.getPitch() > TERRAIN_ENGAGE_PITCH || map.getZoom() >= TERRAIN_ENGAGE_ZOOM;
   const showHillshade = alwaysShowHillshade || engaged;
   map.getContainer().dataset.topography = engaged ? "terrain" : showHillshade ? "hillshade" : "off";
   if (showHillshade) {
+    ensureDemSource(map, HILLSHADE_SOURCE_ID);
     if (!map.getLayer(HILLSHADE_LAYER_ID)) {
       // insert beneath labels/roads so they stay legible over the relief
       const firstSymbolId = map.getStyle().layers?.find((l) => l.type === "symbol")?.id;
@@ -89,7 +88,7 @@ function applyTerrainState(
         {
           id: HILLSHADE_LAYER_ID,
           type: "hillshade",
-          source: TERRAIN_SOURCE_ID,
+          source: HILLSHADE_SOURCE_ID,
           paint: {
             "hillshade-exaggeration": visualProfile?.hillshadeExaggeration ?? 0.5,
             "hillshade-shadow-color": visualProfile?.hillshadeShadowColor ?? (isDark ? "#000000" : "#1a1a1a"),
@@ -116,6 +115,7 @@ function applyTerrainState(
   }
 
   if (engaged) {
+    ensureDemSource(map, TERRAIN_SOURCE_ID);
     const exaggeration = force3d ? visualProfile?.terrainExaggeration ?? TERRAIN_EXAGGERATION : TERRAIN_EXAGGERATION;
     const terrain = map.getTerrain();
     if (!terrain || terrain.exaggeration !== exaggeration) {
@@ -212,6 +212,7 @@ export function useMapLibre(
     if (mapRef.current) return;
     const container = containerRef.current;
     if (!container) return;
+    setError(null);
 
     // open at the default view; the fit effect frames the selection once the style is ready
     const map = new maplibregl.Map({
@@ -308,7 +309,7 @@ export function useMapLibre(
       setIsReady(false);
     };
     // styleId is read via styleIdRef so the map is built once; style swaps go through the effect below.
-  }, []);
+  }, [options?.resetKey]);
 
   // Swap the basemap only when the style really changes. Skip the initial render (the map's already
   // built with the right style) and redundant swaps, which would cause a wasteful re-fetch and an

@@ -76,6 +76,7 @@ describe("TraceList", () => {
     fireEvent.click(await screen.findByText("3F2A11C0"));
 
     expect(await screen.findByText("Packets")).toBeInTheDocument();
+    expect(await screen.findByText(/Trace refreshed \d+s ago/)).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("ROUTE_REQUEST")).toHaveLength(2));
     expect(mockGetTraceDetail).toHaveBeenCalledWith("3f2a11c0", undefined, expect.objectContaining({ range: "24h" }));
   });

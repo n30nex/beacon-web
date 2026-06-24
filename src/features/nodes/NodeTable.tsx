@@ -1,5 +1,6 @@
 import { memo, useState, useCallback, useEffect, useMemo, useRef, type CSSProperties, type RefObject } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import "../shared/responsive-panels.css";
 import { getNodesPage } from "../../api/client";
 import { useRegion } from "../../hooks/useRegion";
 import { useScopes } from "../../hooks/useScopes";
@@ -412,7 +413,7 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
     [regionKey, typeFilter, pathsFilter, tracesFilter, search, searchField],
   );
 
-  const { items: nodes, loadedCount, isPaging, isError, isLoading } = useInfinitePages<NodeSummary>({
+  const { items: nodes, loadedCount, isPaging, isError, isLoading, updatedAt } = useInfinitePages<NodeSummary>({
     queryKey,
     queryFn: (cursor) =>
       getNodesPage(iatas, {
@@ -625,7 +626,7 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
           )}
         </div>
         <NodeRouteCometOverlay cardElementsRef={cardElementsRef} comets={routeComets} scrollRef={scrollRef} />
-        <LoadingPill loading={isPaging} error={isError} count={loadedCount} noun="nodes" position="bottom-3 right-3" />
+        <LoadingPill loading={isPaging} error={isError} count={loadedCount} noun="nodes" position="bottom-3 right-3" showFreshness updatedAt={updatedAt} />
       </div>
     </div>
   );

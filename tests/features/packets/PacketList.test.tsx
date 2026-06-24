@@ -13,6 +13,8 @@ vi.mock("../../../src/features/packets/usePackets", () => ({
     fetchNextPage: () => {},
     hasNextPage: false,
     isFetchingNextPage: false,
+    isRefreshingHistory: false,
+    historyUpdatedAt: Date.now() - 12_000,
     observersByHash: new Map(),
     handlePacketObservation: () => {},
     handleLagged: () => {},
@@ -74,6 +76,7 @@ describe("PacketList expanded row", () => {
     );
 
     expect(screen.getByTestId("expanded").textContent).toBe("h1");
+    expect(screen.getByText(/History refreshed/)).toBeInTheDocument();
 
     // analyzer drawer closed elsewhere — row must deselect
     fireEvent.click(screen.getByText("close-url"));

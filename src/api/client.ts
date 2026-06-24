@@ -9,6 +9,7 @@ import type {
   BrokerStatus,
   KnownRoute,
   NodeRouteNeighborhood,
+  NetgraphSnapshot,
   CrossIATARoute,
   TraceTagSummary,
   TraceDetail,
@@ -44,6 +45,7 @@ import type {
   StatsRFHealth,
   StatsObserverHealthResponse,
   StatsObserverCompare,
+  StatsHome,
 } from "../features/stats/types";
 
 // typed fetch wrapper with query params
@@ -251,23 +253,41 @@ export function getKnownRoute(routeId: number): Promise<KnownRoute> {
 
 export function getNodeRouteNeighborhood(
   nodeId: string,
-  params?: { iatas?: string[]; region?: string; maxHops?: number },
+  params?: { iatas?: string[]; region?: string; maxHops?: number; routeLimit?: number },
 ): Promise<NodeRouteNeighborhood> {
   return request(`/nodes/${nodeId}/route-neighborhood`, {
     iatas: iatasParam(params?.iatas),
     region: params?.region,
     maxHops: params?.maxHops,
+    routeLimit: params?.routeLimit,
+  });
+}
+
+export function getNetgraphSnapshot(params?: {
+  iatas?: string[];
+  region?: string;
+  routeLimit?: number;
+  nodeLimit?: number;
+  edgeLimit?: number;
+}): Promise<NetgraphSnapshot> {
+  return request("/netgraph", {
+    iatas: iatasParam(params?.iatas),
+    region: params?.region,
+    routeLimit: params?.routeLimit,
+    nodeLimit: params?.nodeLimit,
+    edgeLimit: params?.edgeLimit,
   });
 }
 
 export function getNodeReach(
   nodeId: string,
-  params?: { iatas?: string[]; region?: string; maxHops?: number },
+  params?: { iatas?: string[]; region?: string; maxHops?: number; routeLimit?: number },
 ): Promise<NodeReach> {
   return request(`/nodes/${nodeId}/reach`, {
     iatas: iatasParam(params?.iatas),
     region: params?.region,
     maxHops: params?.maxHops,
+    routeLimit: params?.routeLimit,
   });
 }
 
@@ -434,6 +454,10 @@ export function getStatsOverview(iatas?: string[]): Promise<StatsOverview> {
 
 export function getStatsSummary(iatas?: string[], params?: { range?: string; since?: number; until?: number }): Promise<StatsSummary> {
   return request("/stats/summary", { iatas: iatasParam(iatas), range: params?.range, since: params?.since, until: params?.until });
+}
+
+export function getStatsHome(iatas?: string[], params?: { range?: string; since?: number; until?: number }): Promise<StatsHome> {
+  return request("/stats/home", { iatas: iatasParam(iatas), range: params?.range, since: params?.since, until: params?.until });
 }
 
 export function getStatsRegions(iatas?: string[], params?: { range?: string; since?: number; until?: number; bucket?: string }): Promise<StatsRegions> {

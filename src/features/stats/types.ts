@@ -116,6 +116,28 @@ export interface StatsSummary {
   health: StatsHealthSummary;
 }
 
+export interface StatsHome {
+  serverTime: number;
+  window: StatsWindow;
+  overview: StatsOverview;
+  live: {
+    serverTime: number;
+    since: number;
+    until: number;
+    latestObservationId: number;
+    packetCount: number;
+    observationCount: number;
+    activeObservers: number;
+    payloadMix: PayloadBreakdownItem[];
+    routeMix: RouteMixItem[];
+    topIatas: IataCount[];
+    topObservers: TopObserver[];
+  };
+  topIatas: IataCount[];
+  topObservers: TopObserver[];
+  topNodes: TopNode[];
+}
+
 export interface StatsTrendPoint {
   t: number;
   packetCount: number;

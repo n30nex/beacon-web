@@ -12,7 +12,7 @@ const chunks = [
   ["src/App.tsx", "src/main.tsx", "src/api", "src/hooks", "src/lib", "src/types"],
   ["src/components"],
   ["src/features/atlas", "src/features/channels", "src/features/observers"],
-  ["src/features/live"],
+  ["src/features/live/live-model.ts", "src/features/live/LiveView.tsx"],
   ["src/features/map"],
   ["src/features/nodes"],
   ["src/features/packets"],

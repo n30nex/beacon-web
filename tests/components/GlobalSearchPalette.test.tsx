@@ -40,8 +40,12 @@ describe("GlobalSearchPalette", () => {
     renderPalette();
 
     expect(screen.getByRole("dialog", { name: "Global Beacon search" })).toBeInTheDocument();
-    expect(screen.getByText("Atlas")).toBeInTheDocument();
+    expect(screen.getByText("Home")).toBeInTheDocument();
     expect(screen.getByText("Live")).toBeInTheDocument();
+    expect(screen.getByText("Netgraph")).toBeInTheDocument();
+    expect(screen.queryByText("Atlas")).not.toBeInTheDocument();
+    expect(screen.queryByText("Investigate")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ops")).not.toBeInTheDocument();
     expect(mockGetGlobalSearch).not.toHaveBeenCalled();
   });
 
@@ -51,6 +55,30 @@ describe("GlobalSearchPalette", () => {
     fireEvent.click(screen.getByText("Live"));
 
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ type: "page", id: "live", url: "/?tab=Live" }));
+  });
+
+  it("routes local data pages directly", () => {
+    const { onSelect } = renderPalette();
+
+    fireEvent.click(screen.getByText("Packets"));
+
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({
+      type: "page",
+      id: "packets",
+      url: "/?tab=Packets",
+    }));
+  });
+
+  it("routes local Netgraph page directly", () => {
+    const { onSelect } = renderPalette();
+
+    fireEvent.click(screen.getByText("Netgraph"));
+
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({
+      type: "page",
+      id: "netgraph",
+      url: "/?tab=Netgraph",
+    }));
   });
 
   it("queries the API after two characters and renders returned results", async () => {

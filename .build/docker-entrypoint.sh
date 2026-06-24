@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-API_BASE="${VITE_API_BASE:-http://localhost:8080/api/v1}"
-WS_URL="${VITE_WS_URL:-ws://localhost:8080/ws}"
+API_BASE="${VITE_API_BASE:-/api/v1}"
+WS_URL="${VITE_WS_URL:-/ws}"
 # Optional map view — leave empty when unset; the app falls back to a world overview.
 MAP_CENTER="${VITE_MAP_CENTER:-}"
 MAP_ZOOM="${VITE_MAP_ZOOM:-}"

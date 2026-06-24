@@ -33,8 +33,11 @@ export interface ResolvedNode {
   id: string; // uuid
   name?: string;
   publicKey: string; // hex-encoded prefix
+  nodeType?: number;
+  nodeTypeName?: string;
   latitude?: number; // decimal degrees (resolved DB value, not the 1e7 advert encoding)
   longitude?: number;
+  isObserver?: boolean;
 }
 
 export interface ResolvedHop {
@@ -140,6 +143,33 @@ export interface HealthDependency {
   detail?: string;
 }
 
+export interface RateLimitSnapshot {
+  requestsPerMinute: number;
+  burst: number;
+  activeBuckets: number;
+  allowed: number;
+  rejected: number;
+}
+
+export interface CacheCategorySnapshot {
+  hits: number;
+  misses: number;
+  invalidations: number;
+  ttlSeconds?: number;
+  errors?: Record<string, number>;
+}
+
+export interface BackgroundTaskSnapshot {
+  runs: number;
+  successes: number;
+  failures: number;
+  lastStatus?: string;
+  lastError?: string;
+  lastStartedAt?: number;
+  lastFinishedAt?: number;
+  lastDurationMs?: number;
+}
+
 export interface HealthStatus {
   status: string;
   ready?: boolean;
@@ -148,6 +178,9 @@ export interface HealthStatus {
   mode?: string;
   dependencies: Record<string, HealthDependency>;
   brokers: BrokerStatus[];
+  rateLimits?: Record<string, RateLimitSnapshot>;
+  cacheMetrics?: Record<string, CacheCategorySnapshot>;
+  backgroundTasks?: Record<string, BackgroundTaskSnapshot>;
 }
 
 export type GlobalSearchResultType = "page" | "packet" | "node" | "observer" | "channel" | "route" | "trace";
@@ -233,8 +266,67 @@ export interface RouteNeighborhoodEdge {
 export interface NodeRouteNeighborhood {
   nodeId: string;
   maxHops: number;
+  routeLimit: number;
+  queryCount: number;
+  sourceRouteCount: number;
+  truncated: boolean;
   nodes: RouteNeighborhoodNode[];
   edges: RouteNeighborhoodEdge[];
+}
+
+export interface NetgraphLimits {
+  routeLimit: number;
+  nodeLimit: number;
+  edgeLimit: number;
+}
+
+export interface NetgraphStats {
+  sourceRouteCount: number;
+  mappedRouteCount: number;
+  nodeCount: number;
+  edgeCount: number;
+  observationCount: number;
+  activeIatas: number;
+  truncatedRoutes: boolean;
+  truncatedNodes: boolean;
+  truncatedEdges: boolean;
+}
+
+export interface NetgraphSnapshotNode {
+  id: string;
+  name?: string;
+  publicKey: string;
+  nodeType: number;
+  nodeTypeName: string;
+  lat?: number;
+  lng?: number;
+  isObserver: boolean;
+  iatas: string[];
+  routeIds: number[];
+  routeCount: number;
+  observationCount: number;
+  firstSeen: number;
+  lastSeen: number;
+}
+
+export interface NetgraphSnapshotEdge {
+  id: string;
+  fromNodeId: string;
+  toNodeId: string;
+  iatas: string[];
+  routeIds: number[];
+  routeCount: number;
+  observationCount: number;
+  firstSeen: number;
+  lastSeen: number;
+}
+
+export interface NetgraphSnapshot {
+  serverTime: number;
+  stats: NetgraphStats;
+  limits: NetgraphLimits;
+  nodes: NetgraphSnapshotNode[];
+  edges: NetgraphSnapshotEdge[];
 }
 
 // the boundary hop in a cross-IATA route: the link from the last node in the source IATA to the

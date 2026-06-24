@@ -23,5 +23,5 @@ export const WS_RECONNECT_BASE_MS = 1000;
 export const WS_RECONNECT_MAX_MS = 30_000;
 export const WS_RECONNECT_JITTER = 0.25;
 
-// app tab names, in display order; the ?tab URL param is validated against this list
-export const TABS = ["Atlas", "Live", "Packets", "Channels", "Map", "Nodes", "Observers", "Routes", "Traces", "Stats"] as const;
+// App destinations. Legacy ?tab values are normalized in lib/navigation.
+export { PAGE_TABS as TABS } from "./navigation";

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getObserversPage, getBrokers } from "../../api/client";
@@ -132,7 +132,16 @@ function RangeToggle({ range, onChange }: { range: StatsRange; onChange: (range:
 }
 
 function ObserverOpsHeader({ range, onRangeChange }: { range: StatsRange; onRangeChange: (range: StatsRange) => void }) {
-  const health = useStatsObserverHealth(range, 80);
+  const [healthReadyRange, setHealthReadyRange] = useState<StatsRange | null>(null);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setHealthReadyRange(range), 600);
+    return () => window.clearTimeout(id);
+  }, [range]);
+
+  const healthReady = healthReadyRange === range;
+  const health = useStatsObserverHealth(range, 80, healthReady);
+  const healthPending = !healthReady || health.isLoading;
   const summary = health.data?.summary;
   const worst = useMemo(
     () => [...(health.data?.items ?? [])].sort((a, b) => a.healthScore - b.healthScore || b.observationCount - a.observationCount).slice(0, 5),
@@ -149,13 +158,13 @@ function ObserverOpsHeader({ range, onRangeChange }: { range: StatsRange; onRang
         <RangeToggle range={range} onChange={onRangeChange} />
       </div>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
-        <StatCard label="Observers" sublabel={range} accent="var(--color-primary)" value={health.isLoading ? "--" : formatCount(summary?.totalObservers)} />
-        <StatCard label="Stale" sublabel="quiet" accent="var(--color-warn)" value={health.isLoading ? "--" : formatCount(summary?.staleObservers)} />
-        <StatCard label="No telemetry" sublabel="blind" accent="var(--color-secondary)" value={health.isLoading ? "--" : formatCount(summary?.noTelemetry)} />
-        <StatCard label="Noise" sublabel="high" accent="var(--color-danger)" value={health.isLoading ? "--" : formatCount(summary?.highNoise)} />
-        <StatCard label="Airtime" sublabel="busy" accent="var(--color-warn)" value={health.isLoading ? "--" : formatCount(summary?.highAirtime)} />
+        <StatCard label="Observers" sublabel={range} accent="var(--color-primary)" value={healthPending ? "--" : formatCount(summary?.totalObservers)} />
+        <StatCard label="Stale" sublabel="quiet" accent="var(--color-warn)" value={healthPending ? "--" : formatCount(summary?.staleObservers)} />
+        <StatCard label="No telemetry" sublabel="blind" accent="var(--color-secondary)" value={healthPending ? "--" : formatCount(summary?.noTelemetry)} />
+        <StatCard label="Noise" sublabel="high" accent="var(--color-danger)" value={healthPending ? "--" : formatCount(summary?.highNoise)} />
+        <StatCard label="Airtime" sublabel="busy" accent="var(--color-warn)" value={healthPending ? "--" : formatCount(summary?.highAirtime)} />
         <Card title="Worst health" className="col-span-2 md:col-span-4 xl:col-span-1">
-          {health.isLoading ? (
+          {healthPending ? (
             <TerminalLoadingState label="QUERYING OBSERVERS" detail="PLEASE WAIT" className="py-1" />
           ) : worst.length === 0 ? (
             <div className="font-mono text-[11px] text-text-dim">No flagged observers</div>
@@ -207,7 +216,7 @@ export function ObserverTable({ wsManager, selectedObserverId, onSelectObserver,
 
   // page the region's observers 50 at a time (filters stay server-side, in the query key); rows
   // stream in as each batch lands. Loads once per filter set — WS status events keep them live.
-  const { items: observers, loadedCount, isPaging, isError, isLoading } = useInfinitePages<ObserverSummary>({
+  const { items: observers, loadedCount, isPaging, isError, isLoading, updatedAt } = useInfinitePages<ObserverSummary>({
     queryKey,
     queryFn: (cursor) =>
       getObserversPage(iatas, {
@@ -300,7 +309,7 @@ export function ObserverTable({ wsManager, selectedObserverId, onSelectObserver,
           defaultSort={{ header: "Name" }}
           renderCard={renderObserverCard}
         />
-        <LoadingPill loading={isPaging} error={isError} count={loadedCount} noun="observers" position="bottom-3 right-3" />
+        <LoadingPill loading={isPaging} error={isError} count={loadedCount} noun="observers" position="bottom-3 right-3" showFreshness updatedAt={updatedAt} />
       </div>
 
       {selectedObserverId && (

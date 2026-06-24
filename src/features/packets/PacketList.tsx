@@ -7,6 +7,7 @@ import { useWsPacketHandler, useWsLaggedHandler } from "../../hooks/useWsHandler
 import { PacketVirtualList } from "./PacketVirtualList";
 import { FilterBar } from "../../components/FilterBar";
 import { PAYLOAD_TYPE_NAMES, ROUTE_TYPE_NAMES } from "../../types/enums";
+import { timeAgoMs } from "../../lib/formatters";
 import type { WsManager } from "../../api/ws-manager";
 
 // filter options and storage keys
@@ -41,6 +42,8 @@ export function PacketList({ wsManager, onAnalyze }: PacketListProps) {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    isRefreshingHistory,
+    historyUpdatedAt,
     observersByHash,
     handlePacketObservation,
     handleLagged,
@@ -73,6 +76,11 @@ export function PacketList({ wsManager, onAnalyze }: PacketListProps) {
   useWsLaggedHandler(wsManager, handleLagged);
 
   const bannerCount = isScrolledAway ? newPacketCount : 0;
+  const historyFreshness = isRefreshingHistory
+    ? "History refreshing"
+    : historyUpdatedAt
+      ? `History refreshed ${timeAgoMs(historyUpdatedAt)} ago`
+      : "History pending";
 
   const handleScrolledAway = useCallback(
     (isAway: boolean) => {
@@ -133,6 +141,9 @@ export function PacketList({ wsManager, onAnalyze }: PacketListProps) {
             Live Packets
           </div>
         )}
+        <div className="mx-4 flex items-center justify-center border-x border-b border-border-subtle bg-bg-surface/55 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-text-dim">
+          {historyFreshness}
+        </div>
 
         <PacketVirtualList
           packets={packets}

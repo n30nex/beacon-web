@@ -3,7 +3,12 @@
     "id": "iphone-glass-dark",
     "name": "iPhone Glass Dark",
     "description": "Black glass, frosted chrome, blue-violet signal light.",
-    "swatches": ["#f8fbff", "#7ab7ff", "#a78bfa", "#05070d"],
+    "swatches": [
+      "#f8fbff",
+      "#7ab7ff",
+      "#a78bfa",
+      "#05070d"
+    ],
     "vars": {
       "--palette-bg-base": "#05070d",
       "--palette-bg-surface": "#0c111d",
@@ -19,7 +24,7 @@
       "--palette-text-bright": "#f8fbff",
       "--palette-text-normal": "#d6e2f2",
       "--palette-text-muted": "#91a1b8",
-      "--palette-text-dim": "#596678",
+      "--palette-text-dim": "#7f8da3",
       "--crt-phosphor": "#7ab7ff",
       "--crt-phosphor-soft": "#a78bfa",
       "--crt-glow": "0",
@@ -35,22 +40,27 @@
       "--modern-glass-border": "rgba(255, 255, 255, 0.17)",
       "--modern-glass-border-strong": "rgba(255, 255, 255, 0.28)",
       "--modern-glass-highlight": "rgba(255, 255, 255, 0.16)",
-      "--modern-glass-blur": "26px",
-      "--modern-glass-saturate": "1.65",
-      "--modern-shadow-soft": "0 18px 55px rgba(0, 0, 0, 0.38)",
-      "--modern-shadow-strong": "0 28px 90px rgba(0, 0, 0, 0.58)",
-      "--modern-radius-sm": "10px",
-      "--modern-radius-md": "15px",
-      "--modern-radius-lg": "22px",
-      "--modern-ambient-opacity": "0.95",
-      "--modern-noise-opacity": "0.035"
+      "--modern-glass-blur": "14px",
+      "--modern-glass-saturate": "1.22",
+      "--modern-shadow-soft": "0 10px 28px rgba(0, 0, 0, 0.32)",
+      "--modern-shadow-strong": "0 18px 48px rgba(0, 0, 0, 0.48)",
+      "--modern-radius-sm": "6px",
+      "--modern-radius-md": "8px",
+      "--modern-radius-lg": "8px",
+      "--modern-ambient-opacity": "0.45",
+      "--modern-noise-opacity": "0.012"
     }
   },
   {
     "id": "liquid-graphite",
     "name": "Liquid Graphite",
     "description": "Neutral graphite glass with silver highlights and cyan telemetry.",
-    "swatches": ["#f3f6fa", "#9aa9bd", "#5de0ff", "#07080b"],
+    "swatches": [
+      "#f3f6fa",
+      "#9aa9bd",
+      "#5de0ff",
+      "#07080b"
+    ],
     "vars": {
       "--palette-bg-base": "#07080b",
       "--palette-bg-surface": "#101217",
@@ -66,7 +76,7 @@
       "--palette-text-bright": "#f3f6fa",
       "--palette-text-normal": "#cfd8e4",
       "--palette-text-muted": "#8d98a8",
-      "--palette-text-dim": "#545c68",
+      "--palette-text-dim": "#8d98a8",
       "--crt-phosphor": "#d8e4f2",
       "--crt-phosphor-soft": "#5de0ff",
       "--crt-glow": "0",
@@ -82,22 +92,27 @@
       "--modern-glass-border": "rgba(255, 255, 255, 0.15)",
       "--modern-glass-border-strong": "rgba(255, 255, 255, 0.25)",
       "--modern-glass-highlight": "rgba(255, 255, 255, 0.13)",
-      "--modern-glass-blur": "24px",
-      "--modern-glass-saturate": "1.45",
-      "--modern-shadow-soft": "0 18px 48px rgba(0, 0, 0, 0.42)",
-      "--modern-shadow-strong": "0 28px 82px rgba(0, 0, 0, 0.62)",
-      "--modern-radius-sm": "9px",
-      "--modern-radius-md": "14px",
-      "--modern-radius-lg": "20px",
-      "--modern-ambient-opacity": "0.82",
-      "--modern-noise-opacity": "0.028"
+      "--modern-glass-blur": "14px",
+      "--modern-glass-saturate": "1.22",
+      "--modern-shadow-soft": "0 10px 28px rgba(0, 0, 0, 0.32)",
+      "--modern-shadow-strong": "0 18px 48px rgba(0, 0, 0, 0.48)",
+      "--modern-radius-sm": "6px",
+      "--modern-radius-md": "8px",
+      "--modern-radius-lg": "8px",
+      "--modern-ambient-opacity": "0.45",
+      "--modern-noise-opacity": "0.012"
     }
   },
   {
     "id": "aurora-signal",
     "name": "Aurora Signal",
     "description": "Northern-light glass with green, violet, and electric blue motion.",
-    "swatches": ["#effff9", "#6fffd2", "#8f7bff", "#03110f"],
+    "swatches": [
+      "#effff9",
+      "#6fffd2",
+      "#8f7bff",
+      "#03110f"
+    ],
     "vars": {
       "--palette-bg-base": "#03110f",
       "--palette-bg-surface": "#071c1a",
@@ -113,7 +128,7 @@
       "--palette-text-bright": "#effff9",
       "--palette-text-normal": "#b9f7e6",
       "--palette-text-muted": "#73bba8",
-      "--palette-text-dim": "#477469",
+      "--palette-text-dim": "#73bba8",
       "--crt-phosphor": "#6fffd2",
       "--crt-phosphor-soft": "#8f7bff",
       "--crt-glow": "0",
@@ -129,22 +144,27 @@
       "--modern-glass-border": "rgba(196, 255, 238, 0.17)",
       "--modern-glass-border-strong": "rgba(196, 255, 238, 0.28)",
       "--modern-glass-highlight": "rgba(224, 255, 248, 0.14)",
-      "--modern-glass-blur": "28px",
-      "--modern-glass-saturate": "1.72",
-      "--modern-shadow-soft": "0 18px 58px rgba(0, 0, 0, 0.4)",
-      "--modern-shadow-strong": "0 30px 96px rgba(0, 0, 0, 0.62)",
-      "--modern-radius-sm": "11px",
-      "--modern-radius-md": "17px",
-      "--modern-radius-lg": "24px",
-      "--modern-ambient-opacity": "1",
-      "--modern-noise-opacity": "0.035"
+      "--modern-glass-blur": "14px",
+      "--modern-glass-saturate": "1.22",
+      "--modern-shadow-soft": "0 10px 28px rgba(0, 0, 0, 0.32)",
+      "--modern-shadow-strong": "0 18px 48px rgba(0, 0, 0, 0.48)",
+      "--modern-radius-sm": "6px",
+      "--modern-radius-md": "8px",
+      "--modern-radius-lg": "8px",
+      "--modern-ambient-opacity": "0.45",
+      "--modern-noise-opacity": "0.012"
     }
   },
   {
     "id": "polar-glass",
     "name": "Polar Glass",
     "description": "Cold midnight glass with ice-blue surfaces and amber warnings.",
-    "swatches": ["#f4fbff", "#9be7ff", "#73a7ff", "#020916"],
+    "swatches": [
+      "#f4fbff",
+      "#9be7ff",
+      "#73a7ff",
+      "#020916"
+    ],
     "vars": {
       "--palette-bg-base": "#020916",
       "--palette-bg-surface": "#071426",
@@ -160,7 +180,7 @@
       "--palette-text-bright": "#f4fbff",
       "--palette-text-normal": "#cceeff",
       "--palette-text-muted": "#7fb1cd",
-      "--palette-text-dim": "#496f86",
+      "--palette-text-dim": "#7fb1cd",
       "--crt-phosphor": "#9be7ff",
       "--crt-phosphor-soft": "#73a7ff",
       "--crt-glow": "0",
@@ -176,22 +196,27 @@
       "--modern-glass-border": "rgba(208, 244, 255, 0.16)",
       "--modern-glass-border-strong": "rgba(208, 244, 255, 0.28)",
       "--modern-glass-highlight": "rgba(241, 252, 255, 0.15)",
-      "--modern-glass-blur": "25px",
-      "--modern-glass-saturate": "1.58",
-      "--modern-shadow-soft": "0 18px 54px rgba(0, 0, 0, 0.42)",
-      "--modern-shadow-strong": "0 30px 88px rgba(0, 0, 0, 0.64)",
-      "--modern-radius-sm": "10px",
-      "--modern-radius-md": "16px",
-      "--modern-radius-lg": "23px",
-      "--modern-ambient-opacity": "0.88",
-      "--modern-noise-opacity": "0.03"
+      "--modern-glass-blur": "14px",
+      "--modern-glass-saturate": "1.22",
+      "--modern-shadow-soft": "0 10px 28px rgba(0, 0, 0, 0.32)",
+      "--modern-shadow-strong": "0 18px 48px rgba(0, 0, 0, 0.48)",
+      "--modern-radius-sm": "6px",
+      "--modern-radius-md": "8px",
+      "--modern-radius-lg": "8px",
+      "--modern-ambient-opacity": "0.45",
+      "--modern-noise-opacity": "0.012"
     }
   },
   {
     "id": "spectrum-noir",
     "name": "Spectrum Noir",
     "description": "OLED black with saturated magenta, cyan, and lime glass.",
-    "swatches": ["#fff7ff", "#ff5eea", "#3cf2ff", "#030306"],
+    "swatches": [
+      "#fff7ff",
+      "#ff5eea",
+      "#3cf2ff",
+      "#030306"
+    ],
     "vars": {
       "--palette-bg-base": "#030306",
       "--palette-bg-surface": "#0c0b13",
@@ -207,7 +232,7 @@
       "--palette-text-bright": "#fff7ff",
       "--palette-text-normal": "#f4d8ff",
       "--palette-text-muted": "#b78bc7",
-      "--palette-text-dim": "#73557f",
+      "--palette-text-dim": "#b78bc7",
       "--crt-phosphor": "#ff5eea",
       "--crt-phosphor-soft": "#3cf2ff",
       "--crt-glow": "0",
@@ -223,22 +248,27 @@
       "--modern-glass-border": "rgba(255, 214, 255, 0.15)",
       "--modern-glass-border-strong": "rgba(255, 214, 255, 0.26)",
       "--modern-glass-highlight": "rgba(255, 240, 255, 0.14)",
-      "--modern-glass-blur": "29px",
-      "--modern-glass-saturate": "1.84",
-      "--modern-shadow-soft": "0 18px 58px rgba(0, 0, 0, 0.46)",
-      "--modern-shadow-strong": "0 30px 96px rgba(0, 0, 0, 0.68)",
-      "--modern-radius-sm": "12px",
-      "--modern-radius-md": "18px",
-      "--modern-radius-lg": "26px",
-      "--modern-ambient-opacity": "1",
-      "--modern-noise-opacity": "0.035"
+      "--modern-glass-blur": "14px",
+      "--modern-glass-saturate": "1.22",
+      "--modern-shadow-soft": "0 10px 28px rgba(0, 0, 0, 0.32)",
+      "--modern-shadow-strong": "0 18px 48px rgba(0, 0, 0, 0.48)",
+      "--modern-radius-sm": "6px",
+      "--modern-radius-md": "8px",
+      "--modern-radius-lg": "8px",
+      "--modern-ambient-opacity": "0.45",
+      "--modern-noise-opacity": "0.012"
     }
   },
   {
     "id": "ember-night",
     "name": "Ember Night",
     "description": "Warm black glass with orange signal and rose danger tones.",
-    "swatches": ["#fff3e6", "#ff9f43", "#ff6b6b", "#0d0704"],
+    "swatches": [
+      "#fff3e6",
+      "#ff9f43",
+      "#ff6b6b",
+      "#0d0704"
+    ],
     "vars": {
       "--palette-bg-base": "#0d0704",
       "--palette-bg-surface": "#1a100b",
@@ -254,7 +284,7 @@
       "--palette-text-bright": "#fff3e6",
       "--palette-text-normal": "#ffd7ad",
       "--palette-text-muted": "#bf8c64",
-      "--palette-text-dim": "#76543d",
+      "--palette-text-dim": "#bf8c64",
       "--crt-phosphor": "#ff9f43",
       "--crt-phosphor-soft": "#ff6b6b",
       "--crt-glow": "0",
@@ -270,22 +300,27 @@
       "--modern-glass-border": "rgba(255, 222, 188, 0.15)",
       "--modern-glass-border-strong": "rgba(255, 222, 188, 0.27)",
       "--modern-glass-highlight": "rgba(255, 238, 216, 0.13)",
-      "--modern-glass-blur": "25px",
-      "--modern-glass-saturate": "1.62",
-      "--modern-shadow-soft": "0 18px 54px rgba(0, 0, 0, 0.44)",
-      "--modern-shadow-strong": "0 30px 88px rgba(0, 0, 0, 0.66)",
-      "--modern-radius-sm": "10px",
-      "--modern-radius-md": "16px",
-      "--modern-radius-lg": "23px",
-      "--modern-ambient-opacity": "0.9",
-      "--modern-noise-opacity": "0.032"
+      "--modern-glass-blur": "14px",
+      "--modern-glass-saturate": "1.22",
+      "--modern-shadow-soft": "0 10px 28px rgba(0, 0, 0, 0.32)",
+      "--modern-shadow-strong": "0 18px 48px rgba(0, 0, 0, 0.48)",
+      "--modern-radius-sm": "6px",
+      "--modern-radius-md": "8px",
+      "--modern-radius-lg": "8px",
+      "--modern-ambient-opacity": "0.45",
+      "--modern-noise-opacity": "0.012"
     }
   },
   {
     "id": "field-ops-glass",
     "name": "Field Ops Glass",
     "description": "Tactical green glass, restrained amber alerts, durable contrast.",
-    "swatches": ["#f1fff4", "#7df7a1", "#c8d36c", "#041006"],
+    "swatches": [
+      "#f1fff4",
+      "#7df7a1",
+      "#c8d36c",
+      "#041006"
+    ],
     "vars": {
       "--palette-bg-base": "#041006",
       "--palette-bg-surface": "#0a1a0f",
@@ -301,7 +336,7 @@
       "--palette-text-bright": "#f1fff4",
       "--palette-text-normal": "#c6f4d0",
       "--palette-text-muted": "#85b990",
-      "--palette-text-dim": "#55735b",
+      "--palette-text-dim": "#85b990",
       "--crt-phosphor": "#7df7a1",
       "--crt-phosphor-soft": "#c8d36c",
       "--crt-glow": "0",
@@ -317,22 +352,27 @@
       "--modern-glass-border": "rgba(209, 255, 221, 0.14)",
       "--modern-glass-border-strong": "rgba(209, 255, 221, 0.25)",
       "--modern-glass-highlight": "rgba(239, 255, 243, 0.12)",
-      "--modern-glass-blur": "22px",
-      "--modern-glass-saturate": "1.42",
-      "--modern-shadow-soft": "0 18px 50px rgba(0, 0, 0, 0.42)",
-      "--modern-shadow-strong": "0 28px 84px rgba(0, 0, 0, 0.62)",
-      "--modern-radius-sm": "8px",
-      "--modern-radius-md": "13px",
-      "--modern-radius-lg": "19px",
-      "--modern-ambient-opacity": "0.78",
-      "--modern-noise-opacity": "0.026"
+      "--modern-glass-blur": "14px",
+      "--modern-glass-saturate": "1.22",
+      "--modern-shadow-soft": "0 10px 28px rgba(0, 0, 0, 0.32)",
+      "--modern-shadow-strong": "0 18px 48px rgba(0, 0, 0, 0.48)",
+      "--modern-radius-sm": "6px",
+      "--modern-radius-md": "8px",
+      "--modern-radius-lg": "8px",
+      "--modern-ambient-opacity": "0.45",
+      "--modern-noise-opacity": "0.012"
     }
   },
   {
     "id": "high-contrast-glass",
     "name": "High Contrast Glass",
     "description": "Crisp black glass with bright blue, white text, and stronger borders.",
-    "swatches": ["#ffffff", "#4db8ff", "#ffe45f", "#000000"],
+    "swatches": [
+      "#ffffff",
+      "#4db8ff",
+      "#ffe45f",
+      "#000000"
+    ],
     "vars": {
       "--palette-bg-base": "#000000",
       "--palette-bg-surface": "#070a0f",
@@ -364,15 +404,15 @@
       "--modern-glass-border": "rgba(255, 255, 255, 0.24)",
       "--modern-glass-border-strong": "rgba(255, 255, 255, 0.38)",
       "--modern-glass-highlight": "rgba(255, 255, 255, 0.18)",
-      "--modern-glass-blur": "20px",
-      "--modern-glass-saturate": "1.35",
-      "--modern-shadow-soft": "0 18px 50px rgba(0, 0, 0, 0.5)",
-      "--modern-shadow-strong": "0 30px 88px rgba(0, 0, 0, 0.72)",
-      "--modern-radius-sm": "8px",
-      "--modern-radius-md": "13px",
-      "--modern-radius-lg": "18px",
-      "--modern-ambient-opacity": "0.72",
-      "--modern-noise-opacity": "0.018"
+      "--modern-glass-blur": "14px",
+      "--modern-glass-saturate": "1.22",
+      "--modern-shadow-soft": "0 10px 28px rgba(0, 0, 0, 0.32)",
+      "--modern-shadow-strong": "0 18px 48px rgba(0, 0, 0, 0.48)",
+      "--modern-radius-sm": "6px",
+      "--modern-radius-md": "8px",
+      "--modern-radius-lg": "8px",
+      "--modern-ambient-opacity": "0.45",
+      "--modern-noise-opacity": "0.012"
     }
   }
 ]

@@ -18,10 +18,10 @@ export function BeaconWordmark({
   pulse = false,
 }: BeaconWordmarkProps) {
   return (
-    <span className={`inline-flex items-center gap-2 text-primary crt-icon ${className ?? ""}`}>
+    <span className={`inline-flex items-center gap-2 text-primary crt-icon whitespace-nowrap ${className ?? ""}`}>
       <BeaconLogo size={iconSize} pulse={pulse} />
       <span
-        className={`font-medium tracking-[0.18em] uppercase leading-none crt-title crt-terminal-cursor ${textClassName}`}
+        className={`beacon-wordmark-text font-medium tracking-[0.18em] uppercase leading-none crt-title crt-terminal-cursor ${textClassName}`}
       >
         BEACON
       </span>
