@@ -167,9 +167,10 @@ export function makeLabelSprite(text: string, color: string): THREE.Sprite {
     transparent: true,
     depthTest: false,
     depthWrite: false,
+    sizeAttenuation: false,
   });
   const sprite = new THREE.Sprite(material);
-  sprite.scale.set(canvas.width / 9.8, canvas.height / 9.8, 1);
+  sprite.scale.set(canvas.width / 2600, canvas.height / 2600, 1);
   sprite.renderOrder = 120;
   return sprite;
 }
