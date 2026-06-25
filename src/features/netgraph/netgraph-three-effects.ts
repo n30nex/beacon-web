@@ -26,12 +26,12 @@ const MAX_GLOW_MESHES = 128;
 const LIVE_VISIBILITY_BOOST = 1.55;
 const LIVE_PACKET_BRIGHTNESS_BOOST = 1.22;
 const LIVE_PACKET_SIZE_BOOST = 1.16;
-const OVERVIEW_TRAFFIC_BRIGHTNESS_BOOST = 3.5;
-const OVERVIEW_TRAFFIC_SIZE_BOOST = 3.9;
-const OVERVIEW_TRAFFIC_TAIL_BOOST = 2.35;
-const MIRRORED_TRAFFIC_BRIGHTNESS_BOOST = 2.18;
-const MIRRORED_TRAFFIC_SIZE_BOOST = 1.78;
-const MIRRORED_TRAFFIC_TAIL_BOOST = 1.28;
+const OVERVIEW_TRAFFIC_BRIGHTNESS_BOOST = 2.4;
+const OVERVIEW_TRAFFIC_SIZE_BOOST = 1.72;
+const OVERVIEW_TRAFFIC_TAIL_BOOST = 1.8;
+const MIRRORED_TRAFFIC_BRIGHTNESS_BOOST = 2.08;
+const MIRRORED_TRAFFIC_SIZE_BOOST = 1.46;
+const MIRRORED_TRAFFIC_TAIL_BOOST = 1.42;
 
 export interface PulseVisuals {
   pulseBeamMeshes: THREE.Mesh[];
@@ -95,8 +95,7 @@ export function createPulseVisuals(options: {
     1,
     true,
   );
-  const pulseBeamGeometry = new THREE.CylinderGeometry(
-    1,
+  const pulseBeamGeometry = new THREE.ConeGeometry(
     1,
     1,
     options.highQuality ? 18 : 14,
@@ -142,6 +141,7 @@ export function createPulseVisuals(options: {
       blending: THREE.AdditiveBlending,
       depthTest: false,
       depthWrite: false,
+      side: THREE.DoubleSide,
     });
     const mesh = new THREE.Mesh(pulseBeamGeometry, material);
     mesh.renderOrder = 82;
@@ -374,8 +374,8 @@ export function renderNetgraphEffectFrame(options: {
       : overviewTrafficVisible
         ? OVERVIEW_TRAFFIC_TAIL_BOOST
         : 1;
-    const headColor = displayEdge.mirrored ? "#f4fdff" : overviewTrafficVisible ? "#fffce8" : pulse.color;
-    const tailColor = displayEdge.mirrored ? "#7efcff" : overviewTrafficVisible ? "#ffb22e" : pulse.color;
+    const headColor = displayEdge.mirrored ? "#f4fdff" : overviewTrafficVisible ? "#fff7cf" : pulse.color;
+    const tailColor = displayEdge.mirrored ? "#7efcff" : overviewTrafficVisible ? "#f3b64f" : pulse.color;
     const position = positionOnEdge(options.renderGraph, displayEdge.edgeId, displayLocal, displayReverse);
     if (!position) continue;
     if (!options.isVisiblePoint(position, options.narrowViewport ? 5 : 4)) continue;
@@ -426,16 +426,17 @@ export function renderNetgraphEffectFrame(options: {
           const beamMaterial = beamMesh.material as THREE.MeshBasicMaterial;
           const beamLength = Math.max(1.4, tailPosition.distanceTo(position));
           const beamWidthBase = overviewTrafficVisible
-            ? (options.narrowViewport ? 6.8 : 11)
+            ? (options.narrowViewport ? 1.15 : 1.55)
             : displayEdge.mirrored
-              ? (options.narrowViewport ? 2.2 : 3.1)
-              : (options.narrowViewport ? 1.35 : 1.65);
+              ? (options.narrowViewport ? 0.98 : 1.28)
+              : (options.narrowViewport ? 0.72 : 0.86);
           const beamWidth = head * beamWidthBase * sizeBoost * focusEffectBoost;
           options.tailDirection.subVectors(position, tailPosition);
           if (options.tailDirection.lengthSq() > 0.001) beamMesh.quaternion.setFromUnitVectors(options.pulseTailAxis, options.tailDirection.normalize());
-          options.tailMidpoint.lerpVectors(tailPosition, position, 0.5);
+          const beamCenterT = clamp(1 - tailBoost / 2, 0.08, 0.5);
+          options.tailMidpoint.lerpVectors(tailPosition, position, beamCenterT);
           beamMaterial.color.set(tailColor);
-          beamMaterial.opacity = Math.min(1, 0.58 * brightnessBoost);
+          beamMaterial.opacity = Math.min(0.58, (overviewTrafficVisible ? 0.18 : 0.22) * brightnessBoost);
           beamMesh.position.copy(options.tailMidpoint);
           beamMesh.scale.set(beamWidth, beamLength * tailBoost, beamWidth);
           beamMesh.visible = true;
@@ -451,7 +452,7 @@ export function renderNetgraphEffectFrame(options: {
           tailMaterial.needsUpdate = true;
         }
         const tailLength = Math.max(1.2, tailPosition.distanceTo(position));
-        const tailWidth = head * (options.narrowViewport ? 1.62 : 1.28) * (0.66 + options.renderTier.cometScale * 0.34) * sizeBoost;
+        const tailWidth = head * (options.narrowViewport ? 1.15 : 0.92) * (0.66 + options.renderTier.cometScale * 0.34) * sizeBoost;
         options.tailDirection.subVectors(position, tailPosition);
         if (options.tailDirection.lengthSq() > 0.001) tailMesh.quaternion.setFromUnitVectors(options.pulseTailAxis, options.tailDirection.normalize());
         options.tailMidpoint.lerpVectors(tailPosition, position, 0.48);
