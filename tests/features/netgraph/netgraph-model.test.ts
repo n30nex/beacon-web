@@ -184,6 +184,7 @@ describe("buildNetgraph", () => {
 
     expect(labels.slice(0, 2)).toEqual(["node-01", "node-03"]);
     expect(labels[2]).toBe("node-08");
+    expect(labels).toHaveLength(nodes.length);
   });
 
   it("keeps fallback positions and settled layout deterministic", () => {

@@ -3,7 +3,7 @@ import * as THREE from "three";
 import type { NetgraphGraph, NetgraphRole } from "./netgraph-model";
 import { clamp } from "./netgraph-three-geometry";
 
-const MAX_LABELS = 160;
+const MAX_LABELS = 3200;
 
 export function cssColor(element: HTMLElement, name: string, fallback: string): THREE.Color {
   const value = getComputedStyle(element).getPropertyValue(name).trim();
@@ -125,38 +125,44 @@ export function createNetgraphSceneStage(options: {
   return { center, radius };
 }
 
-export function makeLabelSprite(text: string, color: string): THREE.Sprite {
-  const font = "800 28px Inter, ui-sans-serif, system-ui, sans-serif";
+type LabelTier = "primary" | "secondary";
+
+export function makeLabelSprite(text: string, color: string, tier: LabelTier = "primary"): THREE.Sprite {
+  const primary = tier === "primary";
+  const font = primary
+    ? "800 28px Inter, ui-sans-serif, system-ui, sans-serif"
+    : "750 18px Inter, ui-sans-serif, system-ui, sans-serif";
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d")!;
   context.font = font;
   const metrics = context.measureText(text);
-  canvas.width = Math.min(640, Math.max(180, Math.ceil(metrics.width + 58)));
-  canvas.height = 68;
+  canvas.width = Math.min(primary ? 640 : 420, Math.max(primary ? 180 : 96, Math.ceil(metrics.width + (primary ? 58 : 28))));
+  canvas.height = primary ? 68 : 38;
   context.font = font;
   context.textBaseline = "middle";
   context.lineJoin = "round";
-  context.lineWidth = 7;
+  context.lineWidth = primary ? 7 : 4;
   context.strokeStyle = "rgba(0,0,0,0.94)";
   context.fillStyle = color;
-  const plateInset = 6;
-  const plateRadius = 14;
+  const plateInset = primary ? 6 : 3;
+  const plateRadius = primary ? 14 : 8;
   context.beginPath();
   context.roundRect(plateInset, plateInset, canvas.width - plateInset * 2, canvas.height - plateInset * 2, plateRadius);
-  context.fillStyle = "rgba(4,10,22,0.84)";
+  context.fillStyle = primary ? "rgba(4,10,22,0.84)" : "rgba(4,10,22,0.66)";
   context.fill();
-  context.lineWidth = 3;
+  context.lineWidth = primary ? 3 : 1.5;
   context.strokeStyle = color;
-  context.globalAlpha = 0.62;
+  context.globalAlpha = primary ? 0.62 : 0.46;
   context.stroke();
   context.globalAlpha = 1;
-  context.lineWidth = 7;
+  context.lineWidth = primary ? 7 : 4;
   context.strokeStyle = "rgba(0,0,0,0.94)";
   context.fillStyle = color;
   context.shadowColor = "rgba(0,0,0,0.96)";
-  context.shadowBlur = 14;
-  context.strokeText(text, 29, canvas.height / 2 + 1);
-  context.fillText(text, 29, canvas.height / 2 + 1);
+  context.shadowBlur = primary ? 14 : 8;
+  const textX = primary ? 29 : 14;
+  context.strokeText(text, textX, canvas.height / 2 + 1);
+  context.fillText(text, textX, canvas.height / 2 + 1);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.generateMipmaps = false;
@@ -170,7 +176,7 @@ export function makeLabelSprite(text: string, color: string): THREE.Sprite {
     sizeAttenuation: false,
   });
   const sprite = new THREE.Sprite(material);
-  sprite.scale.set(canvas.width / 4200, canvas.height / 4200, 1);
+  sprite.scale.set(canvas.width / (primary ? 4200 : 5200), canvas.height / (primary ? 4200 : 5200), 1);
   sprite.renderOrder = 120;
   return sprite;
 }
@@ -192,27 +198,25 @@ export function createNodeLabelSprites(options: {
   denseGraph: boolean;
   narrowViewport: boolean;
 }): THREE.Sprite[] {
-  const labelCap = options.batteryQuality
-    ? (options.narrowViewport ? 14 : 22)
-    : options.balancedQuality
-      ? (options.narrowViewport ? 18 : 30)
-      : options.denseGraph
-        ? (options.narrowViewport ? 20 : 34)
-        : options.narrowViewport
-          ? 28
-          : MAX_LABELS;
-  const labelIds = Array.from(options.importantLabels).slice(0, Math.max(1, Math.floor(labelCap * options.labelDensity * options.labelBudgetScale)));
+  const visibleLabelIds = Array.from(options.importantLabels).filter((id) => options.visibleNodeIds.has(id));
+  const minimumLabelCap = options.labelDensity >= 0.98 ? visibleLabelIds.length : 1;
+  const requestedLabelCap = Math.floor(visibleLabelIds.length * options.labelDensity * options.labelBudgetScale);
+  const labelCap = Math.min(MAX_LABELS, Math.max(minimumLabelCap, requestedLabelCap));
+  const labelIds = visibleLabelIds.slice(0, labelCap);
   const sprites: THREE.Sprite[] = [];
-  for (const id of labelIds) {
-    if (!options.visibleNodeIds.has(id)) continue;
+  const primaryCount = options.denseGraph
+    ? options.narrowViewport ? 10 : 18
+    : options.narrowViewport ? 16 : 32;
+  for (const [index, id] of labelIds.entries()) {
     const node = options.graph.nodeById.get(id);
     if (!node) continue;
     const labelColor = options.selectedNodeId === id || options.searchMatches.has(id) || options.selectedNodes.has(id) ? "#ffffff" : options.roleColors[node.role];
-    const sprite = makeLabelSprite(node.label, labelColor);
-    sprite.scale.multiplyScalar(options.labelScale * (options.denseGraph ? 1.08 : 1.12));
+    const isPriority = index < primaryCount || options.selectedNodeId === id || options.searchMatches.has(id) || options.selectedNodes.has(id);
+    const sprite = makeLabelSprite(node.label, labelColor, isPriority ? "primary" : "secondary");
+    sprite.scale.multiplyScalar(options.labelScale * (isPriority ? (options.denseGraph ? 1.08 : 1.12) : (options.denseGraph ? 0.74 : 0.86)));
     const labelRadius = node.radius * options.labelScale;
-    const labelDrop = labelRadius * (options.narrowViewport ? 2.7 : 2.08) + sprite.scale.y * 0.34;
-    sprite.position.set(node.position.x, node.position.y - labelDrop, node.position.z + labelRadius * 1.22 + 8);
+    const labelDrop = labelRadius * (options.narrowViewport ? 2.7 : 2.08) + sprite.scale.y * (isPriority ? 0.34 : 0.22);
+    sprite.position.set(node.position.x, node.position.y - labelDrop, node.position.z + labelRadius * (isPriority ? 1.22 : 0.92) + (isPriority ? 8 : 4));
     options.group.add(sprite);
     sprites.push(sprite);
   }

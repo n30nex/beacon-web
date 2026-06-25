@@ -683,15 +683,15 @@ export function importantLabelNodeIds(graph: NetgraphGraph, searchMatches: Set<s
   for (const node of graph.nodes) {
     if (node.id === selectedNodeId || selectedRoutes.has(node.id) || searchMatches.has(node.id)) ids.add(node.id);
   }
-  const labelBudget = graph.nodes.length > 520 ? 16 : graph.nodes.length > 320 ? 22 : graph.nodes.length > 180 ? 32 : 64;
   const topRouteNodes = graph.nodes
     .filter((node) => node.routeCount > 0)
     .slice()
-    .sort(compareNodesForLabels)
-    .slice(0, labelBudget);
+    .sort(compareNodesForLabels);
   for (const node of topRouteNodes) {
     ids.add(node.id);
-    if (ids.size >= 160) break;
+  }
+  for (const node of graph.nodes.slice().sort(compareNodesForLabels)) {
+    ids.add(node.id);
   }
   return ids;
 }
