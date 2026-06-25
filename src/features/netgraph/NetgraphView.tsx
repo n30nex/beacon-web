@@ -228,7 +228,7 @@ export function NetgraphView({ selectedNodeId, onSelectNode, wsManager }: Netgra
   }, [galaxyProfile, isMobile, reducedMotion, seededGraph]);
 
   const searchMatches = useMemo(() => graphSearchMatches(graph, deferredQuery), [deferredQuery, graph]);
-  const { glows, liveStats, pulses } = useNetgraphLiveVisuals({ graph, iatas, layoutSettling, regionKey, routeLimit, wsManager });
+  const { glows, liveStats, pulses } = useNetgraphLiveVisuals({ graph, iatas, regionKey, routeLimit, wsManager });
 
   if (snapshot.isLoading) {
     return <TerminalLoadingState label="PREPARING NETGRAPH" detail="Building verified route topology." />;

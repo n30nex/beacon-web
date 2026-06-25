@@ -15,7 +15,6 @@ import {
 interface UseNetgraphLiveVisualsArgs {
   graph: NetgraphGraph;
   iatas: string[] | undefined;
-  layoutSettling: boolean;
   regionKey: string;
   routeLimit: NetgraphRouteLimit;
   wsManager?: WsManager;
@@ -24,7 +23,6 @@ interface UseNetgraphLiveVisualsArgs {
 export function useNetgraphLiveVisuals({
   graph,
   iatas,
-  layoutSettling,
   regionKey,
   routeLimit,
   wsManager,
@@ -66,7 +64,7 @@ export function useNetgraphLiveVisuals({
   }, []);
 
   useEffect(() => {
-    if (layoutSettling || graph.nodes.length === 0 || graph.edges.length === 0) return undefined;
+    if (graph.nodes.length === 0 || graph.edges.length === 0) return undefined;
     let cancelled = false;
     void getLiveBackfill(iatas, { afterObservationId: 0, limit: 80 }).then((page) => {
       if (cancelled) return;
@@ -75,7 +73,7 @@ export function useNetgraphLiveVisuals({
     return () => {
       cancelled = true;
     };
-  }, [graph.edges.length, graph.nodes.length, iatas, layoutSettling, pushLiveVisual]);
+  }, [graph.edges.length, graph.nodes.length, iatas, pushLiveVisual]);
 
   useEffect(() => {
     if (!wsManager) return undefined;

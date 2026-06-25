@@ -26,9 +26,9 @@ const MAX_GLOW_MESHES = 128;
 const LIVE_VISIBILITY_BOOST = 1.55;
 const LIVE_PACKET_BRIGHTNESS_BOOST = 1.22;
 const LIVE_PACKET_SIZE_BOOST = 1.16;
-const OVERVIEW_TRAFFIC_BRIGHTNESS_BOOST = 2.08;
-const OVERVIEW_TRAFFIC_SIZE_BOOST = 2.65;
-const OVERVIEW_TRAFFIC_TAIL_BOOST = 1.62;
+const OVERVIEW_TRAFFIC_BRIGHTNESS_BOOST = 2.8;
+const OVERVIEW_TRAFFIC_SIZE_BOOST = 3.35;
+const OVERVIEW_TRAFFIC_TAIL_BOOST = 2.05;
 const MIRRORED_TRAFFIC_BRIGHTNESS_BOOST = 2.18;
 const MIRRORED_TRAFFIC_SIZE_BOOST = 1.78;
 const MIRRORED_TRAFFIC_TAIL_BOOST = 1.28;
@@ -427,7 +427,7 @@ export function renderNetgraphEffectFrame(options: {
           const beamMaterial = beamMesh.material as THREE.MeshBasicMaterial;
           const beamLength = Math.max(1.4, tailPosition.distanceTo(position));
           const beamWidthBase = overviewTrafficVisible
-            ? (options.narrowViewport ? 3.1 : 4.35)
+            ? (options.narrowViewport ? 5.4 : 8.6)
             : displayEdge.mirrored
               ? (options.narrowViewport ? 2.2 : 3.1)
               : (options.narrowViewport ? 1.35 : 1.65);
