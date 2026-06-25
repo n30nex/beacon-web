@@ -160,7 +160,10 @@ export function ThreeNetgraphCanvas({
     const cores = navigator.hardwareConcurrency;
     const lowPowerHardware = (typeof memory === "number" && memory <= 4) || (typeof cores === "number" && cores <= 4);
     const narrowViewport = window.matchMedia?.(MOBILE_RENDER_QUERY).matches ?? host.clientWidth < 640;
-    const denseGraph = graph.edges.length > 900 || graph.nodes.length > 520;
+    const focusVisibility = resolveNetgraphVisibilitySets(graph, viewMode, selectedNodeId);
+    const tierNodeCount = focusVisibility.focusLayout ? focusVisibility.visibleNodeIds.size : graph.nodes.length;
+    const tierEdgeCount = focusVisibility.focusLayout ? focusVisibility.visibleEdgeIds.size : graph.edges.length;
+    const denseGraph = tierEdgeCount > 900 || tierNodeCount > 520;
     const renderTier = resolveNetgraphRenderTier({ denseGraph, lowPowerHardware, narrowViewport, qualityMode, reducedMotion });
     const batteryQuality = renderTier.name === "battery";
     const balancedQuality = renderTier.name === "balanced";
@@ -189,7 +192,6 @@ export function ThreeNetgraphCanvas({
     const primary = cssColor(host, "--color-primary", "#7ab7ff");
     const green = cssColor(host, "--color-green", "#54e1a6");
     const muted = cssColor(host, "--color-text-dim", "#697386");
-    const focusVisibility = resolveNetgraphVisibilitySets(graph, viewMode, selectedNodeId);
     const focusLayout = focusVisibility.focusLayout;
     const renderGraph = focusLayout ? graphWithPositions(graph, focusLayout.positions) : graph;
     const visibleNodeIds = focusVisibility.visibleNodeIds;
@@ -202,7 +204,7 @@ export function ThreeNetgraphCanvas({
     const directNodeNeighbors = nodeFocusActive ? nodeDirectNeighborIds(renderGraph, selectedNodeId) : new Set<string>();
     const secondHopNeighbors = nodeFocusActive ? nodeSecondHopNeighborIds(renderGraph, selectedNodeId) : new Set<string>();
     const importantLabels = importantLabelNodeIds(renderGraph, searchMatches, nodeFocusActive ? selectedNodeId : null, routeFocusActive ? selectedRouteId : null);
-    const richPacketLighting = !animationsDisabled && highQuality && !denseGraph;
+    const richPacketLighting = !animationsDisabled && !batteryQuality && !narrowViewport && (highQuality || denseGraph || nodeFocusActive || routeFocusActive || liveFocusActive);
 
     let renderer: THREE.WebGLRenderer;
     try {

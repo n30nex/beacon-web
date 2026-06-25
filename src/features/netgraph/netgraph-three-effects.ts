@@ -21,10 +21,17 @@ import {
   pulseProgress,
 } from "./netgraph-three-geometry";
 
-const MAX_PULSE_MESHES = 96;
-const MAX_GLOW_MESHES = 64;
+const MAX_PULSE_MESHES = 260;
+const MAX_GLOW_MESHES = 128;
 const LIVE_VISIBILITY_BOOST = 1.55;
-const MIRRORED_TRAFFIC_BOOST = 1.32;
+const LIVE_PACKET_BRIGHTNESS_BOOST = 1.22;
+const LIVE_PACKET_SIZE_BOOST = 1.16;
+const OVERVIEW_TRAFFIC_BRIGHTNESS_BOOST = 2.08;
+const OVERVIEW_TRAFFIC_SIZE_BOOST = 2.65;
+const OVERVIEW_TRAFFIC_TAIL_BOOST = 1.62;
+const MIRRORED_TRAFFIC_BRIGHTNESS_BOOST = 2.18;
+const MIRRORED_TRAFFIC_SIZE_BOOST = 1.78;
+const MIRRORED_TRAFFIC_TAIL_BOOST = 1.28;
 
 export interface PulseVisuals {
   pulseMeshes: THREE.Mesh[];
@@ -92,9 +99,9 @@ export function createPulseVisuals(options: {
     : options.batteryQuality
       ? (options.narrowViewport ? 14 : 22)
       : options.balancedQuality
-        ? (options.narrowViewport ? 28 : 58)
+        ? (options.narrowViewport ? 60 : 168)
         : options.narrowViewport
-          ? 36
+          ? 72
           : MAX_PULSE_MESHES;
   const pulseBudget = Math.max(0, Math.floor(basePulseBudget * options.pulseDensity * options.cometScale * LIVE_VISIBILITY_BOOST));
   const pulseMeshes = Array.from({ length: pulseBudget }, () => {
@@ -108,6 +115,7 @@ export function createPulseVisuals(options: {
       transparent: true,
       opacity: 0,
       blending: THREE.AdditiveBlending,
+      depthTest: false,
       depthWrite: false,
     });
     const mesh = new THREE.Mesh(pulseGeometry, material);
@@ -127,6 +135,7 @@ export function createPulseVisuals(options: {
       transparent: true,
       opacity: 0,
       blending: THREE.AdditiveBlending,
+      depthTest: false,
       depthWrite: false,
     });
     const mesh = new THREE.Mesh(pulseTailGeometry, material);
@@ -152,6 +161,7 @@ export function createPulseVisuals(options: {
       transparent: true,
       opacity: 0,
       blending: THREE.AdditiveBlending,
+      depthTest: false,
       depthWrite: false,
     });
     const mesh = new THREE.Mesh(endpointGeometry, material);
@@ -189,6 +199,7 @@ export function createPulseVisuals(options: {
       transparent: true,
       opacity: 0,
       blending: THREE.AdditiveBlending,
+      depthTest: false,
       depthWrite: false,
     });
     const mesh = new THREE.Mesh(glowGeometry, material);
@@ -267,6 +278,7 @@ export function renderNetgraphEffectFrame(options: {
   const runtimeEndpointBudget = Math.max(0, Math.floor(options.endpointMeshes.length * tierRuntimeScale));
   const runtimeGlowBudget = Math.max(0, Math.floor(options.glowMeshes.length * tierRuntimeScale));
   const mirroredTrafficVisible = options.visibleEdgeIds.size > 0 && options.visibleEdgeIds.size < options.renderGraph.edges.length;
+  const overviewTrafficVisible = options.visibleEdgeIds.size >= options.renderGraph.edges.length;
   const showEndpoint = (nodeId: string | undefined, colorValue: string, phase: number, payloadTypeName?: string) => {
     if (!nodeId || endpointIndex >= runtimeEndpointBudget) return;
     const node = options.renderGraph.nodeById.get(nodeId);
@@ -314,7 +326,24 @@ export function renderNetgraphEffectFrame(options: {
     const mirrorHash = stableRenderHash(`${pulse.id}:mirror:${progress.segmentIndex}`);
     const displayReverse = displayEdge.mirrored ? mirrorHash % 2 === 0 : segment.reverse;
     const displayLocal = displayEdge.mirrored ? (progress.local + ((mirrorHash % 29) / 100)) % 1 : progress.local;
-    const displayBoost = displayEdge.mirrored ? MIRRORED_TRAFFIC_BOOST : 1;
+    const brightnessBoost = displayEdge.mirrored
+      ? MIRRORED_TRAFFIC_BRIGHTNESS_BOOST
+      : overviewTrafficVisible
+        ? OVERVIEW_TRAFFIC_BRIGHTNESS_BOOST
+        : LIVE_PACKET_BRIGHTNESS_BOOST;
+    const sizeBoost = displayEdge.mirrored
+      ? MIRRORED_TRAFFIC_SIZE_BOOST
+      : overviewTrafficVisible
+        ? OVERVIEW_TRAFFIC_SIZE_BOOST
+        : LIVE_PACKET_SIZE_BOOST;
+    const tailBoost = displayEdge.mirrored
+      ? MIRRORED_TRAFFIC_TAIL_BOOST
+      : overviewTrafficVisible
+        ? OVERVIEW_TRAFFIC_TAIL_BOOST
+        : 1;
+    const highContrastTraffic = displayEdge.mirrored || overviewTrafficVisible;
+    const headColor = highContrastTraffic ? "#f4fdff" : pulse.color;
+    const tailColor = highContrastTraffic ? "#7efcff" : pulse.color;
     const position = positionOnEdge(options.renderGraph, displayEdge.edgeId, displayLocal, displayReverse);
     if (!position) continue;
     if (!options.isVisiblePoint(position, options.narrowViewport ? 5 : 4)) continue;
@@ -330,18 +359,18 @@ export function renderNetgraphEffectFrame(options: {
       material.map = headTexture;
       material.needsUpdate = true;
     }
-    material.color.set(pulse.color);
-    material.emissive.set(pulse.color);
-    material.emissiveIntensity = (options.narrowViewport ? 2.05 : 2.35) * options.glowIntensityScale * focusEffectBoost * displayBoost;
-    material.opacity = Math.min(1, (0.94 + Math.sin(options.time / 110 + pulseIndex) * 0.12) * clamp(options.glowIntensityScale, 0.2, 3) * displayBoost);
+    material.color.set(headColor);
+    material.emissive.set(headColor);
+    material.emissiveIntensity = (options.narrowViewport ? 2.35 : 2.85) * options.glowIntensityScale * focusEffectBoost * brightnessBoost;
+    material.opacity = Math.min(1, (0.96 + Math.sin(options.time / 110 + pulseIndex) * 0.12) * clamp(options.glowIntensityScale, 0.2, 3) * brightnessBoost);
     mesh.position.copy(position);
-    mesh.scale.setScalar(head * (options.narrowViewport ? 2.18 : 1.82) * (0.66 + options.renderTier.cometScale * 0.34) * focusEffectBoost * displayBoost);
+    mesh.scale.setScalar(head * (options.narrowViewport ? 2.52 : 2.16) * (0.66 + options.renderTier.cometScale * 0.34) * focusEffectBoost * sizeBoost);
     mesh.visible = true;
     const light = options.pulseLights[pulseLightIndex];
     if (light) {
       light.color.set(pulse.color);
       light.position.copy(position);
-      light.intensity = (options.narrowViewport ? 2.2 : 3.15) * clamp(options.glowIntensityScale, 0.2, 3) * focusEffectBoost * displayBoost;
+      light.intensity = (options.narrowViewport ? 2.9 : 4.25) * clamp(options.glowIntensityScale, 0.2, 3) * focusEffectBoost * brightnessBoost;
       pulseLightIndex += 1;
     }
 
@@ -371,16 +400,16 @@ export function renderNetgraphEffectFrame(options: {
           tailMaterial.needsUpdate = true;
         }
         const tailLength = Math.max(1.2, tailPosition.distanceTo(position));
-        const tailWidth = head * (options.narrowViewport ? 1.35 : 1.05) * (0.66 + options.renderTier.cometScale * 0.34) * displayBoost;
+        const tailWidth = head * (options.narrowViewport ? 1.62 : 1.28) * (0.66 + options.renderTier.cometScale * 0.34) * sizeBoost;
         options.tailDirection.subVectors(position, tailPosition);
         if (options.tailDirection.lengthSq() > 0.001) tailMesh.quaternion.setFromUnitVectors(options.pulseTailAxis, options.tailDirection.normalize());
         options.tailMidpoint.lerpVectors(tailPosition, position, 0.48);
-        tailMaterial.color.set(pulse.color);
-        tailMaterial.emissive.set(pulse.color);
-        tailMaterial.emissiveIntensity = (options.narrowViewport ? 1.18 : 1.45) * options.glowIntensityScale * focusEffectBoost * displayBoost;
-        tailMaterial.opacity = Math.min(1, (0.52 + Math.sin(options.time / 148 + pulseIndex) * 0.1) * focusEffectBoost * displayBoost);
+        tailMaterial.color.set(tailColor);
+        tailMaterial.emissive.set(tailColor);
+        tailMaterial.emissiveIntensity = (options.narrowViewport ? 1.56 : 1.95) * options.glowIntensityScale * focusEffectBoost * brightnessBoost;
+        tailMaterial.opacity = Math.min(1, (0.62 + Math.sin(options.time / 148 + pulseIndex) * 0.12) * focusEffectBoost * brightnessBoost);
         tailMesh.position.copy(options.tailMidpoint);
-        tailMesh.scale.set(tailWidth, tailLength, tailWidth);
+        tailMesh.scale.set(tailWidth, tailLength * tailBoost, tailWidth);
         tailMesh.visible = true;
       }
     }
