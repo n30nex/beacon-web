@@ -26,9 +26,9 @@ const MAX_GLOW_MESHES = 128;
 const LIVE_VISIBILITY_BOOST = 1.55;
 const LIVE_PACKET_BRIGHTNESS_BOOST = 1.22;
 const LIVE_PACKET_SIZE_BOOST = 1.16;
-const OVERVIEW_TRAFFIC_BRIGHTNESS_BOOST = 2.8;
-const OVERVIEW_TRAFFIC_SIZE_BOOST = 3.35;
-const OVERVIEW_TRAFFIC_TAIL_BOOST = 2.05;
+const OVERVIEW_TRAFFIC_BRIGHTNESS_BOOST = 3.5;
+const OVERVIEW_TRAFFIC_SIZE_BOOST = 3.9;
+const OVERVIEW_TRAFFIC_TAIL_BOOST = 2.35;
 const MIRRORED_TRAFFIC_BRIGHTNESS_BOOST = 2.18;
 const MIRRORED_TRAFFIC_SIZE_BOOST = 1.78;
 const MIRRORED_TRAFFIC_TAIL_BOOST = 1.28;
@@ -374,9 +374,8 @@ export function renderNetgraphEffectFrame(options: {
       : overviewTrafficVisible
         ? OVERVIEW_TRAFFIC_TAIL_BOOST
         : 1;
-    const highContrastTraffic = displayEdge.mirrored || overviewTrafficVisible;
-    const headColor = highContrastTraffic ? "#f4fdff" : pulse.color;
-    const tailColor = highContrastTraffic ? "#7efcff" : pulse.color;
+    const headColor = displayEdge.mirrored ? "#f4fdff" : overviewTrafficVisible ? "#fffce8" : pulse.color;
+    const tailColor = displayEdge.mirrored ? "#7efcff" : overviewTrafficVisible ? "#ffb22e" : pulse.color;
     const position = positionOnEdge(options.renderGraph, displayEdge.edgeId, displayLocal, displayReverse);
     if (!position) continue;
     if (!options.isVisiblePoint(position, options.narrowViewport ? 5 : 4)) continue;
@@ -427,7 +426,7 @@ export function renderNetgraphEffectFrame(options: {
           const beamMaterial = beamMesh.material as THREE.MeshBasicMaterial;
           const beamLength = Math.max(1.4, tailPosition.distanceTo(position));
           const beamWidthBase = overviewTrafficVisible
-            ? (options.narrowViewport ? 5.4 : 8.6)
+            ? (options.narrowViewport ? 6.8 : 11)
             : displayEdge.mirrored
               ? (options.narrowViewport ? 2.2 : 3.1)
               : (options.narrowViewport ? 1.35 : 1.65);
@@ -436,7 +435,7 @@ export function renderNetgraphEffectFrame(options: {
           if (options.tailDirection.lengthSq() > 0.001) beamMesh.quaternion.setFromUnitVectors(options.pulseTailAxis, options.tailDirection.normalize());
           options.tailMidpoint.lerpVectors(tailPosition, position, 0.5);
           beamMaterial.color.set(tailColor);
-          beamMaterial.opacity = Math.min(1, 0.42 * brightnessBoost);
+          beamMaterial.opacity = Math.min(1, 0.58 * brightnessBoost);
           beamMesh.position.copy(options.tailMidpoint);
           beamMesh.scale.set(beamWidth, beamLength * tailBoost, beamWidth);
           beamMesh.visible = true;
