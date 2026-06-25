@@ -1,8 +1,8 @@
 {
   "pack": "Beacon NetGraph Asset Pack",
   "seed_family": 872133,
-  "runtime_asset_count": 204,
-  "indexed_file_count": 206,
+  "runtime_asset_count": 252,
+  "indexed_file_count": 254,
   "assets": [
     {
       "name": "dust_sheet_soft",
@@ -1857,6 +1857,438 @@
       "alpha": true,
       "path": "ui/soft/panel_glass_floating.png",
       "sha256": "0958119bfb8c1f0236ca5a6bee764e56aed5aec166f2963df16270c84c3f1e0c"
+    },
+    {
+      "name": "planet_emerald_relay",
+      "category": "nodes",
+      "variant": "planet_default",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/default/planet_emerald_relay.png",
+      "sha256": "d6d0604412f57205f00be29731534ecf48530d9df5f27e057bca593f2e809ab8"
+    },
+    {
+      "name": "planet_azure_companion",
+      "category": "nodes",
+      "variant": "planet_default",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/default/planet_azure_companion.png",
+      "sha256": "fa1630e1d42f9b322ae74413606c62df286b9bda1be4d9e61b26595227c6acd9"
+    },
+    {
+      "name": "planet_violet_room",
+      "category": "nodes",
+      "variant": "planet_default",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/default/planet_violet_room.png",
+      "sha256": "593ab9925aa603089add7f4a02f41d2b14a678e9c5a9e2922e68575d18a30c56"
+    },
+    {
+      "name": "planet_amber_observer",
+      "category": "nodes",
+      "variant": "planet_default",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/default/planet_amber_observer.png",
+      "sha256": "e204ee5e2215091ca0ce0b0c811b2bbb4f56aea4e6c8f6ae4cfc4d88e6388843"
+    },
+    {
+      "name": "planet_lime_sensor",
+      "category": "nodes",
+      "variant": "planet_default",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/default/planet_lime_sensor.png",
+      "sha256": "c8ad82018e1aafb3d5ccd5d604bface02d1129f0dce9e72f70ec08d78f76d6ab"
+    },
+    {
+      "name": "planet_slate_unknown",
+      "category": "nodes",
+      "variant": "planet_default",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/default/planet_slate_unknown.png",
+      "sha256": "8256266a7e3066b8dbdab1eebd8715b8906c9c5b8806ff25e6d5861a5efac625"
+    },
+    {
+      "name": "planet_cyan_ice",
+      "category": "nodes",
+      "variant": "planet_default",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/default/planet_cyan_ice.png",
+      "sha256": "18262061b2b5b3e55d832c201361c8472a168d7b3d756ae5fa154dfd9e607e65"
+    },
+    {
+      "name": "planet_gold_ring",
+      "category": "nodes",
+      "variant": "planet_default",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/default/planet_gold_ring.png",
+      "sha256": "b1d5344ec6cea039f1638984a855b3d95d769d0d54876bfa49c1316ae6400662"
+    },
+    {
+      "name": "planet_magenta_nebula",
+      "category": "nodes",
+      "variant": "planet_default",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/default/planet_magenta_nebula.png",
+      "sha256": "1d872429f5eee8805ce90a65a3d93efe15afceaa6dbf33e4b269c5f9878780b1"
+    },
+    {
+      "name": "planet_teal_data",
+      "category": "nodes",
+      "variant": "planet_default",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/default/planet_teal_data.png",
+      "sha256": "89cd0b60907ed0be724f9472b0163655a09e0a247e2a3206438765756bfaef3b"
+    },
+    {
+      "name": "planet_blue_core",
+      "category": "nodes",
+      "variant": "planet_default",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/default/planet_blue_core.png",
+      "sha256": "2e7be5206c12e2b300ae1324e5a3b158688151c7d663e2b31e80821fdef6f544"
+    },
+    {
+      "name": "planet_orange_warning",
+      "category": "nodes",
+      "variant": "planet_default",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/default/planet_orange_warning.png",
+      "sha256": "1ab60afb55508056770056d18457a7d14b678980bf7dc5ed0209104f2877aacc"
+    },
+    {
+      "name": "planet_emerald_relay",
+      "category": "nodes",
+      "variant": "planet_active",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/active/planet_emerald_relay.png",
+      "sha256": "cdac3b2102eb4a854279d71585f0df98a5a0f9dee7585400472f34d71ea6acac"
+    },
+    {
+      "name": "planet_azure_companion",
+      "category": "nodes",
+      "variant": "planet_active",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/active/planet_azure_companion.png",
+      "sha256": "d1369ae197c71639a4018aa1fc81541a7f72249bed9d617e90672a72cd42b15c"
+    },
+    {
+      "name": "planet_violet_room",
+      "category": "nodes",
+      "variant": "planet_active",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/active/planet_violet_room.png",
+      "sha256": "cf17bf6ec2c881dabc15e40d3d59b4be27189f14f2cf09cf1da2873abd35f919"
+    },
+    {
+      "name": "planet_amber_observer",
+      "category": "nodes",
+      "variant": "planet_active",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/active/planet_amber_observer.png",
+      "sha256": "870a9018e610338c9463e1fa02b39e8ae064babc393a2483c041338d54505024"
+    },
+    {
+      "name": "planet_lime_sensor",
+      "category": "nodes",
+      "variant": "planet_active",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/active/planet_lime_sensor.png",
+      "sha256": "39b5c7de596d26a738496d5c394514ba7e12ec3b1a6e53bc55104cc19c3f3626"
+    },
+    {
+      "name": "planet_slate_unknown",
+      "category": "nodes",
+      "variant": "planet_active",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/active/planet_slate_unknown.png",
+      "sha256": "4a0dc6cf641c5b9457fb5b47b9e1328cb22975293ade01da81c201a1162d466a"
+    },
+    {
+      "name": "planet_cyan_ice",
+      "category": "nodes",
+      "variant": "planet_active",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/active/planet_cyan_ice.png",
+      "sha256": "3ae32adaebe184df71152cfdec6db838d97f1418d0aec811bf97e5a4931ed53e"
+    },
+    {
+      "name": "planet_gold_ring",
+      "category": "nodes",
+      "variant": "planet_active",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/active/planet_gold_ring.png",
+      "sha256": "5d704a7a9169e53445262d36cb94517e4dea34526b4f3100e08a7637ff8c22c5"
+    },
+    {
+      "name": "planet_magenta_nebula",
+      "category": "nodes",
+      "variant": "planet_active",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/active/planet_magenta_nebula.png",
+      "sha256": "c17dc0a80a6ef9db4e25ee85f1e84cbac74754b0dd873622e3f622c35ec058b1"
+    },
+    {
+      "name": "planet_teal_data",
+      "category": "nodes",
+      "variant": "planet_active",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/active/planet_teal_data.png",
+      "sha256": "00ab1a4325b6351037c8613ab493fea666a087bc681c2d8d93eeefbcd9902111"
+    },
+    {
+      "name": "planet_blue_core",
+      "category": "nodes",
+      "variant": "planet_active",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/active/planet_blue_core.png",
+      "sha256": "70037f4ad47ad6d4e71b4f6eff6a36dce349ede46cb88d31faaf838fc7728311"
+    },
+    {
+      "name": "planet_orange_warning",
+      "category": "nodes",
+      "variant": "planet_active",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/active/planet_orange_warning.png",
+      "sha256": "6c58c5c5c1e02e0a22ad22131dd375c0ad6eb51b90d665e2560b33cf0d88338e"
+    },
+    {
+      "name": "planet_emerald_relay",
+      "category": "nodes",
+      "variant": "planet_selected",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/selected/planet_emerald_relay.png",
+      "sha256": "caced770afb6d4706801eebe51d86a48eddc9849635a0031f2741a27dad4d482"
+    },
+    {
+      "name": "planet_azure_companion",
+      "category": "nodes",
+      "variant": "planet_selected",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/selected/planet_azure_companion.png",
+      "sha256": "d8e693f08baa56ec719a90f891724f2f13055324021abe724178851013fde948"
+    },
+    {
+      "name": "planet_violet_room",
+      "category": "nodes",
+      "variant": "planet_selected",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/selected/planet_violet_room.png",
+      "sha256": "ff28ce4df6619a9395598ad4679ba7ffe17ea9605e21740a3d33ce74ac7879f1"
+    },
+    {
+      "name": "planet_amber_observer",
+      "category": "nodes",
+      "variant": "planet_selected",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/selected/planet_amber_observer.png",
+      "sha256": "c471ab48491d775085304a0228adbefe4bf40ce9bc54d277dc87c8e45a0e60c0"
+    },
+    {
+      "name": "planet_lime_sensor",
+      "category": "nodes",
+      "variant": "planet_selected",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/selected/planet_lime_sensor.png",
+      "sha256": "ca234f9d21d5c97804d77afa7e0a54de99aea139d27117d53a5a923caa24e2ab"
+    },
+    {
+      "name": "planet_slate_unknown",
+      "category": "nodes",
+      "variant": "planet_selected",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/selected/planet_slate_unknown.png",
+      "sha256": "089d3477e44da8ac075670464fd62467ba432e4517d3c4207e6bad64c5ca0d06"
+    },
+    {
+      "name": "planet_cyan_ice",
+      "category": "nodes",
+      "variant": "planet_selected",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/selected/planet_cyan_ice.png",
+      "sha256": "2c21a959e7a47f7f589cfef4ec61f211e91cf72ef181d8acdbcebe11ae930e8a"
+    },
+    {
+      "name": "planet_gold_ring",
+      "category": "nodes",
+      "variant": "planet_selected",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/selected/planet_gold_ring.png",
+      "sha256": "4825b7c061cd32290be089a2e4d63838d73915ccc18220a7f2bf15adeac91b5b"
+    },
+    {
+      "name": "planet_magenta_nebula",
+      "category": "nodes",
+      "variant": "planet_selected",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/selected/planet_magenta_nebula.png",
+      "sha256": "0dab00867412312010f4f5564120a896f23dedf65423336cf4b87885ad449920"
+    },
+    {
+      "name": "planet_teal_data",
+      "category": "nodes",
+      "variant": "planet_selected",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/selected/planet_teal_data.png",
+      "sha256": "2417e365421df3b240ef8f1f8ab5418eb0deae158dc70f1d271df576f640cb0a"
+    },
+    {
+      "name": "planet_blue_core",
+      "category": "nodes",
+      "variant": "planet_selected",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/selected/planet_blue_core.png",
+      "sha256": "972b8a9979b4d81cddd889f1a71c2832c18a713547b4997f00306127aa58b492"
+    },
+    {
+      "name": "planet_orange_warning",
+      "category": "nodes",
+      "variant": "planet_selected",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/selected/planet_orange_warning.png",
+      "sha256": "4dc5c9d8165f10fd83855a3924ac9370dfd50dd4b69e71a71967f0f3b44ef038"
+    },
+    {
+      "name": "planet_emerald_relay",
+      "category": "nodes",
+      "variant": "planet_warning",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/warning/planet_emerald_relay.png",
+      "sha256": "bd1f8ba58617c381cabe31ef5652396a6451b98c8276a8d9ccef64d60e497ebb"
+    },
+    {
+      "name": "planet_azure_companion",
+      "category": "nodes",
+      "variant": "planet_warning",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/warning/planet_azure_companion.png",
+      "sha256": "ebf82f04cdbdc13b6dc7bc3a8eedb8cc27f7e57c3ac61d8abe15a8f86beebd9a"
+    },
+    {
+      "name": "planet_violet_room",
+      "category": "nodes",
+      "variant": "planet_warning",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/warning/planet_violet_room.png",
+      "sha256": "837c1aa369680ac11a64a54c79143b79ff737cdca9541b12b7e53b7fbbb412b9"
+    },
+    {
+      "name": "planet_amber_observer",
+      "category": "nodes",
+      "variant": "planet_warning",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/warning/planet_amber_observer.png",
+      "sha256": "4430680e019266cdab7cc5c6c7cb424e7a24e519dbb2d840e8d1879eff0a2158"
+    },
+    {
+      "name": "planet_lime_sensor",
+      "category": "nodes",
+      "variant": "planet_warning",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/warning/planet_lime_sensor.png",
+      "sha256": "91530a5a9d60765ba86cc50a5b34a43b87752df484bf10930e116c5bbdf2c153"
+    },
+    {
+      "name": "planet_slate_unknown",
+      "category": "nodes",
+      "variant": "planet_warning",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/warning/planet_slate_unknown.png",
+      "sha256": "4915a420805fbf8cb7ae082f80b2d87fb55032f268db93870fd898f5079e2f35"
+    },
+    {
+      "name": "planet_cyan_ice",
+      "category": "nodes",
+      "variant": "planet_warning",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/warning/planet_cyan_ice.png",
+      "sha256": "af3c8fc5e65bd7700dbf406fd6f4328cc266b1b8f1c68b9acac60ad43f65826f"
+    },
+    {
+      "name": "planet_gold_ring",
+      "category": "nodes",
+      "variant": "planet_warning",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/warning/planet_gold_ring.png",
+      "sha256": "3590accba36e8776eacecd62c8f421d1291c9758dcb4ee64f6c49a824e944847"
+    },
+    {
+      "name": "planet_magenta_nebula",
+      "category": "nodes",
+      "variant": "planet_warning",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/warning/planet_magenta_nebula.png",
+      "sha256": "5cf272c4ef0f124360dc998373cd2bcddf00764c48084e49cb3c9203952251b9"
+    },
+    {
+      "name": "planet_teal_data",
+      "category": "nodes",
+      "variant": "planet_warning",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/warning/planet_teal_data.png",
+      "sha256": "ed8390cda49189c07bc364a6bf6e9653f222be026eea5b4c9905d23e7bef748f"
+    },
+    {
+      "name": "planet_blue_core",
+      "category": "nodes",
+      "variant": "planet_warning",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/warning/planet_blue_core.png",
+      "sha256": "79e81d3c0c7d7b2e280ca9487af3dc35b19b9251011d9fac641d865b1fb233ae"
+    },
+    {
+      "name": "planet_orange_warning",
+      "category": "nodes",
+      "variant": "planet_warning",
+      "resolution": "512x256",
+      "alpha": false,
+      "path": "nodes/planets/warning/planet_orange_warning.png",
+      "sha256": "32e679ee9719362481e11f599c6ca56f6d044df7e64f74a149136e7ea2a1ed25"
     }
   ]
 }

@@ -163,14 +163,15 @@ export function setOverviewCameraBounds(
   radius: number,
   cameraDistanceScale: number,
   narrowViewport: boolean,
+  closeInspection = false,
 ) {
-  camera.near = Math.max(0.1, radius / 500);
+  camera.near = closeInspection ? Math.max(0.04, radius / 1400) : Math.max(0.08, radius / 850);
   camera.far = radius * 7 * Math.max(1, overviewFrame.maxDistance / Math.max(radius * 4.1, 1));
-  controls.minDistance = Math.max(
-    8 / Math.max(0.75, cameraDistanceScale),
-    radius * (narrowViewport ? 0.12 : 0.16) * (0.8 + (0.7 / Math.max(0.8, cameraDistanceScale))),
-  );
+  const distanceFloor = closeInspection ? 2.8 : 5.2;
+  const radiusScale = closeInspection ? (narrowViewport ? 0.045 : 0.034) : (narrowViewport ? 0.08 : 0.095);
+  controls.minDistance = Math.max(distanceFloor / Math.max(0.85, cameraDistanceScale), radius * radiusScale);
   controls.maxDistance = overviewFrame.maxDistance;
+  camera.updateProjectionMatrix();
 }
 
 export function syncOrbitTargetToCamera({

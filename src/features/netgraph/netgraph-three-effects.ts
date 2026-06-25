@@ -239,6 +239,7 @@ export function renderNetgraphEffectFrame(options: {
   let endpointIndex = 0;
   let pulseLightIndex = 0;
   const tierRuntimeScale = options.runtimeEffectScale * options.renderTier.effectScale;
+  const focusEffectBoost = options.nodeFocusActive ? 1.22 : 1;
   const runtimePulseBudget = Math.max(0, Math.floor(options.pulseMeshes.length * tierRuntimeScale));
   const runtimeEndpointBudget = Math.max(0, Math.floor(options.endpointMeshes.length * tierRuntimeScale));
   const runtimeGlowBudget = Math.max(0, Math.floor(options.glowMeshes.length * tierRuntimeScale));
@@ -265,11 +266,11 @@ export function renderNetgraphEffectFrame(options: {
     }
     material.color.set(colorValue);
     material.emissive.set(colorValue);
-    material.emissiveIntensity = (1.72 + Math.sin(options.time / 150 + phase) * 0.28) * options.glowIntensityScale;
+    material.emissiveIntensity = (1.72 + Math.sin(options.time / 150 + phase) * 0.28) * options.glowIntensityScale * focusEffectBoost;
     material.opacity = (0.82 + Math.sin(options.time / 128 + phase) * 0.18) * clamp(options.glowIntensityScale, 0.2, 3);
     mesh.position.copy(options.endpointPosition);
     mesh.quaternion.copy(options.cameraQuaternion);
-    mesh.scale.setScalar(nodeScale(node, options.nodeScaleFactor) * (options.narrowViewport ? 3.55 : 3.05) * wave);
+    mesh.scale.setScalar(nodeScale(node, options.nodeScaleFactor) * (options.narrowViewport ? 3.55 : 3.05) * wave * focusEffectBoost);
     mesh.visible = true;
     endpointIndex += 1;
   };
@@ -297,16 +298,16 @@ export function renderNetgraphEffectFrame(options: {
     }
     material.color.set(pulse.color);
     material.emissive.set(pulse.color);
-    material.emissiveIntensity = (options.narrowViewport ? 2.05 : 2.35) * options.glowIntensityScale;
+    material.emissiveIntensity = (options.narrowViewport ? 2.05 : 2.35) * options.glowIntensityScale * focusEffectBoost;
     material.opacity = (0.94 + Math.sin(options.time / 110 + pulseIndex) * 0.12) * clamp(options.glowIntensityScale, 0.2, 3);
     mesh.position.copy(position);
-    mesh.scale.setScalar(head * (options.narrowViewport ? 2.18 : 1.82) * (0.66 + options.renderTier.cometScale * 0.34));
+    mesh.scale.setScalar(head * (options.narrowViewport ? 2.18 : 1.82) * (0.66 + options.renderTier.cometScale * 0.34) * focusEffectBoost);
     mesh.visible = true;
     const light = options.pulseLights[pulseLightIndex];
     if (light) {
       light.color.set(pulse.color);
       light.position.copy(position);
-      light.intensity = (options.narrowViewport ? 2.2 : 3.15) * clamp(options.glowIntensityScale, 0.2, 3);
+      light.intensity = (options.narrowViewport ? 2.2 : 3.15) * clamp(options.glowIntensityScale, 0.2, 3) * focusEffectBoost;
       pulseLightIndex += 1;
     }
 
@@ -337,8 +338,8 @@ export function renderNetgraphEffectFrame(options: {
         options.tailMidpoint.lerpVectors(tailPosition, position, 0.48);
         tailMaterial.color.set(pulse.color);
         tailMaterial.emissive.set(pulse.color);
-        tailMaterial.emissiveIntensity = (options.narrowViewport ? 1.18 : 1.45) * options.glowIntensityScale;
-        tailMaterial.opacity = 0.52 + Math.sin(options.time / 148 + pulseIndex) * 0.1;
+        tailMaterial.emissiveIntensity = (options.narrowViewport ? 1.18 : 1.45) * options.glowIntensityScale * focusEffectBoost;
+        tailMaterial.opacity = Math.min(1, (0.52 + Math.sin(options.time / 148 + pulseIndex) * 0.1) * focusEffectBoost);
         tailMesh.position.copy(options.tailMidpoint);
         tailMesh.scale.set(tailWidth, tailLength, tailWidth);
         tailMesh.visible = true;
@@ -372,9 +373,9 @@ export function renderNetgraphEffectFrame(options: {
       material.needsUpdate = true;
     }
     material.color.set(glow.color);
-    material.opacity = (1 - progress) * 0.86 * clamp(options.glowIntensityScale, 0.2, 3);
+    material.opacity = (1 - progress) * 0.86 * clamp(options.glowIntensityScale, 0.2, 3) * focusEffectBoost;
     mesh.position.copy(options.glowPosition);
-    mesh.scale.setScalar(nodeScale(node, options.nodeScaleFactor) * (2.4 + progress * 4.2));
+    mesh.scale.setScalar(nodeScale(node, options.nodeScaleFactor) * (2.4 + progress * 4.2) * focusEffectBoost);
     mesh.visible = true;
     glowIndex += 1;
   }

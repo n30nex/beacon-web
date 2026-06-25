@@ -98,7 +98,6 @@ export function createNetgraphFlightCommandHandlers(options: {
   setHovered: (hovered: NetgraphHoverState | null) => void;
   setOrbit: (active: boolean) => void;
   syncOrbitTargetToCamera: () => void;
-  transitionToOverview: (animate?: boolean) => void;
 }): NetgraphFlightCommandHandlers {
   const enterFlightMode = () => {
     options.controls.enabled = false;
@@ -110,7 +109,7 @@ export function createNetgraphFlightCommandHandlers(options: {
     if (!options.flightControls.isLocked) {
       options.setControlMode("orbit");
       options.controls.enabled = true;
-      options.transitionToOverview(true);
+      options.syncOrbitTargetToCamera();
       return;
     }
     options.flightControls.unlock();
@@ -129,7 +128,6 @@ export function createNetgraphFlightCommandHandlers(options: {
   const onFlightUnlock = () => {
     resetFlightKeys(options.flightKeys);
     options.controls.enabled = true;
-    options.transitionToOverview(true);
     options.syncOrbitTargetToCamera();
     options.canvas.style.cursor = "grab";
     options.setControlMode("orbit");
@@ -174,8 +172,9 @@ export function applyDesktopFlightControls({
   narrowViewport,
   radius,
 }: DesktopFlightOptions) {
-  const speedScale = flightKeys.fast ? 2.3 : flightKeys.slow ? 0.34 : 1;
-  const distance = radius * (narrowViewport ? 0.95 : 1.18) * speedScale * deltaSeconds;
+  const speedScale = flightKeys.fast ? 2.45 : flightKeys.slow ? 0.28 : 1;
+  const baseRadius = clamp(radius, narrowViewport ? 34 : 42, narrowViewport ? 180 : 260);
+  const distance = baseRadius * (narrowViewport ? 0.9 : 1.06) * speedScale * deltaSeconds;
   let moved = false;
   if (flightKeys.forward) {
     flightControls.moveForward(distance);

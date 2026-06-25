@@ -7,6 +7,19 @@ export const NETGRAPH_ASSET_BASE = "/netgraph-asset-pack/beacon_netgraph_asset_p
 type NodeTextureState = "default" | "active" | "selected" | "warning";
 export type PacketTextureVariant = "default" | "active" | "soft" | "alert";
 export type AmbientTextureVariant = "default" | "soft" | "active" | "alert";
+type PlanetTextureName =
+  | "planet_amber_observer"
+  | "planet_azure_companion"
+  | "planet_blue_core"
+  | "planet_cyan_ice"
+  | "planet_emerald_relay"
+  | "planet_gold_ring"
+  | "planet_lime_sensor"
+  | "planet_magenta_nebula"
+  | "planet_orange_warning"
+  | "planet_slate_unknown"
+  | "planet_teal_data"
+  | "planet_violet_room";
 type PacketVisualTexture =
   | "packet_standard_small"
   | "packet_standard_medium"
@@ -50,6 +63,30 @@ const NODE_TEXTURE_HINTS = {
   user: "node_user",
 } as const;
 
+export const PLANET_TEXTURE_NAMES: readonly PlanetTextureName[] = [
+  "planet_emerald_relay",
+  "planet_azure_companion",
+  "planet_violet_room",
+  "planet_amber_observer",
+  "planet_lime_sensor",
+  "planet_slate_unknown",
+  "planet_cyan_ice",
+  "planet_gold_ring",
+  "planet_magenta_nebula",
+  "planet_teal_data",
+  "planet_blue_core",
+  "planet_orange_warning",
+];
+
+const ROLE_PLANET_TEXTURES: Record<NetgraphRole, readonly PlanetTextureName[]> = {
+  repeater: ["planet_emerald_relay", "planet_teal_data", "planet_blue_core"],
+  companion: ["planet_azure_companion", "planet_cyan_ice"],
+  room: ["planet_violet_room", "planet_magenta_nebula"],
+  observer: ["planet_amber_observer", "planet_gold_ring", "planet_orange_warning"],
+  sensor: ["planet_lime_sensor", "planet_teal_data"],
+  other: ["planet_slate_unknown", "planet_cyan_ice"],
+};
+
 function assetPath(...parts: string[]): string {
   return `${NETGRAPH_ASSET_BASE}/${parts.join("/")}`;
 }
@@ -86,6 +123,15 @@ export function packetTextureFile(name: PacketVisualTexture, variant: PacketText
 
 function nodeTextureVariantForPerformance(nodeState: NodeTextureState, useHiDpiTexture: boolean): string {
   return useHiDpiTexture ? nodeState : "default";
+}
+
+function hashNodeTextureSeed(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }
 
 export function chooseAmbientPacketVariant(nodeFocusActive: boolean, batteryMode: boolean): AmbientTextureVariant {
@@ -147,9 +193,23 @@ function nodeStateTextureKey(node: NetgraphNode, selectedNodeId: string | null |
 }
 
 export function nodeTextureFile(node: NetgraphNode, selectedNodeId: string | null | undefined, focusedNodeIds: Set<string>, useTextureQuality: boolean): string {
-  const textureType = guessNodeTextureType(node.nodeTypeName, node.role);
+  const textureType = nodePlanetTextureName(node);
   const state = nodeStateTextureKey(node, selectedNodeId, focusedNodeIds);
-  return assetPath("nodes", nodeTextureVariantForPerformance(state, useTextureQuality), `${textureType}.png`);
+  return assetPath("nodes", "planets", nodeTextureVariantForPerformance(state, useTextureQuality), `${textureType}.png`);
+}
+
+export function nodePlanetTextureName(node: Pick<NetgraphNode, "id" | "nodeTypeName" | "role">): PlanetTextureName {
+  const guessed = guessNodeTextureType(node.nodeTypeName, node.role);
+  if (guessed === NODE_TEXTURE_HINTS.core) return "planet_blue_core";
+  if (guessed === NODE_TEXTURE_HINTS.data_cluster || guessed === NODE_TEXTURE_HINTS.storage) return "planet_teal_data";
+  if (guessed === NODE_TEXTURE_HINTS.edge || guessed === NODE_TEXTURE_HINTS.external) return "planet_cyan_ice";
+  if (guessed === NODE_TEXTURE_HINTS.gateway || guessed === NODE_TEXTURE_HINTS.hub) return "planet_gold_ring";
+  if (guessed === NODE_TEXTURE_HINTS.sensor) return "planet_lime_sensor";
+  if (guessed === NODE_TEXTURE_HINTS.service) return "planet_violet_room";
+  if (guessed === NODE_TEXTURE_HINTS.user) return "planet_azure_companion";
+  if (guessed === NODE_TEXTURE_HINTS.relay) return "planet_emerald_relay";
+  const roleTextures = ROLE_PLANET_TEXTURES[node.role];
+  return roleTextures[hashNodeTextureSeed(node.id) % roleTextures.length] ?? "planet_slate_unknown";
 }
 
 export function backdropTextureForViewport(width: number, height: number, shape: "spherical" | "spiral", focusMode: boolean): string {

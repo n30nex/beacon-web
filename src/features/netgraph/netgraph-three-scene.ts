@@ -187,9 +187,11 @@ export function createNodeLabelSprites(options: {
   importantLabels: Set<string>;
   visibleNodeIds: Set<string>;
   selectedNodeId?: string | null;
+  directNodeNeighbors: Set<string>;
   searchMatches: Set<string>;
   selectedNodes: Set<string>;
   roleColors: Record<NetgraphRole, string>;
+  nodeFocusActive: boolean;
   labelScale: number;
   labelDensity: number;
   labelBudgetScale: number;
@@ -210,8 +212,11 @@ export function createNodeLabelSprites(options: {
   for (const [index, id] of labelIds.entries()) {
     const node = options.graph.nodeById.get(id);
     if (!node) continue;
-    const labelColor = options.selectedNodeId === id || options.searchMatches.has(id) || options.selectedNodes.has(id) ? "#ffffff" : options.roleColors[node.role];
-    const isPriority = index < primaryCount || options.selectedNodeId === id || options.searchMatches.has(id) || options.selectedNodes.has(id);
+    const isDirectFocus = options.directNodeNeighbors.has(id);
+    const isSelectedOrSearch = options.selectedNodeId === id || options.searchMatches.has(id);
+    const isRouteContext = options.selectedNodes.has(id) && !options.nodeFocusActive;
+    const labelColor = isSelectedOrSearch || isDirectFocus || isRouteContext ? "#ffffff" : options.roleColors[node.role];
+    const isPriority = isSelectedOrSearch || isDirectFocus || isRouteContext || (!options.nodeFocusActive && index < primaryCount);
     const sprite = makeLabelSprite(node.label, labelColor, isPriority ? "primary" : "secondary");
     sprite.scale.multiplyScalar(options.labelScale * (isPriority ? (options.denseGraph ? 1.08 : 1.12) : (options.denseGraph ? 0.74 : 0.86)));
     const labelRadius = node.radius * options.labelScale;

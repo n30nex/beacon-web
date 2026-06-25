@@ -45,7 +45,7 @@ export function createEdgeVisuals(options: {
     1,
     options.edgeOpacityScale * (options.selectedEdgesCount > 0
       ? options.nodeFocusActive
-        ? options.narrowViewport ? 0.18 : 0.12
+        ? options.narrowViewport ? 0.32 : 0.24
         : options.narrowViewport ? 0.24 : 0.16
       : options.liveFocusActive
         ? options.narrowViewport ? 0.52 : 0.38
@@ -133,7 +133,7 @@ function createEdgeBeamGroup(options: {
   ambientMapAnisotropy: number;
 }): THREE.Group {
   const edgeBeamsGroup = new THREE.Group();
-  const edgeBeamEnabled = options.highQuality && !options.batteryQuality && !options.denseGraph && !options.lowPower;
+  const edgeBeamEnabled = options.highQuality && !options.batteryQuality && (!options.denseGraph || options.nodeFocusActive) && !options.lowPower;
   if (!edgeBeamEnabled) return edgeBeamsGroup;
 
   const edgeBeamVariant = chooseAmbientPacketVariant(options.nodeFocusActive, options.batteryQuality);

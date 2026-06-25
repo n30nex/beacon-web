@@ -4,11 +4,11 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
 import { NetgraphCanvasHud, type NetgraphControlMode, type NetgraphHoverState } from "./NetgraphCanvasHud";
 import {
-  focusedNodeNeighborhoodLayout,
   importantLabelNodeIds,
   nodeDirectEdgeIds,
   nodeDirectNeighborIds,
   nodeSecondHopNeighborIds,
+  resolveNetgraphVisibilitySets,
   resolveNetgraphRenderTier,
   selectedNodeNeighborhoodNodeIds,
   selectedNodeRouteEdgeIds,
@@ -30,7 +30,6 @@ import {
   selectedNodeFocus,
   selectedRouteFocus,
   selectedRouteWaypoints,
-  visibleEdgeIdsForNodes,
 } from "./netgraph-three-geometry";
 import {
   ambientTextureCache,
@@ -190,14 +189,13 @@ export function ThreeNetgraphCanvas({
     const primary = cssColor(host, "--color-primary", "#7ab7ff");
     const green = cssColor(host, "--color-green", "#54e1a6");
     const muted = cssColor(host, "--color-text-dim", "#697386");
-    const focusLayout = nodeFocusActive ? focusedNodeNeighborhoodLayout(graph, selectedNodeId) : null;
-    const focusCulled = Boolean(focusLayout);
+    const focusVisibility = resolveNetgraphVisibilitySets(graph, viewMode, selectedNodeId);
+    const focusLayout = focusVisibility.focusLayout;
     const renderGraph = focusLayout ? graphWithPositions(graph, focusLayout.positions) : graph;
-    const allNodeIds = new Set(renderGraph.nodes.map((node) => node.id));
-    const visibleNodeIds = focusCulled ? allNodeIds : allNodeIds;
-    const pickableNodeIds = focusCulled ? focusLayout!.nodeIds : visibleNodeIds;
-    const visibleEdgeIds = visibleEdgeIdsForNodes(renderGraph, visibleNodeIds);
-    const pickableEdgeIds = focusCulled ? focusLayout!.edgeIds : visibleEdgeIds;
+    const visibleNodeIds = focusVisibility.visibleNodeIds;
+    const visibleEdgeIds = focusVisibility.visibleEdgeIds;
+    const pickableNodeIds = focusVisibility.pickableNodeIds;
+    const pickableEdgeIds = focusVisibility.pickableEdgeIds;
     const selectedEdges = nodeFocusActive ? selectedNodeRouteEdgeIds(renderGraph, selectedNodeId) : routeFocusActive ? selectedRouteEdgeIds(renderGraph, selectedRouteId) : new Set<string>();
     const directNodeEdges = nodeFocusActive ? nodeDirectEdgeIds(renderGraph, selectedNodeId) : new Set<string>();
     const selectedNodes = nodeFocusActive ? selectedNodeNeighborhoodNodeIds(renderGraph, selectedNodeId) : routeFocusActive ? selectedRouteNodeIds(renderGraph, selectedRouteId) : new Set<string>();
@@ -254,20 +252,24 @@ export function ThreeNetgraphCanvas({
     controls.enableDamping = true;
     controls.dampingFactor = orbitDamping;
     controls.enablePan = true;
-    controls.screenSpacePanning = false;
+    controls.screenSpacePanning = true;
     controls.autoRotate = !reducedMotion && orbitActiveRef.current;
     const baseAutoRotateSpeed = (nodeFocusActive ? 0.24 : routeFocusActive ? 0.18 : liveFocusActive ? 0.38 : narrowViewport ? 0.24 : 0.36) * orbitAutoRotateScale;
     controls.autoRotateSpeed = baseAutoRotateSpeed * orbitControlScale;
-    controls.rotateSpeed = (narrowViewport ? 0.56 : 0.72) * orbitControlScale;
-    controls.zoomSpeed = (narrowViewport ? 0.92 : 0.82) * (0.8 + orbitControlScale * 0.2);
-    controls.panSpeed = (narrowViewport ? 0.52 : 0.64) * (0.75 + orbitControlScale * 0.25);
+    controls.rotateSpeed = (narrowViewport ? 0.58 : 0.84) * orbitControlScale;
+    controls.zoomSpeed = (narrowViewport ? 1.05 : 1.18) * (0.76 + orbitControlScale * 0.28);
+    controls.panSpeed = (narrowViewport ? 0.62 : 0.82) * (0.72 + orbitControlScale * 0.3);
     controls.minPolarAngle = 0.08;
     controls.maxPolarAngle = Math.PI - 0.08;
     controls.touches.ONE = THREE.TOUCH.ROTATE;
     controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
     controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+    controls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY;
     controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
-    controls.minDistance = 34 / Math.max(0.7, cameraDistanceScale);
+    const cursorZoomControls = controls as OrbitControls & { zoomToCursor?: boolean; cursorStyle?: "auto" | "grab" };
+    if ("zoomToCursor" in cursorZoomControls) cursorZoomControls.zoomToCursor = true;
+    if ("cursorStyle" in cursorZoomControls) cursorZoomControls.cursorStyle = "grab";
+    controls.minDistance = 10 / Math.max(0.8, cameraDistanceScale);
     controls.maxDistance = 240 * cameraDistanceScale;
     const flightControls = new PointerLockControls(camera, renderer.domElement);
     const flightKeys = createFlightKeys();
@@ -350,7 +352,7 @@ export function ThreeNetgraphCanvas({
     };
     const frameCamera = (animate = false, guidedIntro = false) => {
       const next = overviewFrame();
-      setOverviewCameraBounds(cameraControls, next, radius, cameraDistanceScale, narrowViewport);
+      setOverviewCameraBounds(cameraControls, next, radius, cameraDistanceScale, narrowViewport, nodeFocusActive || routeFocusActive);
       if (guidedIntro && !nodeFocusActive && !routeFocusActive && !liveFocusActive) {
         const intro = createGuidedIntroCameraFrame({
           narrowViewport,
@@ -378,7 +380,7 @@ export function ThreeNetgraphCanvas({
       }
       focusPoint(
         target,
-        Math.max(22, Math.min(controls.maxDistance, span * (narrowViewport ? 2.32 : 2.04) + 24)),
+        Math.max(8, Math.min(controls.maxDistance, span * (narrowViewport ? 1.58 : 1.34) + 10)),
         animate,
         focusDirectionForNode(renderedNode),
       );
@@ -388,7 +390,7 @@ export function ThreeNetgraphCanvas({
       if (!focus) return;
       focusPoint(
         focus.center,
-        Math.max(14, Math.min(controls.maxDistance, focus.span * (narrowViewport ? 2.42 : 2.18) + 14)),
+        Math.max(8, Math.min(controls.maxDistance, focus.span * (narrowViewport ? 1.7 : 1.48) + 9)),
         animate,
         focusDirectionForPoint(focus.center),
       );
@@ -427,7 +429,7 @@ export function ThreeNetgraphCanvas({
           : null;
       const target = focus?.center ?? center;
       const span = focus?.span ?? radius;
-      focusPoint(target, Math.max(22, Math.min(controls.maxDistance, span * (narrowViewport ? 2.1 : 1.75))), true, new THREE.Vector3(0, 0, 1));
+      focusPoint(target, Math.max(8, Math.min(controls.maxDistance, span * (narrowViewport ? 1.55 : 1.28) + 8)), true, new THREE.Vector3(0, 0, 1));
     };
     frameCamera(false, renderTier.guidedIntro);
     if (nodeFocusActive && selectedNodeId) {
@@ -524,14 +526,6 @@ export function ThreeNetgraphCanvas({
         viewDirection,
       });
     };
-    const transitionToOverview = (animate = true) => {
-      const next = overviewFrame();
-      const targetPosition = next.position.clone();
-      const targetPoint = next.target.clone();
-      setOverviewCameraBounds(cameraControls, next, radius, cameraDistanceScale, narrowViewport);
-      if (animate) setCameraTween(targetPosition, targetPoint, 640);
-      else applyCameraFrame(targetPosition, targetPoint);
-    };
     const flightCommandHandlers = createNetgraphFlightCommandHandlers({
       canvas: renderer.domElement,
       controls,
@@ -545,7 +539,6 @@ export function ThreeNetgraphCanvas({
       setHovered,
       setOrbit,
       syncOrbitTargetToCamera,
-      transitionToOverview,
     });
 
     commandsRef.current = {
@@ -569,8 +562,8 @@ export function ThreeNetgraphCanvas({
       enterFlight: () => flightCommandHandlers.enterFlightMode(),
       exitFlight: () => flightCommandHandlers.exitFlightMode(),
       topView,
-      zoomIn: () => zoomCamera(0.72),
-      zoomOut: () => zoomCamera(1.38),
+      zoomIn: () => zoomCamera(0.58),
+      zoomOut: () => zoomCamera(1.44),
     };
 
     const resize = () => {

@@ -8,6 +8,7 @@ import {
   nodeDirectNeighborIds,
   nodeSecondHopNeighborIds,
   packetObservationToNetgraphLiveVisual,
+  resolveNetgraphVisibilitySets,
   resolveNetgraphRenderTier,
   routePathPoints,
   selectedNodeNeighborhoodNodeIds,
@@ -248,6 +249,34 @@ describe("buildNetgraph", () => {
     expect(distanceFromOrigin(context!.position)).toBeGreaterThan(distanceFromOrigin(direct!.position));
     expect(depthSpan(focusA!.nodes.map((node) => node.position.z))).toBeGreaterThan(20);
     expect(focusA?.edgeIds).toEqual(new Set(["node-alpha>node-bravo", "node-bravo>node-charlie"]));
+  });
+
+  it("resolves focused visibility without unrelated background nodes or routes", () => {
+    const graph = buildNetgraph(snapshot({
+      stats: { ...snapshot().stats, nodeCount: 5, edgeCount: 3 },
+      nodes: [
+        node("node-alpha", "Alpha", "Repeater", 49.2, -123.1),
+        node("node-bravo", "Bravo", "Room", 49.4, -122.9),
+        node("node-charlie", "Charlie", "Companion"),
+        node("node-delta", "Delta", "Sensor"),
+        node("node-echo", "Echo", "Observer"),
+      ],
+      edges: [
+        edge("node-alpha", "node-bravo", [42, 43], 20),
+        edge("node-bravo", "node-charlie", [42], 22),
+        edge("node-delta", "node-echo", [900], 4),
+      ],
+    }));
+
+    const focus = resolveNetgraphVisibilitySets(graph, "focus", "node-alpha");
+    expect(focus.visibleNodeIds).toEqual(new Set(["node-alpha", "node-bravo", "node-charlie"]));
+    expect(focus.visibleEdgeIds).toEqual(new Set(["node-alpha>node-bravo", "node-bravo>node-charlie"]));
+    expect(focus.pickableNodeIds.has("node-delta")).toBe(false);
+    expect(focus.pickableEdgeIds.has("node-delta>node-echo")).toBe(false);
+
+    const overview = resolveNetgraphVisibilitySets(graph, "galaxy", "node-alpha");
+    expect(overview.visibleNodeIds.has("node-delta")).toBe(true);
+    expect(overview.visibleEdgeIds.has("node-delta>node-echo")).toBe(true);
   });
 
   it("matches search terms across node and edge metadata", () => {

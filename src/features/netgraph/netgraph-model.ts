@@ -154,6 +154,14 @@ export interface NetgraphFocusedNeighborhood {
   visibility: Set<string>;
 }
 
+export interface NetgraphVisibilitySets {
+  focusLayout: NetgraphFocusedNeighborhood | null;
+  visibleNodeIds: Set<string>;
+  visibleEdgeIds: Set<string>;
+  pickableNodeIds: Set<string>;
+  pickableEdgeIds: Set<string>;
+}
+
 export interface NetgraphPulseSegment {
   edgeId: string;
   fromId: string;
@@ -355,6 +363,30 @@ export function selectedRouteNodeIds(graph: NetgraphGraph, routeId: number | nul
     nodes.add(edge.toId);
   }
   return nodes;
+}
+
+export function resolveNetgraphVisibilitySets(graph: NetgraphGraph, viewMode: NetgraphViewMode, selectedNodeId: string | null | undefined): NetgraphVisibilitySets {
+  const allNodeIds = new Set(graph.nodes.map((node) => node.id));
+  const allEdgeIds = new Set(graph.edges.map((edge) => edge.id));
+  const focusLayout = viewMode === "focus" ? focusedNodeNeighborhoodLayout(graph, selectedNodeId) : null;
+  if (!focusLayout) {
+    return {
+      focusLayout: null,
+      visibleNodeIds: allNodeIds,
+      visibleEdgeIds: allEdgeIds,
+      pickableNodeIds: allNodeIds,
+      pickableEdgeIds: allEdgeIds,
+    };
+  }
+  const visibleNodeIds = new Set(focusLayout.visibility);
+  const visibleEdgeIds = new Set(focusLayout.edgeIds);
+  return {
+    focusLayout,
+    visibleNodeIds,
+    visibleEdgeIds,
+    pickableNodeIds: visibleNodeIds,
+    pickableEdgeIds: visibleEdgeIds,
+  };
 }
 
 export function selectedNodeRouteEdgeIds(graph: NetgraphGraph, nodeId: string | null | undefined): Set<string> {

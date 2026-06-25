@@ -30,6 +30,10 @@ export const ROLE_COLORS: Record<NetgraphRole, string> = {
   other: "#9aa6bb",
 };
 
+function planetGeometry(highQuality: boolean, batteryQuality: boolean): THREE.SphereGeometry {
+  return new THREE.SphereGeometry(1, highQuality && !batteryQuality ? 34 : 22, highQuality && !batteryQuality ? 24 : 16);
+}
+
 export function createRoleMeshes(options: {
   graph: NetgraphGraph;
   visibleNodeIds: Set<string>;
@@ -58,33 +62,32 @@ export function createRoleMeshes(options: {
   });
 
   for (const { role, texturePath, nodeIndices } of nodeBuckets.values()) {
-    const useTexture = options.useNodeTextures && texturePath != null;
+    const usePlanetNode = options.useNodeTextures;
+    const useTexture = usePlanetNode && texturePath != null;
     const nodeTexture = useTexture ? getCachedTexture(nodeTextureCache, texturePath, options.nodeTextureAnisotropy) : null;
     const material: THREE.Material = options.batteryQuality || !nodeTexture
       ? new THREE.MeshLambertMaterial({
-        color: 0xffffff,
-        emissive: new THREE.Color(ROLE_COLORS[role]).multiplyScalar(0.22),
-        emissiveIntensity: 0.82,
+        color: new THREE.Color(ROLE_COLORS[role]).lerp(new THREE.Color("#ffffff"), usePlanetNode ? 0.18 : 0.05),
+        emissive: new THREE.Color(ROLE_COLORS[role]).multiplyScalar(usePlanetNode ? 0.38 : 0.22),
+        emissiveIntensity: usePlanetNode ? 1.05 : 0.82,
       })
       : new THREE.MeshStandardMaterial({
         color: 0xffffff,
         map: nodeTexture ?? undefined,
-        emissive: new THREE.Color(ROLE_COLORS[role]).multiplyScalar(0.52),
-        emissiveIntensity: options.highQuality ? 0.5 : options.narrowViewport ? 0.38 : 0.28,
+        emissive: new THREE.Color(ROLE_COLORS[role]).multiplyScalar(0.62),
+        emissiveIntensity: options.highQuality ? 0.72 : options.narrowViewport ? 0.5 : 0.42,
         vertexColors: true,
-        metalness: 0.24,
-        roughness: 0.28,
-        transparent: true,
-        alphaTest: 0.15,
+        metalness: 0.12,
+        roughness: 0.42,
       });
-    const mesh = new THREE.InstancedMesh(roleGeometry(role, options.highQuality && !options.batteryQuality), material, nodeIndices.length);
+    const mesh = new THREE.InstancedMesh(usePlanetNode ? planetGeometry(options.highQuality, options.batteryQuality) : roleGeometry(role, options.highQuality && !options.batteryQuality), material, nodeIndices.length);
     mesh.userData.nodeIndices = nodeIndices;
     nodeIndices.forEach((nodeIndex, instanceIndex) => {
       const node = options.graph.nodes[nodeIndex]!;
-      const size = nodeScale(node, options.nodeScaleFactor) * (options.narrowViewport ? 2.18 : 2.05) * (useTexture ? 1.22 : 1.1);
+      const size = nodeScale(node, options.nodeScaleFactor) * (options.narrowViewport ? 2.18 : 2.05) * (usePlanetNode ? 1.34 : 1.1);
       matrix.compose(
         new THREE.Vector3(node.position.x, node.position.y, node.position.z),
-        new THREE.Quaternion().setFromEuler(new THREE.Euler(0.35, 0, node.role === "room" ? Math.PI / 4 : 0)),
+        new THREE.Quaternion().setFromEuler(new THREE.Euler(usePlanetNode ? 0.12 : 0.35, 0, node.role === "room" && !usePlanetNode ? Math.PI / 4 : 0)),
         new THREE.Vector3(size, size, size),
       );
       mesh.setMatrixAt(instanceIndex, matrix);
