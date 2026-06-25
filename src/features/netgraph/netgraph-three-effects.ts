@@ -34,6 +34,7 @@ const MIRRORED_TRAFFIC_SIZE_BOOST = 1.78;
 const MIRRORED_TRAFFIC_TAIL_BOOST = 1.28;
 
 export interface PulseVisuals {
+  pulseBeamMeshes: THREE.Mesh[];
   pulseMeshes: THREE.Mesh[];
   pulseTailMeshes: THREE.Mesh[];
   endpointMeshes: THREE.Mesh[];
@@ -94,6 +95,14 @@ export function createPulseVisuals(options: {
     1,
     true,
   );
+  const pulseBeamGeometry = new THREE.CylinderGeometry(
+    1,
+    1,
+    1,
+    options.highQuality ? 18 : 14,
+    1,
+    true,
+  );
   const basePulseBudget = options.animationsDisabled
     ? 0
     : options.batteryQuality
@@ -119,6 +128,23 @@ export function createPulseVisuals(options: {
       depthWrite: false,
     });
     const mesh = new THREE.Mesh(pulseGeometry, material);
+    mesh.renderOrder = 84;
+    mesh.visible = false;
+    options.group.add(mesh);
+    return mesh;
+  });
+
+  const pulseBeamMeshes = Array.from({ length: pulseBudget }, () => {
+    const material = new THREE.MeshBasicMaterial({
+      color: options.green,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const mesh = new THREE.Mesh(pulseBeamGeometry, material);
+    mesh.renderOrder = 82;
     mesh.visible = false;
     options.group.add(mesh);
     return mesh;
@@ -139,6 +165,7 @@ export function createPulseVisuals(options: {
       depthWrite: false,
     });
     const mesh = new THREE.Mesh(pulseTailGeometry, material);
+    mesh.renderOrder = 83;
     mesh.visible = false;
     options.group.add(mesh);
     return mesh;
@@ -165,6 +192,7 @@ export function createPulseVisuals(options: {
       depthWrite: false,
     });
     const mesh = new THREE.Mesh(endpointGeometry, material);
+    mesh.renderOrder = 85;
     mesh.visible = false;
     options.group.add(mesh);
     return mesh;
@@ -203,12 +231,13 @@ export function createPulseVisuals(options: {
       depthWrite: false,
     });
     const mesh = new THREE.Mesh(glowGeometry, material);
+    mesh.renderOrder = 81;
     mesh.visible = false;
     options.group.add(mesh);
     return mesh;
   });
 
-  return { pulseMeshes, pulseTailMeshes, endpointMeshes, pulseLights, glowMeshes };
+  return { pulseBeamMeshes, pulseMeshes, pulseTailMeshes, endpointMeshes, pulseLights, glowMeshes };
 }
 
 export function renderNetgraphEffectFrame(options: {
@@ -230,6 +259,7 @@ export function renderNetgraphEffectFrame(options: {
   nodeScaleFactor: number;
   now: number;
   packetTextureVariant: PacketTextureVariant;
+  pulseBeamMeshes: THREE.Mesh[];
   pulseLights: THREE.PointLight[];
   pulseMeshes: THREE.Mesh[];
   pulseTailAxis: THREE.Vector3;
@@ -252,6 +282,9 @@ export function renderNetgraphEffectFrame(options: {
     mesh.scale.setScalar(baseScale * wave);
   });
   options.pulseMeshes.forEach((mesh) => {
+    mesh.visible = false;
+  });
+  options.pulseBeamMeshes.forEach((mesh) => {
     mesh.visible = false;
   });
   options.pulseTailMeshes.forEach((mesh) => {
@@ -389,6 +422,25 @@ export function renderNetgraphEffectFrame(options: {
           ? positionForPulseLocal(options.renderGraph, pulse, tailSegmentIndex, tailLocal)
           : null;
       if (tailPosition && options.isVisiblePoint(tailPosition, options.narrowViewport ? 5 : 4)) {
+        const beamMesh = options.pulseBeamMeshes[pulseIndex];
+        if (beamMesh) {
+          const beamMaterial = beamMesh.material as THREE.MeshBasicMaterial;
+          const beamLength = Math.max(1.4, tailPosition.distanceTo(position));
+          const beamWidthBase = overviewTrafficVisible
+            ? (options.narrowViewport ? 3.1 : 4.35)
+            : displayEdge.mirrored
+              ? (options.narrowViewport ? 2.2 : 3.1)
+              : (options.narrowViewport ? 1.35 : 1.65);
+          const beamWidth = head * beamWidthBase * sizeBoost * focusEffectBoost;
+          options.tailDirection.subVectors(position, tailPosition);
+          if (options.tailDirection.lengthSq() > 0.001) beamMesh.quaternion.setFromUnitVectors(options.pulseTailAxis, options.tailDirection.normalize());
+          options.tailMidpoint.lerpVectors(tailPosition, position, 0.5);
+          beamMaterial.color.set(tailColor);
+          beamMaterial.opacity = Math.min(1, 0.42 * brightnessBoost);
+          beamMesh.position.copy(options.tailMidpoint);
+          beamMesh.scale.set(beamWidth, beamLength * tailBoost, beamWidth);
+          beamMesh.visible = true;
+        }
         const tailMaterial = tailMesh.material as THREE.MeshStandardMaterial;
         const trailTexture = getCachedTexture(
           packetTextureCache,

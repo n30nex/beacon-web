@@ -25,6 +25,7 @@ export interface NetgraphObjectVisuals {
   glowMeshes: THREE.Mesh[];
   highResPackets: boolean;
   packetTextureVariant: PacketTextureVariant;
+  pulseBeamMeshes: THREE.Mesh[];
   pulseLights: THREE.PointLight[];
   pulseMeshes: THREE.Mesh[];
   pulseTailMeshes: THREE.Mesh[];
@@ -150,7 +151,7 @@ export function createNetgraphObjectVisuals(options: {
     packetTextureFile("comet_data", packetTextureVariant, highResPackets),
     options.textureAnisotropy,
   );
-  const { pulseMeshes, pulseTailMeshes, endpointMeshes, pulseLights, glowMeshes } = createPulseVisuals({
+  const { pulseBeamMeshes, pulseMeshes, pulseTailMeshes, endpointMeshes, pulseLights, glowMeshes } = createPulseVisuals({
     group: options.group,
     green: options.green,
     highQuality: options.highQuality,
@@ -195,6 +196,7 @@ export function createNetgraphObjectVisuals(options: {
     glowMeshes,
     highResPackets,
     packetTextureVariant,
+    pulseBeamMeshes,
     pulseLights,
     pulseMeshes,
     pulseTailMeshes,
