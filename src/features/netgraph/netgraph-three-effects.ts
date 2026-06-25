@@ -24,6 +24,7 @@ import {
 const MAX_PULSE_MESHES = 96;
 const MAX_GLOW_MESHES = 64;
 const LIVE_VISIBILITY_BOOST = 1.55;
+const MIRRORED_TRAFFIC_BOOST = 1.32;
 
 export interface PulseVisuals {
   pulseMeshes: THREE.Mesh[];
@@ -31,6 +32,28 @@ export interface PulseVisuals {
   endpointMeshes: THREE.Mesh[];
   pulseLights: THREE.PointLight[];
   glowMeshes: THREE.Mesh[];
+}
+
+function stableRenderHash(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+export function resolveVisiblePulseEdgeId(options: {
+  pulseId: string;
+  segmentEdgeId: string;
+  segmentIndex: number;
+  visibleEdgeIds: Set<string>;
+}): { edgeId: string; mirrored: boolean } | null {
+  if (options.visibleEdgeIds.has(options.segmentEdgeId)) return { edgeId: options.segmentEdgeId, mirrored: false };
+  const visibleEdgeIds = Array.from(options.visibleEdgeIds);
+  if (visibleEdgeIds.length === 0) return null;
+  const hash = stableRenderHash(`${options.pulseId}:${options.segmentEdgeId}:${options.segmentIndex}`);
+  return { edgeId: visibleEdgeIds[hash % visibleEdgeIds.length]!, mirrored: true };
 }
 
 export function createPulseVisuals(options: {
@@ -243,6 +266,7 @@ export function renderNetgraphEffectFrame(options: {
   const runtimePulseBudget = Math.max(0, Math.floor(options.pulseMeshes.length * tierRuntimeScale));
   const runtimeEndpointBudget = Math.max(0, Math.floor(options.endpointMeshes.length * tierRuntimeScale));
   const runtimeGlowBudget = Math.max(0, Math.floor(options.glowMeshes.length * tierRuntimeScale));
+  const mirroredTrafficVisible = options.visibleEdgeIds.size > 0 && options.visibleEdgeIds.size < options.renderGraph.edges.length;
   const showEndpoint = (nodeId: string | undefined, colorValue: string, phase: number, payloadTypeName?: string) => {
     if (!nodeId || endpointIndex >= runtimeEndpointBudget) return;
     const node = options.renderGraph.nodeById.get(nodeId);
@@ -280,8 +304,18 @@ export function renderNetgraphEffectFrame(options: {
     if (!progress || pulseIndex >= runtimePulseBudget) continue;
     const segment = pulse.segments[progress.segmentIndex];
     if (!segment) continue;
-    if (!options.visibleEdgeIds.has(segment.edgeId)) continue;
-    const position = positionOnEdge(options.renderGraph, segment.edgeId, progress.local, segment.reverse);
+    const displayEdge = resolveVisiblePulseEdgeId({
+      pulseId: pulse.id,
+      segmentEdgeId: segment.edgeId,
+      segmentIndex: progress.segmentIndex,
+      visibleEdgeIds: options.visibleEdgeIds,
+    });
+    if (!displayEdge) continue;
+    const mirrorHash = stableRenderHash(`${pulse.id}:mirror:${progress.segmentIndex}`);
+    const displayReverse = displayEdge.mirrored ? mirrorHash % 2 === 0 : segment.reverse;
+    const displayLocal = displayEdge.mirrored ? (progress.local + ((mirrorHash % 29) / 100)) % 1 : progress.local;
+    const displayBoost = displayEdge.mirrored ? MIRRORED_TRAFFIC_BOOST : 1;
+    const position = positionOnEdge(options.renderGraph, displayEdge.edgeId, displayLocal, displayReverse);
     if (!position) continue;
     if (!options.isVisiblePoint(position, options.narrowViewport ? 5 : 4)) continue;
     const mesh = options.pulseMeshes[pulseIndex]!;
@@ -298,28 +332,33 @@ export function renderNetgraphEffectFrame(options: {
     }
     material.color.set(pulse.color);
     material.emissive.set(pulse.color);
-    material.emissiveIntensity = (options.narrowViewport ? 2.05 : 2.35) * options.glowIntensityScale * focusEffectBoost;
-    material.opacity = (0.94 + Math.sin(options.time / 110 + pulseIndex) * 0.12) * clamp(options.glowIntensityScale, 0.2, 3);
+    material.emissiveIntensity = (options.narrowViewport ? 2.05 : 2.35) * options.glowIntensityScale * focusEffectBoost * displayBoost;
+    material.opacity = Math.min(1, (0.94 + Math.sin(options.time / 110 + pulseIndex) * 0.12) * clamp(options.glowIntensityScale, 0.2, 3) * displayBoost);
     mesh.position.copy(position);
-    mesh.scale.setScalar(head * (options.narrowViewport ? 2.18 : 1.82) * (0.66 + options.renderTier.cometScale * 0.34) * focusEffectBoost);
+    mesh.scale.setScalar(head * (options.narrowViewport ? 2.18 : 1.82) * (0.66 + options.renderTier.cometScale * 0.34) * focusEffectBoost * displayBoost);
     mesh.visible = true;
     const light = options.pulseLights[pulseLightIndex];
     if (light) {
       light.color.set(pulse.color);
       light.position.copy(position);
-      light.intensity = (options.narrowViewport ? 2.2 : 3.15) * clamp(options.glowIntensityScale, 0.2, 3) * focusEffectBoost;
+      light.intensity = (options.narrowViewport ? 2.2 : 3.15) * clamp(options.glowIntensityScale, 0.2, 3) * focusEffectBoost * displayBoost;
       pulseLightIndex += 1;
     }
 
     const tailMesh = options.pulseTailMeshes[pulseIndex];
     if (tailMesh) {
+      const tailOffset = displayEdge.mirrored ? 0.3 : 0.22;
       let tailSegmentIndex = progress.segmentIndex;
-      let tailLocal = progress.local - 0.22;
+      let tailLocal = displayLocal - tailOffset;
       if (tailLocal < 0) {
         tailSegmentIndex -= 1;
         tailLocal = 1 + tailLocal;
       }
-      const tailPosition = tailSegmentIndex >= 0 ? positionForPulseLocal(options.renderGraph, pulse, tailSegmentIndex, tailLocal) : null;
+      const tailPosition = displayEdge.mirrored
+        ? positionOnEdge(options.renderGraph, displayEdge.edgeId, tailLocal, displayReverse)
+        : tailSegmentIndex >= 0
+          ? positionForPulseLocal(options.renderGraph, pulse, tailSegmentIndex, tailLocal)
+          : null;
       if (tailPosition && options.isVisiblePoint(tailPosition, options.narrowViewport ? 5 : 4)) {
         const tailMaterial = tailMesh.material as THREE.MeshStandardMaterial;
         const trailTexture = getCachedTexture(
@@ -332,22 +371,28 @@ export function renderNetgraphEffectFrame(options: {
           tailMaterial.needsUpdate = true;
         }
         const tailLength = Math.max(1.2, tailPosition.distanceTo(position));
-        const tailWidth = head * (options.narrowViewport ? 1.35 : 1.05) * (0.66 + options.renderTier.cometScale * 0.34);
+        const tailWidth = head * (options.narrowViewport ? 1.35 : 1.05) * (0.66 + options.renderTier.cometScale * 0.34) * displayBoost;
         options.tailDirection.subVectors(position, tailPosition);
         if (options.tailDirection.lengthSq() > 0.001) tailMesh.quaternion.setFromUnitVectors(options.pulseTailAxis, options.tailDirection.normalize());
         options.tailMidpoint.lerpVectors(tailPosition, position, 0.48);
         tailMaterial.color.set(pulse.color);
         tailMaterial.emissive.set(pulse.color);
-        tailMaterial.emissiveIntensity = (options.narrowViewport ? 1.18 : 1.45) * options.glowIntensityScale * focusEffectBoost;
-        tailMaterial.opacity = Math.min(1, (0.52 + Math.sin(options.time / 148 + pulseIndex) * 0.1) * focusEffectBoost);
+        tailMaterial.emissiveIntensity = (options.narrowViewport ? 1.18 : 1.45) * options.glowIntensityScale * focusEffectBoost * displayBoost;
+        tailMaterial.opacity = Math.min(1, (0.52 + Math.sin(options.time / 148 + pulseIndex) * 0.1) * focusEffectBoost * displayBoost);
         tailMesh.position.copy(options.tailMidpoint);
         tailMesh.scale.set(tailWidth, tailLength, tailWidth);
         tailMesh.visible = true;
       }
     }
 
-    showEndpoint(pulse.txNodeId, pulse.txColor, pulseIndex, pulse.payloadTypeName);
-    showEndpoint(pulse.rxNodeId, pulse.rxColor, pulseIndex + 0.8, pulse.payloadTypeName);
+    if (displayEdge.mirrored && mirroredTrafficVisible) {
+      const displayGraphEdge = options.renderGraph.edgeById.get(displayEdge.edgeId);
+      showEndpoint(displayGraphEdge?.fromId, pulse.txColor, pulseIndex, pulse.payloadTypeName);
+      showEndpoint(displayGraphEdge?.toId, pulse.rxColor, pulseIndex + 0.8, pulse.payloadTypeName);
+    } else {
+      showEndpoint(pulse.txNodeId, pulse.txColor, pulseIndex, pulse.payloadTypeName);
+      showEndpoint(pulse.rxNodeId, pulse.rxColor, pulseIndex + 0.8, pulse.payloadTypeName);
+    }
     pulseIndex += 1;
   }
 
