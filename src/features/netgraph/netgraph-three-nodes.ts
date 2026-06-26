@@ -93,7 +93,7 @@ export function createRoleMeshes(options: {
     mesh.userData.nodeIndices = nodeIndices;
     nodeIndices.forEach((nodeIndex, instanceIndex) => {
       const node = options.graph.nodes[nodeIndex]!;
-      const size = nodeScale(node, options.nodeScaleFactor) * (options.narrowViewport ? 2.18 : 2.05) * (usePlanetNode ? 1.34 : 1.1);
+      const size = nodeScale(node, options.nodeScaleFactor) * (options.narrowViewport ? 1.96 : 1.86) * (usePlanetNode ? 1.24 : 1.04);
       matrix.compose(
         new THREE.Vector3(node.position.x, node.position.y, node.position.z),
         new THREE.Quaternion().setFromEuler(new THREE.Euler(usePlanetNode ? 0.12 : 0.35, 0, node.role === "room" && !usePlanetNode ? Math.PI / 4 : 0)),

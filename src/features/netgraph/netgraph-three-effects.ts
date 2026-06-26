@@ -395,8 +395,8 @@ export function renderNetgraphEffectFrame(options: {
     const baseSize = nodeScale(node, options.nodeScaleFactor);
     const colorValue = flash.direction === "tx" ? "#91c8ff" : flash.terminal ? "#74ffc4" : flash.color;
     const wave = 1 + Math.sin(options.time / 112 + flash.phase) * 0.06;
-    const directionBoost = flash.direction === "rx" ? 1.25 : 1.12;
-    const terminalBoost = flash.terminal ? 1.55 : 1;
+    const directionBoost = flash.direction === "rx" ? 1.12 : 1.06;
+    const terminalBoost = flash.terminal ? 1.26 : 1;
     const nodeFocusCalm = options.nodeFocusActive ? 0.48 : 1;
     const nodeFocusScale = options.nodeFocusActive ? 0.72 : 1;
     const opacityScale = clamp(options.glowIntensityScale * 1.45, 0.35, 4.2) * focusEffectBoost * flash.strength * terminalBoost * nodeFocusCalm;
@@ -433,12 +433,12 @@ export function renderNetgraphEffectFrame(options: {
       endpointIndex += 1;
     };
 
-    const primaryRingScale = baseSize * (options.narrowViewport ? 3.85 : 3.45) * (1 + flash.progress * 1.22) * wave * directionBoost * terminalBoost * nodeFocusScale;
+    const primaryRingScale = baseSize * (options.narrowViewport ? 2.72 : 2.42) * (1 + flash.progress * 0.82) * wave * directionBoost * terminalBoost * nodeFocusScale;
     const primaryOpacity = Math.min(1, (0.62 + flash.strength * 0.4) * opacityScale);
     const primaryEmissive = (3.4 + flash.strength * 2.8) * options.glowIntensityScale * focusEffectBoost * terminalBoost;
     paintEndpointRing(primaryRingScale, primaryOpacity, primaryEmissive);
 
-    const rippleScale = baseSize * (options.narrowViewport ? 5.1 : 4.55) * (1.05 + flash.progress * 1.62) * wave * directionBoost * terminalBoost * nodeFocusScale;
+    const rippleScale = baseSize * (options.narrowViewport ? 3.58 : 3.16) * (1.02 + flash.progress * 1.08) * wave * directionBoost * terminalBoost * nodeFocusScale;
     const rippleOpacity = Math.min(0.72, (0.26 + flash.strength * 0.28) * opacityScale);
     const rippleEmissive = (2.2 + flash.strength * 1.85) * options.glowIntensityScale * focusEffectBoost * terminalBoost;
     paintEndpointRing(rippleScale, rippleOpacity, rippleEmissive);
@@ -458,7 +458,7 @@ export function renderNetgraphEffectFrame(options: {
       material.color.set(colorValue);
       material.opacity = Math.min(1, (flash.direction === "rx" ? 0.95 : 0.82) * opacityScale);
       mesh.position.copy(options.endpointPosition);
-      mesh.scale.setScalar(baseSize * ((flash.direction === "rx" ? 4.55 : 3.95) + flash.progress * (flash.terminal ? 9.4 : 7.2)) * focusEffectBoost * terminalBoost * nodeFocusScale);
+      mesh.scale.setScalar(baseSize * ((flash.direction === "rx" ? 3.08 : 2.72) + flash.progress * (flash.terminal ? 5.6 : 4.4)) * focusEffectBoost * terminalBoost * nodeFocusScale);
       mesh.visible = true;
       glowIndex += 1;
     }

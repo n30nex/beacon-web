@@ -57,8 +57,8 @@ export function layoutRequestFromGraph(
   profile?: NetgraphGalaxyProfile,
 ): NetgraphLayoutRequest {
   const envelope = depthEnvelope ?? netgraphDepthEnvelope(graph.nodes.length, graph.edges.length);
-  const settleStrength = Math.max(0.35, Math.min(2.6, profile?.settleStrength ?? 1));
-  const edgeSpacingScale = Math.max(0.55, Math.min(3, profile?.edgeSpacingScale ?? 1));
+  const settleStrength = Math.max(0.35, Math.min(2.8, profile?.settleStrength ?? 1));
+  const edgeSpacingScale = Math.max(0.55, Math.min(3.6, profile?.edgeSpacingScale ?? 1));
   return {
     ticks,
     depthEnvelope: envelope,
@@ -75,7 +75,7 @@ export function layoutRequestFromGraph(
       z: node.seed.z,
       componentX: node.componentX,
       componentY: node.componentY,
-      radius: Math.max(1.3, node.radius * 3.1),
+      radius: Math.max(2.2, node.radius * 3.65),
       degree: node.degree,
     })),
     links: graph.edges.map((edge) => ({
@@ -93,23 +93,23 @@ export function settleNetgraphLayout(request: NetgraphLayoutRequest): NetgraphLa
   const densityScale = request.densityScale ?? layoutDensityScale(request.nodes.length, request.links.length);
   const settleStrength = request.settleStrength ?? 1;
   const edgeSpacingScale = request.edgeSpacingScale ?? 1;
-  const settleBlend = Math.max(0.55, Math.min(2.5, settleStrength));
-  const spacingPressure = clamp(edgeSpacingScale, 0.6, 3);
+  const settleBlend = Math.max(0.55, Math.min(2.8, settleStrength));
+  const spacingPressure = clamp(edgeSpacingScale, 0.6, 3.6);
   const simulation = forceSimulation<NetgraphLayoutNode, NetgraphLayoutLink>(nodes)
     .force("link", forceLink<NetgraphLayoutNode, NetgraphLayoutLink>(links)
       .id((node) => node.id)
       .distance((link) => linkDistance(link, densityScale, edgeSpacingScale, settleBlend))
-      .strength(0.3 + settleBlend * 0.055)
+      .strength(0.24 + settleBlend * 0.046)
       .iterations(1))
     .force("charge", forceManyBody<NetgraphLayoutNode>().strength((node) =>
-      (-64 - Math.min(node.degree, 20) * 5.1) * densityScale * settleBlend * (0.82 + spacingPressure * 0.2),
+      (-86 - Math.min(node.degree, 20) * 6.4) * densityScale * settleBlend * (0.82 + spacingPressure * 0.24),
     ))
     .force("collide", forceCollide<NetgraphLayoutNode>()
-      .radius((node) => node.radius * (1 + spacingPressure * 0.16) + 3.2 + (densityScale - 1) * 2.35 * spacingPressure)
-      .strength(0.94)
-      .iterations(3))
-    .force("x", forceX<NetgraphLayoutNode>((node) => node.componentX + (node.seedX - node.componentX) * 0.82).strength(0.052 + settleBlend * 0.01))
-    .force("y", forceY<NetgraphLayoutNode>((node) => node.componentY + (node.seedY - node.componentY) * 0.82).strength(0.052 + settleBlend * 0.01))
+      .radius((node) => node.radius * (1 + spacingPressure * 0.24) + 5.8 + (densityScale - 1) * 3.5 * spacingPressure)
+      .strength(0.98)
+      .iterations(4))
+    .force("x", forceX<NetgraphLayoutNode>((node) => node.componentX + (node.seedX - node.componentX) * 0.86).strength(0.04 + settleBlend * 0.008))
+    .force("y", forceY<NetgraphLayoutNode>((node) => node.componentY + (node.seedY - node.componentY) * 0.86).strength(0.04 + settleBlend * 0.008))
     .alpha(0.95)
     .alphaDecay(0.032)
     .velocityDecay(Math.max(0.31, Math.min(0.54, 0.42 + (1 - settleBlend) * 0.045)))
@@ -124,6 +124,7 @@ export function settleNetgraphLayout(request: NetgraphLayoutRequest): NetgraphLa
     settleBlend,
     edgeSpacingScale,
   );
+  enforceMinimumDistance3D(nodes, request.depthEnvelope, densityScale, spacingPressure, request.ticks);
   return {
     positions: nodes.map((node) => ({
       id: node.id,
@@ -139,8 +140,8 @@ export function resultToPositionMap(result: NetgraphLayoutResult): Map<string, N
 }
 
 function linkDistance(link: NetgraphLayoutLink, densityScale = 1, edgeSpacingScale = 1, settleStrength = 1): number {
-  const base = 8 + Math.log1p(Math.max(1, link.observationCount)) * 1.72;
-  return Math.max(10, Math.min(58, base * densityScale * (0.82 + settleStrength * 0.34) * Math.max(0.6, Math.min(2.65, edgeSpacingScale))));
+  const base = 15 + Math.log1p(Math.max(1, link.observationCount)) * 2.25;
+  return Math.max(24, Math.min(112, base * densityScale * (0.86 + settleStrength * 0.3) * Math.max(0.6, Math.min(3.1, edgeSpacingScale))));
 }
 
 function layoutDensityScale(nodeCount: number, edgeCount: number): number {
@@ -184,6 +185,78 @@ function settleDepth(
       velocity.set(node.id, nextVelocity);
     }
   }
+}
+
+function enforceMinimumDistance3D(
+  nodes: NetgraphLayoutNode[],
+  depthEnvelope: number,
+  densityScale: number,
+  spacingPressure: number,
+  requestedTicks: number,
+): void {
+  const iterations = Math.max(3, Math.min(8, Math.floor(requestedTicks / 24)));
+  for (let iteration = 0; iteration < iterations; iteration += 1) {
+    const strength = 0.62 + iteration / Math.max(1, iterations - 1) * 0.18;
+    for (let aIndex = 0; aIndex < nodes.length; aIndex += 1) {
+      const a = nodes[aIndex]!;
+      for (let bIndex = aIndex + 1; bIndex < nodes.length; bIndex += 1) {
+        const b = nodes[bIndex]!;
+        const minDistance = nodeMinimumDistance(a, b, densityScale, spacingPressure);
+        const dx = finite(b.x, b.seedX) - finite(a.x, a.seedX);
+        const dy = finite(b.y, b.seedY) - finite(a.y, a.seedY);
+        const dz = finite(b.z, b.seedZ) - finite(a.z, a.seedZ);
+        let distanceSq = dx * dx + dy * dy + dz * dz;
+        if (distanceSq >= minDistance * minDistance) continue;
+        if (distanceSq < 0.0001) {
+          const fallback = fallbackSeparationDirection(a.id, b.id);
+          const push = minDistance * 0.5 * strength;
+          a.x = finite(a.x, a.seedX) - fallback.x * push;
+          a.y = finite(a.y, a.seedY) - fallback.y * push;
+          a.z = clampDepth(finite(a.z, a.seedZ) - fallback.z * push, depthEnvelope);
+          b.x = finite(b.x, b.seedX) + fallback.x * push;
+          b.y = finite(b.y, b.seedY) + fallback.y * push;
+          b.z = clampDepth(finite(b.z, b.seedZ) + fallback.z * push, depthEnvelope);
+          continue;
+        }
+        const distance = Math.sqrt(distanceSq);
+        const push = (minDistance - distance) * 0.5 * strength;
+        const ux = dx / distance;
+        const uy = dy / distance;
+        const uz = dz / distance;
+        a.x = finite(a.x, a.seedX) - ux * push;
+        a.y = finite(a.y, a.seedY) - uy * push;
+        a.z = clampDepth(finite(a.z, a.seedZ) - uz * push, depthEnvelope);
+        b.x = finite(b.x, b.seedX) + ux * push;
+        b.y = finite(b.y, b.seedY) + uy * push;
+        b.z = clampDepth(finite(b.z, b.seedZ) + uz * push, depthEnvelope);
+      }
+    }
+  }
+}
+
+function nodeMinimumDistance(
+  a: NetgraphLayoutNode,
+  b: NetgraphLayoutNode,
+  densityScale: number,
+  spacingPressure: number,
+): number {
+  const radiusDistance = (a.radius + b.radius) * (1.1 + spacingPressure * 0.15);
+  const degreePadding = Math.min(9, Math.log1p(Math.max(0, a.degree + b.degree)) * 1.4);
+  const densityPadding = (5.8 + degreePadding) * densityScale * (0.82 + spacingPressure * 0.14);
+  return clamp(radiusDistance + densityPadding, 20, 92);
+}
+
+function fallbackSeparationDirection(aId: string, bId: string): { x: number; y: number; z: number } {
+  const seed = stableHash(`minimum-distance:${aId}:${bId}`);
+  const t = seed / 0xffffffff;
+  const angle = t * Math.PI * 2;
+  const z = (stableHash(`minimum-distance-z:${bId}:${aId}`) / 0xffffffff - 0.5) * 1.4;
+  const ring = Math.sqrt(Math.max(0.08, 1 - Math.min(0.96, z * z)));
+  return {
+    x: Math.cos(angle) * ring,
+    y: Math.sin(angle) * ring,
+    z,
+  };
 }
 
 function edgeDepthDelta(edgeId: string, observationCount: number, depthEnvelope: number, settleStrength = 1, edgeSpacingScale = 1): number {

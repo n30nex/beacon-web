@@ -240,6 +240,23 @@ describe("buildNetgraph", () => {
     expect(strongestEdgeDepth).toBeGreaterThan(8);
   });
 
+  it("seeds default complete-view clusters as rounded 3D volumes", () => {
+    const graph = buildNetgraph(chainSnapshot(28));
+    const spans = axisSpans(graph.nodes.map((node) => node.seed));
+    const widestFlatAxis = Math.max(spans.x, spans.y);
+
+    expect(spans.x).toBeGreaterThan(120);
+    expect(spans.y).toBeGreaterThan(120);
+    expect(spans.z).toBeGreaterThan(widestFlatAxis * 0.54);
+  });
+
+  it("enforces breathing room between settled complete-view nodes", () => {
+    const graph = buildNetgraph(chainSnapshot(22));
+    const positions = resultToPositionMap(settleNetgraphLayout(layoutRequestFromGraph(graph, 54)));
+
+    expect(minimumPairDistance(Array.from(positions.values()))).toBeGreaterThan(22);
+  });
+
   it("returns route path points in graph coordinates", () => {
     const graph = buildNetgraph(snapshot());
 
@@ -353,6 +370,29 @@ function depthSpan(values: number[]): number {
 
 function distanceFromOrigin(point: { x: number; y: number; z: number }): number {
   return Math.hypot(point.x, point.y, point.z);
+}
+
+function axisSpans(points: Array<{ x: number; y: number; z: number }>): { x: number; y: number; z: number } {
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  const zs = points.map((point) => point.z);
+  return {
+    x: Math.max(...xs) - Math.min(...xs),
+    y: Math.max(...ys) - Math.min(...ys),
+    z: Math.max(...zs) - Math.min(...zs),
+  };
+}
+
+function minimumPairDistance(points: Array<{ x: number; y: number; z: number }>): number {
+  let minimum = Number.POSITIVE_INFINITY;
+  for (let a = 0; a < points.length; a += 1) {
+    for (let b = a + 1; b < points.length; b += 1) {
+      const left = points[a]!;
+      const right = points[b]!;
+      minimum = Math.min(minimum, Math.hypot(right.x - left.x, right.y - left.y, right.z - left.z));
+    }
+  }
+  return minimum;
 }
 
 describe("packetObservationToNetgraphLiveVisual", () => {

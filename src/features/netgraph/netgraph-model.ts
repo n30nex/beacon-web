@@ -11,12 +11,12 @@ export const MAX_NETGRAPH_EDGES = 4200;
 export const MAX_NETGRAPH_PULSES = 360;
 export const MAX_NETGRAPH_GLOWS = 220;
 export const MAX_NETGRAPH_ROUTE_HEAT = 640;
-export const NETGRAPH_LAYOUT_WIDTH = 190;
-export const NETGRAPH_LAYOUT_HEIGHT = 124;
-export const NETGRAPH_LAYOUT_DEPTH = 430;
+export const NETGRAPH_LAYOUT_WIDTH = 260;
+export const NETGRAPH_LAYOUT_HEIGHT = 190;
+export const NETGRAPH_LAYOUT_DEPTH = 560;
 
 const NETGRAPH_LAYOUT_DEPTH_MIN = 150;
-const NETGRAPH_LAYOUT_DEPTH_SOFT_MAX = 980;
+const NETGRAPH_LAYOUT_DEPTH_SOFT_MAX = 1320;
 const NETGRAPH_FOCUS_DIRECT_RADIUS_BASE = 124;
 const NETGRAPH_FOCUS_DIRECT_RADIUS_GROWTH = 18;
 const NETGRAPH_FOCUS_CONTEXT_RADIUS_BASE = 252;
@@ -67,18 +67,18 @@ export interface NetgraphRenderTier {
 
 export const DEFAULT_NETGRAPH_GALAXY_PROFILE: NetgraphGalaxyProfile = {
   seedShape: "spherical",
-  clusterScale: 2.48,
+  clusterScale: 2.78,
   spiralIntensity: 0.5,
-  depthContrast: 3.24,
-  settleStrength: 1.72,
-  edgeSpacingScale: 2.56,
+  depthContrast: 3.72,
+  settleStrength: 1.88,
+  edgeSpacingScale: 2.92,
 };
 
 export const DEFAULT_NETGRAPH_VISUAL_PROFILE: NetgraphVisualProfile = {
   autoRotateSpeed: 1.34,
   orbitControlSpeed: 1,
   orbitDamping: 0.09,
-  nodeScale: 2.68,
+  nodeScale: 2.28,
   labelScale: 1.3,
   edgeOpacity: 1.02,
   labelDensity: 1,
@@ -89,7 +89,7 @@ export const DEFAULT_NETGRAPH_VISUAL_PROFILE: NetgraphVisualProfile = {
   cameraFov: 45,
   lightIntensity: 1.34,
   atmosphereDensity: 1.24,
-  cameraDistanceScale: 0.82,
+  cameraDistanceScale: 0.84,
   focusHaloScale: 1.08,
 };
 
@@ -286,11 +286,11 @@ export function normalizeGalaxyProfile(profile?: NetgraphGalaxyProfile): Netgrap
   const raw = profile ?? DEFAULT_NETGRAPH_GALAXY_PROFILE;
   return {
     seedShape: raw.seedShape === "spiral" ? "spiral" : "spherical",
-    clusterScale: clamp(raw.clusterScale, 0.6, 2.85),
+    clusterScale: clamp(raw.clusterScale, 0.6, 3.4),
     spiralIntensity: clamp(raw.spiralIntensity, 0, 1),
-    depthContrast: clamp(raw.depthContrast, 0.45, 3.4),
-    settleStrength: clamp(raw.settleStrength, 0.4, 2.4),
-    edgeSpacingScale: clamp(raw.edgeSpacingScale, 0.5, 3),
+    depthContrast: clamp(raw.depthContrast, 0.45, 4.2),
+    settleStrength: clamp(raw.settleStrength, 0.4, 2.8),
+    edgeSpacingScale: clamp(raw.edgeSpacingScale, 0.5, 3.6),
   };
 }
 
@@ -843,22 +843,22 @@ function applySeedLayout(
   const byId = new Map(nextNodes.map((node) => [node.id, node]));
   components.forEach((component, componentId) => {
     const cell = cells[componentId] ?? { x: width / 2, y: height / 2, width: width * 0.72, height: height * 0.72 };
-    const completeViewScale = components.length === 1 ? 1.9 : 1.24;
+    const completeViewScale = components.length === 1 ? 2.18 : 1.42;
     const spreadBase = components.length === 1
-      ? Math.min(width, height) * 0.5 * spacingScale
-      : Math.min(cell.width, cell.height) * 0.52 * spacingScale;
-    const spread = Math.max(20, spreadBase * Math.max(0.42, Math.sqrt(component.nodes.length / largest)) * profileSafe.clusterScale * completeViewScale);
-    const clusterRadius = Math.max(18, Math.min(spread * 0.92, Math.min(cell.width, cell.height) * 0.54));
+      ? Math.min(width, height) * 0.64 * spacingScale
+      : Math.min(cell.width, cell.height) * 0.66 * spacingScale;
+    const spread = Math.max(36, spreadBase * Math.max(0.48, Math.sqrt(component.nodes.length / largest)) * profileSafe.clusterScale * completeViewScale);
+    const clusterRadius = Math.max(30, Math.min(spread * 0.92, Math.max(cell.width, cell.height) * 0.78));
     const depthScale = completeViewDepthScale(nodes.length, edges.length, component.nodes.length);
     const bounds = latLngBounds(component.nodes);
-    const sphereScale = Math.max(0.82, Math.min(1.72, 0.58 + depthScale * 0.56 * depthScaleModifier));
+    const sphereScale = Math.max(0.92, Math.min(1.92, 0.68 + depthScale * 0.44 * depthScaleModifier));
     component.nodes
       .slice()
       .sort(compareNodesForLayout)
       .forEach((node, index) => {
         const hasGeoShape = bounds.latSpan > 0.01 || bounds.lngSpan > 0.01;
         const hasSpatialBias = hasGeoShape && component.nodes.length > 4;
-        const geoBlend = hasSpatialBias ? 0.1 : 0;
+        const geoBlend = hasSpatialBias ? 0.04 : 0;
         const bias = stableUnit(`${node.id}:component:${componentId}`, "netgraph-geo-bias");
         const seed = profileSafe.seedShape === "spiral"
           ? spiralSeed(index, component.nodes.length, clusterRadius * sphereScale, profileSafe.spiralIntensity, bias)
@@ -870,21 +870,20 @@ function applySeedLayout(
           ? ((bounds.maxLat - node.lat) / Math.max(bounds.latSpan, 0.01) - 0.5) * spread * 1.5
           : seed.y;
         const depthSpread = Math.max(
-          44,
+          72,
           Math.min(
-            depthEnvelope * clamp(0.95 + (depthScale - 1) * 0.26, 0.88, 1.65) * depthScaleModifier,
-            spread * (2.06 * depthScale * depthScaleModifier),
+            depthEnvelope * 0.74,
+            clusterRadius * clamp(1.08 + (depthScale - 1) * 0.34, 1, 2.15) * clamp(depthScaleModifier / 2.2, 0.95, 1.82),
           ),
         );
         const depthOffset = seed.z
-          * clamp(0.84 + (depthScale - 1) * 0.28, 0.82, 1.72)
-          * depthScaleModifier
-          * (depthSpread / Math.max(1, clusterRadius));
+          * clamp(1 + (depthScale - 1) * 0.2, 0.92, 1.58)
+          * clamp(depthScaleModifier / 2.8, 0.88, 1.42);
         const seeded = {
           x: cell.x + seed.x * (1 - geoBlend) + geoX * geoBlend - width / 2,
           y: cell.y + seed.y * (1 - geoBlend) + geoY * geoBlend - height / 2,
           z: clampDepth(
-            depthSeed(
+            depthOffset + depthSeed(
               node,
               componentId,
               components.length,
@@ -895,7 +894,7 @@ function applySeedLayout(
               depthScale,
               depthScaleModifier,
               spacingScale,
-            ) + depthOffset,
+            ) * 0.26,
             depthEnvelope,
           ),
         };
@@ -943,11 +942,11 @@ export function packedComponentCells(count: number, width: number, height: numbe
   if (count <= 0) return [];
   const columns = Math.max(1, Math.ceil(Math.sqrt(count * Math.max(0.72, width / Math.max(height, 1)))));
   const rows = Math.max(1, Math.ceil(count / columns));
-  const usedWidth = width * Math.min(0.86, count <= 2 ? 0.56 : 0.82);
-  const usedHeight = height * Math.min(0.8, count <= 2 ? 0.54 : 0.76);
+  const usedWidth = width * Math.min(0.94, count <= 2 ? 0.76 : 0.9);
+  const usedHeight = height * Math.min(0.9, count <= 2 ? 0.74 : 0.86);
   const cellWidth = usedWidth / columns;
   const cellHeight = usedHeight / rows;
-  const cellSize = Math.max(18, Math.min(cellWidth, cellHeight, Math.min(width, height) * 0.28));
+  const cellSize = Math.max(34, Math.min(cellWidth * 1.16, cellHeight * 1.16, Math.min(width, height) * 0.5));
   const slots: Array<{ column: number; row: number; distance: number }> = [];
   for (let row = 0; row < rows; row += 1) {
     for (let column = 0; column < columns; column += 1) {
@@ -1071,16 +1070,21 @@ function latLngBounds(nodes: NetgraphNode[]): { minLat: number; maxLat: number; 
 
 function sphericalSeed(index: number, count: number, radius: number, phaseOffset: number): { x: number; y: number; z: number } {
   if (count <= 1) return { x: 0, y: 0, z: 0 };
-  const t = (index + phaseOffset + 0.5) / Math.max(1, count);
-  const inclination = Math.acos(clamp(1 - 2 * t, -1, 1));
-  const azimuth = (index + phaseOffset) * Math.PI * (3 - Math.sqrt(5));
-  const radial = Math.pow(clamp(1e-6 + t, 0, 1), 1 / 3) * radius;
-  const sinInc = Math.sin(inclination);
+  const t = (index + 0.5) / Math.max(1, count);
+  const yUnit = clamp(1 - 2 * t, -1, 1);
+  const azimuth = (index + phaseOffset * count) * Math.PI * (3 - Math.sqrt(5)) + phaseOffset * Math.PI * 2;
+  const radial = radius * (0.68 + pseudoUnit(index, phaseOffset) * 0.32);
+  const sinInc = Math.sqrt(Math.max(0, 1 - yUnit * yUnit));
   return {
     x: radial * Math.cos(azimuth) * sinInc,
-    y: radial * Math.cos(inclination),
+    y: radial * yUnit,
     z: radial * Math.sin(azimuth) * sinInc,
   };
+}
+
+function pseudoUnit(index: number, phaseOffset: number): number {
+  const raw = Math.sin((index + 1) * 12.9898 + phaseOffset * 78.233) * 43758.5453;
+  return raw - Math.floor(raw);
 }
 
 function spiralSeed(index: number, count: number, radius: number, intensity: number, phaseOffset: number): { x: number; y: number; z: number } {
