@@ -11,24 +11,17 @@ import {
   buildNetgraph,
   applyLayoutPositions,
   graphSearchMatches,
-  DEFAULT_NETGRAPH_GALAXY_PROFILE,
-  DEFAULT_NETGRAPH_VISUAL_PROFILE,
-  normalizeGalaxyProfile,
-  normalizeVisualProfile,
   DEFAULT_NETGRAPH_ROUTE_LIMIT,
-  type NetgraphQualityMode,
-  type NetgraphCinematicPreset,
-  type NetgraphGalaxyProfile,
-  type NetgraphVisualProfile,
   type NetgraphRouteLimit,
+  type NetgraphVisualMode,
 } from "./netgraph-model";
 import { layoutRequestFromGraph, resultToPositionMap, settleNetgraphLayout, type NetgraphLayoutResult } from "./netgraph-layout";
 import { EmptyTopologyState, TopologySnapshotErrorState } from "./NetgraphRouteStates";
 import { NetgraphSettingsIcon, NetgraphSettingsPanel } from "./NetgraphSettingsPanel";
 import {
-  CINEMATIC_PRESETS,
   MOBILE_NETGRAPH_QUERY,
   MOBILE_NETGRAPH_ROUTE_LIMIT,
+  NETGRAPH_VISUAL_MODE_CONFIGS,
   defaultRouteLimitForViewport,
 } from "./netgraph-settings-config";
 import { FallbackList, Inspector, NodeInspector } from "./NetgraphPanels";
@@ -124,24 +117,25 @@ export function NetgraphView({ selectedNodeId, onSelectNode, wsManager }: Netgra
     selectNode,
     selectRoute,
     selectedRouteId,
-    setViewMode,
     viewMode,
     viewNodeOnMap,
     viewRouteOnMap,
   } = useNetgraphSelection({ selectedNodeId, onSelectNode });
   const [routeLimit, setRouteLimit] = useState<NetgraphRouteLimit>(() => defaultRouteLimitForViewport());
   const [routeLimitTouched, setRouteLimitTouched] = useState(false);
-  const [cinematicPreset, setCinematicPreset] = useState<NetgraphCinematicPreset>("cinematic");
-  const [galaxyProfile, setGalaxyProfile] = useState(normalizeGalaxyProfile(DEFAULT_NETGRAPH_GALAXY_PROFILE));
-  const [visualProfile, setVisualProfile] = useState(normalizeVisualProfile(DEFAULT_NETGRAPH_VISUAL_PROFILE));
+  const [visualMode, setVisualMode] = useState<NetgraphVisualMode>("galaxy");
   const [webglError, setWebglError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [qualityMode, setQualityMode] = useState<NetgraphQualityMode>("auto");
   const [showDataQuality, setShowDataQuality] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const deferredQuery = useDeferredValue(query);
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const isMobile = useMediaQuery(MOBILE_NETGRAPH_QUERY);
+  const visualModeConfig = NETGRAPH_VISUAL_MODE_CONFIGS[visualMode];
+  const galaxyProfile = visualModeConfig.galaxy;
+  const visualProfile = visualModeConfig.visual;
+  const qualityMode = visualModeConfig.quality;
+  const canvasShowDataQuality = visualMode === "galaxy" && showDataQuality;
 
   useEffect(() => {
     if (!routeLimitTouched && isMobile && routeLimit === DEFAULT_NETGRAPH_ROUTE_LIMIT) {
@@ -155,19 +149,6 @@ export function NetgraphView({ selectedNodeId, onSelectNode, wsManager }: Netgra
     setRouteLimitTouched(true);
     setRouteLimit(limit);
   }, []);
-  const applyCinematicPreset = useCallback((preset: NetgraphCinematicPreset) => {
-    const config = CINEMATIC_PRESETS[preset];
-    setCinematicPreset(preset);
-    setGalaxyProfile(normalizeGalaxyProfile(config.galaxy));
-    setVisualProfile(normalizeVisualProfile(config.visual));
-  }, []);
-  const changeGalaxyProfile = useCallback((next: NetgraphGalaxyProfile) => {
-    setGalaxyProfile(normalizeGalaxyProfile(next));
-  }, []);
-  const changeVisualProfile = useCallback((next: NetgraphVisualProfile) => {
-    setVisualProfile(normalizeVisualProfile(next));
-  }, []);
-
   const snapshot = useQuery({
     queryKey: ["netgraph-snapshot", regionKey, routeLimit],
     queryFn: () => getNetgraphSnapshot({ iatas, routeLimit }),
@@ -313,7 +294,7 @@ export function NetgraphView({ selectedNodeId, onSelectNode, wsManager }: Netgra
               selectedRouteId={selectedRouteId}
               viewMode={viewMode}
               qualityMode={qualityMode}
-              showDataQuality={showDataQuality}
+              showDataQuality={canvasShowDataQuality}
               visualProfile={visualProfile}
               searchMatches={searchMatches}
               pulses={pulses}
@@ -330,22 +311,12 @@ export function NetgraphView({ selectedNodeId, onSelectNode, wsManager }: Netgra
         <NetgraphSettingsPanel
           open={settingsOpen}
           isMobile={isMobile}
-          selectedNodeId={effectiveSelectedNodeId}
-          selectedRouteId={selectedRouteId}
           routeLimit={routeLimit}
-          cinematicPreset={cinematicPreset}
-          galaxyProfile={galaxyProfile}
-          visualProfile={visualProfile}
-          viewMode={viewMode}
-          quality={qualityMode}
           showDataQuality={showDataQuality}
+          visualMode={visualMode}
           onChangeRouteLimit={changeRouteLimit}
-          onChangePreset={applyCinematicPreset}
-          onChangeMode={setViewMode}
-          onChangeQuality={setQualityMode}
+          onChangeVisualMode={setVisualMode}
           onToggleDataQuality={() => setShowDataQuality((value) => !value)}
-          onChangeGalaxyProfile={changeGalaxyProfile}
-          onChangeVisualProfile={changeVisualProfile}
           onClose={() => setSettingsOpen(false)}
         />
         <div className="netgraph-live-pill pointer-events-auto absolute bottom-2 left-2 z-10 hidden max-w-[calc(100%-1rem)] items-center gap-2 rounded-sm border border-border bg-bg-surface/88 px-2 py-1.5 font-mono text-[10px] shadow-2xl backdrop-blur-md md:bottom-3 md:left-3 md:inline-flex md:px-3 md:py-2 md:text-[11px]">

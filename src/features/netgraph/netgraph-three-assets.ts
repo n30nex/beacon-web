@@ -78,15 +78,6 @@ export const PLANET_TEXTURE_NAMES: readonly PlanetTextureName[] = [
   "planet_orange_warning",
 ];
 
-const ROLE_PLANET_TEXTURES: Record<NetgraphRole, readonly PlanetTextureName[]> = {
-  repeater: ["planet_emerald_relay", "planet_teal_data", "planet_blue_core"],
-  companion: ["planet_azure_companion", "planet_cyan_ice"],
-  room: ["planet_violet_room", "planet_magenta_nebula"],
-  observer: ["planet_amber_observer", "planet_gold_ring", "planet_orange_warning"],
-  sensor: ["planet_lime_sensor", "planet_teal_data"],
-  other: ["planet_slate_unknown", "planet_cyan_ice"],
-};
-
 function assetPath(...parts: string[]): string {
   return `${NETGRAPH_ASSET_BASE}/${parts.join("/")}`;
 }
@@ -174,9 +165,6 @@ function guessNodeTextureType(nodeTypeName: string | undefined, role: NetgraphRo
   for (const [needle, mapped] of Object.entries(NODE_TEXTURE_HINTS)) {
     if (base.includes(needle)) return mapped;
   }
-  if (base.includes("companion")) return NODE_TEXTURE_HINTS.user;
-  if (base.includes("repeater")) return NODE_TEXTURE_HINTS.relay;
-  if (base.includes("room")) return NODE_TEXTURE_HINTS.service;
   if (base.includes("sensor")) return NODE_TEXTURE_HINTS.sensor;
   return role === "observer" ? NODE_TEXTURE_HINTS.gateway : NODE_TEXTURE_HINTS.unknown;
 }
@@ -208,8 +196,7 @@ export function nodePlanetTextureName(node: Pick<NetgraphNode, "id" | "nodeTypeN
   if (guessed === NODE_TEXTURE_HINTS.service) return "planet_violet_room";
   if (guessed === NODE_TEXTURE_HINTS.user) return "planet_azure_companion";
   if (guessed === NODE_TEXTURE_HINTS.relay) return "planet_emerald_relay";
-  const roleTextures = ROLE_PLANET_TEXTURES[node.role];
-  return roleTextures[hashNodeTextureSeed(node.id) % roleTextures.length] ?? "planet_slate_unknown";
+  return PLANET_TEXTURE_NAMES[hashNodeTextureSeed(`${node.role}:${node.nodeTypeName ?? ""}:${node.id}`) % PLANET_TEXTURE_NAMES.length] ?? "planet_slate_unknown";
 }
 
 export function backdropTextureForViewport(width: number, height: number, shape: "spherical" | "spiral", focusMode: boolean): string {

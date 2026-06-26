@@ -19,6 +19,7 @@ import {
 export interface RoleMesh {
   mesh: THREE.InstancedMesh;
   nodeIndices: number[];
+  usesTexture: boolean;
 }
 
 export const ROLE_COLORS: Record<NetgraphRole, string> = {
@@ -29,6 +30,8 @@ export const ROLE_COLORS: Record<NetgraphRole, string> = {
   sensor: "#a6f43b",
   other: "#9aa6bb",
 };
+
+const WHITE = new THREE.Color("#ffffff");
 
 function planetGeometry(highQuality: boolean, batteryQuality: boolean): THREE.SphereGeometry {
   return new THREE.SphereGeometry(1, highQuality && !batteryQuality ? 34 : 22, highQuality && !batteryQuality ? 24 : 16);
@@ -74,8 +77,8 @@ export function createRoleMeshes(options: {
       : new THREE.MeshStandardMaterial({
         color: 0xffffff,
         map: nodeTexture ?? undefined,
-        emissive: new THREE.Color(ROLE_COLORS[role]).multiplyScalar(0.62),
-        emissiveIntensity: options.highQuality ? 0.72 : options.narrowViewport ? 0.5 : 0.42,
+        emissive: new THREE.Color(ROLE_COLORS[role]).multiplyScalar(0.18),
+        emissiveIntensity: options.highQuality ? 0.45 : options.narrowViewport ? 0.32 : 0.26,
         vertexColors: true,
         metalness: 0.12,
         roughness: 0.42,
@@ -93,7 +96,8 @@ export function createRoleMeshes(options: {
       mesh.setMatrixAt(instanceIndex, matrix);
     });
     mesh.instanceMatrix.needsUpdate = true;
-    roleMeshes.push({ mesh, nodeIndices });
+    mesh.userData.usesTexture = useTexture;
+    roleMeshes.push({ mesh, nodeIndices, usesTexture: useTexture });
   }
 
   return roleMeshes;
@@ -117,27 +121,29 @@ export function paintRoleMeshes(options: {
 }): void {
   const color = new THREE.Color();
   const now = options.now ?? Date.now();
-  for (const { mesh, nodeIndices } of options.roleMeshes) {
+  for (const { mesh, nodeIndices, usesTexture } of options.roleMeshes) {
     nodeIndices.forEach((nodeIndex, instanceIndex) => {
       const node = options.graph.nodes[nodeIndex]!;
-      color.set(ROLE_COLORS[node.role]);
+      const roleColor = new THREE.Color(ROLE_COLORS[node.role]);
+      if (usesTexture) color.set(WHITE).lerp(roleColor, 0.1);
+      else color.set(roleColor);
       if (node.id === options.selectedNodeId || node.id === options.hoverNodeId) {
-        color.lerp(new THREE.Color("#ffffff"), 0.5);
+        color.lerp(WHITE, usesTexture ? 0.22 : 0.5);
       } else if (options.directNodeNeighbors.has(node.id)) {
-        color.lerp(new THREE.Color("#ffffff"), 0.28);
+        color.lerp(WHITE, usesTexture ? 0.16 : 0.28);
       } else if (options.secondHopNeighbors.has(node.id)) {
-        color.lerp(options.primary, 0.16);
+        color.lerp(options.primary, usesTexture ? 0.08 : 0.16);
       } else if (options.searchMatches.size > 0 && !options.searchMatches.has(node.id)) {
-        color.lerp(options.bg, 0.58);
+        color.lerp(options.bg, usesTexture ? 0.32 : 0.58);
       } else if (options.selectedNodes.size > 0 && !options.selectedNodes.has(node.id)) {
-        color.lerp(options.bg, options.nodeFocusActive ? 0.82 : 0.72);
+        color.lerp(options.bg, usesTexture ? (options.nodeFocusActive ? 0.58 : 0.46) : (options.nodeFocusActive ? 0.82 : 0.72));
       } else if (options.selectedNodes.has(node.id)) {
-        color.lerp(options.primary, 0.36);
+        color.lerp(options.primary, usesTexture ? 0.14 : 0.36);
       } else if (node.degree <= 1) {
-        color.lerp(options.muted, 0.18);
+        color.lerp(options.muted, usesTexture ? 0.08 : 0.18);
       }
-      if (options.showDataQuality && nodeMissingGeo(node)) color.lerp(new THREE.Color("#ffd45a"), 0.22);
-      if (options.showDataQuality && nodeIsStale(node, now)) color.lerp(options.muted, 0.48);
+      if (options.showDataQuality && nodeMissingGeo(node)) color.lerp(new THREE.Color("#ffd45a"), usesTexture ? 0.12 : 0.22);
+      if (options.showDataQuality && nodeIsStale(node, now)) color.lerp(options.muted, usesTexture ? 0.28 : 0.48);
       mesh.setColorAt(instanceIndex, color);
     });
     mesh.instanceColor!.needsUpdate = true;

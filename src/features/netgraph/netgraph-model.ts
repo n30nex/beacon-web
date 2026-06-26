@@ -51,6 +51,7 @@ export interface NetgraphVisualProfile {
 }
 
 export type NetgraphExperienceMode = "galaxy" | "focus" | "routes" | "live";
+export type NetgraphVisualMode = "galaxy" | "low-power";
 export type NetgraphCinematicPreset = "cinematic" | "clarity" | "performance" | "presentation";
 export type NetgraphRenderTierName = "cinematic" | "balanced" | "battery";
 
@@ -76,18 +77,18 @@ export const DEFAULT_NETGRAPH_VISUAL_PROFILE: NetgraphVisualProfile = {
   autoRotateSpeed: 1.34,
   orbitControlSpeed: 1,
   orbitDamping: 0.09,
-  nodeScale: 2.42,
-  labelScale: 1.24,
+  nodeScale: 2.68,
+  labelScale: 1.3,
   edgeOpacity: 1.02,
-  labelDensity: 0.86,
+  labelDensity: 1,
   pulseDensity: 1.38,
   glowDensity: 1.28,
   glowIntensity: 1.62,
   starDensity: 1.16,
   cameraFov: 45,
-  lightIntensity: 1.28,
+  lightIntensity: 1.34,
   atmosphereDensity: 1.24,
-  cameraDistanceScale: 0.9,
+  cameraDistanceScale: 0.82,
   focusHaloScale: 1.08,
 };
 

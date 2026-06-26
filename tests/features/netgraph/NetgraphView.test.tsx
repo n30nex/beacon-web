@@ -222,38 +222,31 @@ describe("NetgraphView", () => {
     await waitFor(() => expect(mockGetNetgraphSnapshot).toHaveBeenCalledWith({ iatas: undefined, routeLimit: 1600 }));
   });
 
-  it("passes view, quality, and data overlay controls into the 3D canvas", async () => {
+  it("passes Galaxy and Low Power visual modes into the 3D canvas", async () => {
     renderNetgraph();
     await screen.findByTestId("mock-netgraph-canvas");
 
     expect(screen.getByLabelText("canvas mode")).toHaveTextContent("galaxy");
-    expect(screen.getByLabelText("canvas quality")).toHaveTextContent("auto");
+    expect(screen.getByLabelText("canvas quality")).toHaveTextContent("high");
     expect(screen.getByLabelText("canvas data overlay")).toHaveTextContent("on");
 
     fireEvent.click(screen.getByRole("button", { name: "Open netgraph settings" }));
-    fireEvent.click(screen.getByRole("button", { name: "Live" }));
-    fireEvent.click(screen.getByRole("button", { name: "Battery" }));
-    fireEvent.click(screen.getByRole("button", { name: /data quality/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Low Power/ }));
 
-    expect(screen.getByLabelText("canvas mode")).toHaveTextContent("live");
     expect(screen.getByLabelText("canvas quality")).toHaveTextContent("battery");
     expect(screen.getByLabelText("canvas data overlay")).toHaveTextContent("off");
   });
 
-  it("offers cinematic presets with advanced tuning kept behind a disclosure", async () => {
+  it("keeps settings focused on the two visual modes", async () => {
     renderNetgraph();
     await screen.findByTestId("mock-netgraph-canvas");
 
     fireEvent.click(screen.getByRole("button", { name: "Open netgraph settings" }));
 
-    expect(screen.getByRole("group", { name: "Netgraph cinematic preset" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Cinematic/ })).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", { name: /Presentation/ }));
-    expect(screen.getByRole("button", { name: /Presentation/ })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText("Advanced")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("Advanced"));
-    expect(screen.getByText("Galaxy layout")).toBeInTheDocument();
-    expect(screen.getByText("Cinematic render")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Netgraph visual mode" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Galaxy/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /Low Power/ })).toBeInTheDocument();
+    expect(screen.queryByText("Advanced")).not.toBeInTheDocument();
   });
 
   it("focuses search matches without leaving the canvas", async () => {

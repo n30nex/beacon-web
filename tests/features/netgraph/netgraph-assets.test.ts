@@ -57,4 +57,16 @@ describe("netgraph planet node assets", () => {
       expect(nodeTextureFile(item, item.id, new Set([item.id]), true)).toBe(`/netgraph-asset-pack/beacon_netgraph_asset_pack/nodes/planets/selected/${textureName}.png`);
     }
   });
+
+  it("spreads generic repeated nodes across the planet texture pack", () => {
+    const textures = new Set(
+      Array.from({ length: 28 }, (_, index) => {
+        const item = node("repeater", "Repeater");
+        item.id = `generic-repeater-${index}`;
+        return nodePlanetTextureName(item);
+      }),
+    );
+
+    expect(textures.size).toBeGreaterThan(6);
+  });
 });

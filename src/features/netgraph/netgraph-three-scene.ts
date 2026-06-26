@@ -5,6 +5,15 @@ import { clamp } from "./netgraph-three-geometry";
 
 const MAX_LABELS = 3200;
 
+export function routeCountLabelScale(routeCount: number, maxRouteCount: number, denseGraph: boolean): number {
+  const maxWeight = Math.max(1, Math.log1p(Math.max(0, maxRouteCount)));
+  const routeWeight = Math.log1p(Math.max(0, routeCount));
+  const normalized = clamp(routeWeight / maxWeight, 0, 1);
+  const base = denseGraph ? 0.88 : 0.92;
+  const lift = denseGraph ? 0.28 : 0.38;
+  return base + normalized * lift;
+}
+
 export function cssColor(element: HTMLElement, name: string, fallback: string): THREE.Color {
   const value = getComputedStyle(element).getPropertyValue(name).trim();
   return new THREE.Color(value || fallback);
@@ -211,13 +220,11 @@ export function createNodeLabelSprites(options: {
     options.directNodeNeighbors.has(id) ||
     options.selectedNodes.has(id)
   ).length;
-  const baseLabelCap = options.denseGraph
-    ? options.narrowViewport ? 44 : 96
-    : options.narrowViewport ? 72 : 180;
-  const requestedLabelCap = Math.floor(baseLabelCap * options.labelDensity * options.labelBudgetScale);
-  const minimumLabelCap = Math.max(1, priorityLabelCount);
+  const requestedLabelCap = Math.floor(visibleLabelIds.length * options.labelDensity * options.labelBudgetScale);
+  const minimumLabelCap = options.labelDensity >= 0.98 ? visibleLabelIds.length : Math.max(1, priorityLabelCount);
   const labelCap = Math.min(MAX_LABELS, Math.max(minimumLabelCap, requestedLabelCap));
   const labelIds = visibleLabelIds.slice(0, labelCap);
+  const maxRouteCount = Math.max(0, ...labelIds.map((id) => options.graph.nodeById.get(id)?.routeCount ?? 0));
   const sprites: THREE.Sprite[] = [];
   const primaryCount = options.denseGraph
     ? options.narrowViewport ? 10 : 18
@@ -231,8 +238,10 @@ export function createNodeLabelSprites(options: {
     const labelColor = isSelectedOrSearch || isDirectFocus || isRouteContext ? "#ffffff" : options.roleColors[node.role];
     const isPriority = isSelectedOrSearch || isDirectFocus || isRouteContext || (!options.nodeFocusActive && index < primaryCount);
     const sprite = makeLabelSprite(node.label, labelColor, isPriority ? "primary" : "secondary");
-    sprite.scale.multiplyScalar(options.labelScale * (isPriority ? (options.denseGraph ? 1.04 : 1.08) : (options.denseGraph ? 0.66 : 0.78)));
-    const labelRadius = node.radius * options.labelScale;
+    const routeScale = routeCountLabelScale(node.routeCount, maxRouteCount, options.denseGraph);
+    const tierScale = isPriority ? (options.denseGraph ? 1.04 : 1.08) : (options.denseGraph ? 0.66 : 0.78);
+    sprite.scale.multiplyScalar(options.labelScale * tierScale * routeScale);
+    const labelRadius = node.radius * options.labelScale * routeScale;
     const labelDrop = labelRadius * (options.narrowViewport ? 2.55 : 1.92) + sprite.scale.y * (isPriority ? 0.3 : 0.18);
     sprite.position.set(node.position.x, node.position.y - labelDrop, node.position.z + labelRadius * (isPriority ? 1.34 : 0.96) + (isPriority ? 10 : 5));
     options.group.add(sprite);

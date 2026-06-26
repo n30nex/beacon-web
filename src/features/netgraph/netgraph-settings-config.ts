@@ -4,12 +4,61 @@ import {
   DEFAULT_NETGRAPH_VISUAL_PROFILE,
   type NetgraphCinematicPreset,
   type NetgraphGalaxyProfile,
+  type NetgraphQualityMode,
   type NetgraphRouteLimit,
+  type NetgraphVisualMode,
   type NetgraphVisualProfile,
 } from "./netgraph-model";
 
 export const MOBILE_NETGRAPH_ROUTE_LIMIT: NetgraphRouteLimit = 800;
 export const MOBILE_NETGRAPH_QUERY = "(max-width: 767px)";
+
+export const NETGRAPH_VISUAL_MODE_CONFIGS: Record<NetgraphVisualMode, {
+  label: string;
+  detail: string;
+  quality: NetgraphQualityMode;
+  galaxy: NetgraphGalaxyProfile;
+  visual: NetgraphVisualProfile;
+}> = {
+  galaxy: {
+    label: "Galaxy",
+    detail: "Full assets / live packets",
+    quality: "high",
+    galaxy: DEFAULT_NETGRAPH_GALAXY_PROFILE,
+    visual: DEFAULT_NETGRAPH_VISUAL_PROFILE,
+  },
+  "low-power": {
+    label: "Low Power",
+    detail: "FPS / lean render",
+    quality: "battery",
+    galaxy: {
+      ...DEFAULT_NETGRAPH_GALAXY_PROFILE,
+      seedShape: "spherical",
+      clusterScale: 2.02,
+      spiralIntensity: 0.1,
+      depthContrast: 2.72,
+      settleStrength: 1.18,
+      edgeSpacingScale: 1.92,
+    },
+    visual: {
+      ...DEFAULT_NETGRAPH_VISUAL_PROFILE,
+      autoRotateSpeed: 0,
+      orbitDamping: 0.12,
+      nodeScale: 2,
+      labelScale: 0.96,
+      labelDensity: 0.42,
+      edgeOpacity: 0.45,
+      pulseDensity: 0,
+      glowDensity: 0,
+      glowIntensity: 0.55,
+      starDensity: 0.2,
+      lightIntensity: 0.88,
+      atmosphereDensity: 0.25,
+      cameraDistanceScale: 1.06,
+      focusHaloScale: 0.58,
+    },
+  },
+};
 
 export const CINEMATIC_PRESETS: Record<NetgraphCinematicPreset, {
   label: string;
