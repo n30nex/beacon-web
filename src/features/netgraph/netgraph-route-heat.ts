@@ -4,8 +4,7 @@ import {
   type NetgraphRouteHeat,
 } from "./netgraph-model";
 
-export const ROUTE_HEAT_DECAY_MS = 11800;
-export const ROUTE_HEAT_ATTACK_FRACTION = 0.48;
+export const ROUTE_HEAT_DECAY_MS = 10000;
 const ROUTE_HEAT_PRUNE_FLOOR = 0.018;
 
 export function routeHeatIntensityAt(heat: NetgraphRouteHeat, now: number): number {
@@ -40,17 +39,17 @@ export function mergePulseRouteHeat(
   const segmentDuration = pulse.durationMs / pulse.segments.length;
   for (const [segmentIndex, segment] of pulse.segments.entries()) {
     const segmentStart = pulse.startedAt + segmentIndex * segmentDuration;
-    const peakAt = segmentStart + segmentDuration * ROUTE_HEAT_ATTACK_FRACTION;
+    const segmentEnd = segmentStart + segmentDuration;
+    const peakAt = segmentEnd;
     const decayUntil = peakAt + ROUTE_HEAT_DECAY_MS;
     const existing = byEdge.get(segment.edgeId);
     const existingIntensity = existing ? routeHeatIntensityAt(existing, Math.max(now, segmentStart)) : 0;
     const isTerminal = segmentIndex === pulse.segments.length - 1;
-    const color = isTerminal ? pulse.rxColor : segmentIndex === 0 ? pulse.txColor : pulse.color;
     byEdge.set(segment.edgeId, {
       id: segment.edgeId,
       edgeId: segment.edgeId,
       payloadTypeName: pulse.payloadTypeName,
-      color,
+      color: pulse.color,
       direction: segment.reverse ? "rx" : "tx",
       reverse: segment.reverse,
       intensity: Math.min(2.45, existingIntensity + (isTerminal ? 0.96 : 0.78)),

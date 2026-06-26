@@ -4,6 +4,7 @@ import {
   focusedNodeNeighborhoodLayout,
   graphSearchMatches,
   importantLabelNodeIds,
+  netgraphLayoutSignature,
   nodeDirectEdgeIds,
   nodeDirectNeighborIds,
   nodeSecondHopNeighborIds,
@@ -198,6 +199,31 @@ describe("buildNetgraph", () => {
     const positionsA = resultToPositionMap(settleNetgraphLayout(layoutRequestFromGraph(graphA, 20)));
     const positionsB = resultToPositionMap(settleNetgraphLayout(layoutRequestFromGraph(graphB, 20)));
     expect(positionsA.get("node-alpha")).toEqual(positionsB.get("node-alpha"));
+  });
+
+  it("keeps the same layout signature for stat-only refreshes", () => {
+    const base = buildNetgraph(snapshot());
+    const refreshed = buildNetgraph(snapshot({
+      serverTime: 999999,
+      stats: { ...snapshot().stats, observationCount: 999, mappedRouteCount: 8 },
+      nodes: snapshot().nodes.map((item) => ({ ...item, lastSeen: item.lastSeen + 60000, observationCount: item.observationCount + 50 })),
+      edges: snapshot().edges.map((item) => ({ ...item, lastSeen: item.lastSeen + 60000, observationCount: item.observationCount + 50 })),
+    }));
+    const changed = buildNetgraph(snapshot({
+      stats: { ...snapshot().stats, edgeCount: 3 },
+      edges: [
+        ...snapshot().edges,
+        {
+          ...snapshot().edges[0]!,
+          id: "node-alpha>node-charlie",
+          fromNodeId: "node-alpha",
+          toNodeId: "node-charlie",
+        },
+      ],
+    }));
+
+    expect(netgraphLayoutSignature(refreshed)).toBe(netgraphLayoutSignature(base));
+    expect(netgraphLayoutSignature(changed)).not.toBe(netgraphLayoutSignature(base));
   });
 
   it("settles nodes into meaningful 3D depth instead of a flat XY sheet", () => {

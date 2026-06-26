@@ -1,5 +1,5 @@
-import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useState, type SVGProps } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type SVGProps } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import "./netgraph.css";
 import { getNetgraphSnapshot } from "../../api/client";
 import type { WsManager } from "../../api/ws-manager";
@@ -11,6 +11,7 @@ import {
   buildNetgraph,
   applyLayoutPositions,
   graphSearchMatches,
+  netgraphLayoutSignature,
   DEFAULT_NETGRAPH_ROUTE_LIMIT,
   type NetgraphRouteLimit,
   type NetgraphVisualMode,
@@ -152,64 +153,67 @@ export function NetgraphView({ selectedNodeId, onSelectNode, wsManager }: Netgra
   const snapshot = useQuery({
     queryKey: ["netgraph-snapshot", regionKey, routeLimit],
     queryFn: () => getNetgraphSnapshot({ iatas, routeLimit }),
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    staleTime: Infinity,
+    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
   const seededGraph = useMemo(() => buildNetgraph(snapshot.data, galaxyProfile), [snapshot.data, galaxyProfile]);
+  const layoutSignature = useMemo(() => netgraphLayoutSignature(seededGraph, galaxyProfile), [galaxyProfile, seededGraph]);
   const [graph, setGraph] = useState(seededGraph);
   const [layoutSettling, setLayoutSettling] = useState(false);
+  const graphRef = useRef(graph);
+  const appliedLayoutSignatureRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    graphRef.current = graph;
+  }, [graph]);
 
   useEffect(() => {
     let cancelled = false;
-    const resetTimer = window.setTimeout(() => {
-      if (!cancelled) {
-        setGraph(seededGraph);
-        setLayoutSettling(seededGraph.nodes.length > 0);
-      }
-    }, 0);
+    if (appliedLayoutSignatureRef.current === layoutSignature) return undefined;
     if (seededGraph.nodes.length === 0) {
-      return () => {
-        cancelled = true;
-        window.clearTimeout(resetTimer);
-      };
+      appliedLayoutSignatureRef.current = layoutSignature;
+      if (graphRef.current.nodes.length === 0) {
+        setGraph(seededGraph);
+        setLayoutSettling(false);
+      }
+      return undefined;
     }
+    const hasVisibleGraph = graphRef.current.nodes.length > 0;
+    if (!hasVisibleGraph) setLayoutSettling(true);
     const ticks = isMobile || reducedMotion ? 82 : seededGraph.nodes.length > 1200 ? 104 : 130;
     const request = layoutRequestFromGraph(seededGraph, ticks, undefined, galaxyProfile);
+    const applySettledGraph = (result: NetgraphLayoutResult) => {
+      if (cancelled) return;
+      appliedLayoutSignatureRef.current = layoutSignature;
+      setGraph(applyLayoutPositions(seededGraph, resultToPositionMap(result)));
+      setLayoutSettling(false);
+    };
     if (typeof Worker === "undefined") {
       const result = settleNetgraphLayout(request);
       const settleTimer = window.setTimeout(() => {
-        if (!cancelled) {
-          setGraph(applyLayoutPositions(seededGraph, resultToPositionMap(result)));
-          setLayoutSettling(false);
-        }
+        applySettledGraph(result);
       }, 0);
       return () => {
         cancelled = true;
-        window.clearTimeout(resetTimer);
         window.clearTimeout(settleTimer);
       };
     }
     const worker = new Worker(new URL("./netgraph-layout.worker.ts", import.meta.url), { type: "module" });
     worker.onmessage = (event: MessageEvent<NetgraphLayoutResult>) => {
-      if (!cancelled) {
-        setGraph(applyLayoutPositions(seededGraph, resultToPositionMap(event.data)));
-        setLayoutSettling(false);
-      }
+      applySettledGraph(event.data);
     };
     worker.onerror = () => {
-      if (!cancelled) {
-        setGraph(applyLayoutPositions(seededGraph, resultToPositionMap(settleNetgraphLayout(request))));
-        setLayoutSettling(false);
-      }
+      applySettledGraph(settleNetgraphLayout(request));
       worker.terminate();
     };
     worker.postMessage(request);
     return () => {
       cancelled = true;
-      window.clearTimeout(resetTimer);
       worker.terminate();
     };
-  }, [galaxyProfile, isMobile, reducedMotion, seededGraph]);
+  }, [galaxyProfile, isMobile, layoutSignature, reducedMotion, seededGraph]);
 
   const searchMatches = useMemo(() => graphSearchMatches(graph, deferredQuery), [deferredQuery, graph]);
   const { glows, liveStats, pulses, routeHeat } = useNetgraphLiveVisuals({ graph, iatas, regionKey, routeLimit, wsManager });
@@ -278,11 +282,7 @@ export function NetgraphView({ selectedNodeId, onSelectNode, wsManager }: Netgra
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {graph.nodes.length === 0 ? (
           <div className="absolute inset-0">
-            <EmptyTopologyState />
-          </div>
-        ) : layoutSettling ? (
-          <div className="absolute inset-0 grid place-items-center p-4 text-center">
-            <TerminalLoadingState label="SETTLING NETGRAPH" detail="Packing topology for this device." />
+            {layoutSettling ? <TerminalLoadingState label="PREPARING NETGRAPH" detail="Building stable topology." /> : <EmptyTopologyState />}
           </div>
         ) : webglError ? (
           <FallbackList graph={graph} selectedRouteId={selectedRouteId} onSelectRoute={selectRoute} />

@@ -129,8 +129,8 @@ export function ThreeNetgraphCanvas({
   const glowsRef = useRef(glows);
   const routeHeatRef = useRef(routeHeat);
   const [hovered, setHovered] = useState<NetgraphHoverState | null>(null);
-  const [orbitActive, setOrbitActive] = useState(!reducedMotion);
-  const orbitActiveRef = useRef(!reducedMotion);
+  const [orbitActive, setOrbitActive] = useState(false);
+  const orbitActiveRef = useRef(false);
   const [controlMode, setControlMode] = useState<NetgraphControlMode>("orbit");
   const displayedOrbitActive = orbitActive && !reducedMotion;
   const {
@@ -764,6 +764,7 @@ export function ThreeNetgraphCanvas({
         graph: renderGraph,
         glowIntensityScale,
         narrowViewport,
+        nodeFocusActive,
         now: nowMs,
         routeHeat: routeHeatRef.current,
         time,

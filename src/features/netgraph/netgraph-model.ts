@@ -261,6 +261,27 @@ export function buildNetgraph(snapshot: NetgraphSnapshot | undefined, profile?: 
   };
 }
 
+export function netgraphLayoutSignature(graph: NetgraphGraph, profile?: NetgraphGalaxyProfile): string {
+  const safeProfile = normalizeGalaxyProfile(profile);
+  const profileKey = [
+    safeProfile.seedShape,
+    safeProfile.clusterScale.toFixed(3),
+    safeProfile.spiralIntensity.toFixed(3),
+    safeProfile.depthContrast.toFixed(3),
+    safeProfile.settleStrength.toFixed(3),
+    safeProfile.edgeSpacingScale.toFixed(3),
+  ].join(":");
+  const nodeKey = graph.nodes
+    .map((node) => `${node.id}:${node.role}:${node.nodeTypeName}:${node.routeCount}`)
+    .sort()
+    .join("|");
+  const edgeKey = graph.edges
+    .map((edge) => `${edge.id}:${edge.fromId}:${edge.toId}:${edge.routeCount}:${edge.routeIds.join(",")}`)
+    .sort()
+    .join("|");
+  return `${graph.nodes.length}:${graph.edges.length}:${profileKey}:${stableHash(nodeKey).toString(16)}:${stableHash(edgeKey).toString(16)}`;
+}
+
 export function normalizeGalaxyProfile(profile?: NetgraphGalaxyProfile): NetgraphGalaxyProfile {
   const raw = profile ?? DEFAULT_NETGRAPH_GALAXY_PROFILE;
   return {

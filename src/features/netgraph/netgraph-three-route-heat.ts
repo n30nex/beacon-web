@@ -12,11 +12,13 @@ import { routeHeatIntensityAt } from "./netgraph-route-heat";
 
 const MAX_ROUTE_HEAT_BEAMS = 192;
 const MAX_ROUTE_GAS_SPRITES = 84;
+const MAX_ROUTE_SPARKLES = 260;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
 export interface RouteHeatVisuals {
   beamMeshes: THREE.Mesh[];
   gasSprites: THREE.Sprite[];
+  sparkleMeshes: THREE.Mesh[];
 }
 
 export function routeHeatEffectsEnabled(options: {
@@ -44,6 +46,11 @@ export function createRouteHeatVisuals(options: {
     ? options.highQuality
       ? options.narrowViewport ? 28 : MAX_ROUTE_GAS_SPRITES
       : options.narrowViewport ? 12 : 34
+    : 0;
+  const sparkleCount = options.enabled
+    ? options.highQuality
+      ? options.narrowViewport ? 88 : MAX_ROUTE_SPARKLES
+      : options.narrowViewport ? 36 : 112
     : 0;
 
   const routeMap = getCachedTexture(
@@ -95,7 +102,24 @@ export function createRouteHeatVisuals(options: {
     return sprite;
   });
 
-  return { beamMeshes, gasSprites };
+  const sparkleGeometry = new THREE.SphereGeometry(1, options.highQuality ? 12 : 8, options.highQuality ? 8 : 6);
+  const sparkleMeshes = Array.from({ length: sparkleCount }, () => {
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const mesh = new THREE.Mesh(sparkleGeometry, material);
+    mesh.renderOrder = 80;
+    mesh.visible = false;
+    options.group.add(mesh);
+    return mesh;
+  });
+
+  return { beamMeshes, gasSprites, sparkleMeshes };
 }
 
 export function renderRouteHeatFrame(options: {
@@ -105,12 +129,14 @@ export function renderRouteHeatFrame(options: {
   glowIntensityScale: number;
   narrowViewport: boolean;
   now: number;
+  nodeFocusActive: boolean;
   routeHeat: NetgraphRouteHeat[];
   time: number;
   visibleEdgeIds: Set<string>;
 }): void {
   for (const mesh of options.visuals.beamMeshes) mesh.visible = false;
   for (const sprite of options.visuals.gasSprites) sprite.visible = false;
+  for (const mesh of options.visuals.sparkleMeshes) mesh.visible = false;
   if (!options.enabled || options.routeHeat.length === 0) return;
 
   const hotRoutes = options.routeHeat
@@ -122,10 +148,13 @@ export function renderRouteHeatFrame(options: {
   const end = new THREE.Vector3();
   const delta = new THREE.Vector3();
   const midpoint = new THREE.Vector3();
+  const sparklePosition = new THREE.Vector3();
   const color = new THREE.Color();
   const white = new THREE.Color("#ffffff");
   let beamIndex = 0;
   let gasIndex = 0;
+  let sparkleIndex = 0;
+  const focusCalm = options.nodeFocusActive ? 0.64 : 1;
 
   for (const { heat, intensity } of hotRoutes) {
     if (beamIndex >= options.visuals.beamMeshes.length) break;
@@ -147,16 +176,16 @@ export function renderRouteHeatFrame(options: {
     color.set(heat.color).lerp(white, clamp((intensity - 1) * 0.24, 0, 0.34));
     material.color.copy(color);
     material.emissive.copy(color);
-    material.emissiveIntensity = (4.8 + intensity * 4.6) * clamp(options.glowIntensityScale, 0.4, 3.8);
-    material.opacity = Math.min(1, (0.42 + intensity * 0.48) * clamp(options.glowIntensityScale, 0.3, 3.4));
+    material.emissiveIntensity = (4.8 + intensity * 4.6) * clamp(options.glowIntensityScale, 0.4, 3.8) * focusCalm;
+    material.opacity = Math.min(1, (0.42 + intensity * 0.48) * clamp(options.glowIntensityScale, 0.3, 3.4) * focusCalm);
     beam.position.copy(midpoint);
     beam.quaternion.setFromUnitVectors(Y_AXIS, delta.normalize());
-    const radius = (options.narrowViewport ? 0.16 : 0.26) * (1 + Math.sqrt(intensity) * 0.86);
+    const radius = (options.narrowViewport ? 0.16 : 0.26) * (options.nodeFocusActive ? 0.58 : 1) * (1 + Math.sqrt(intensity) * 0.86);
     beam.scale.set(radius, length, radius);
     beam.visible = true;
     beamIndex += 1;
 
-    if (gasIndex < options.visuals.gasSprites.length && intensity > 0.14) {
+    if (!options.nodeFocusActive && gasIndex < options.visuals.gasSprites.length && intensity > 0.14) {
       const sprite = options.visuals.gasSprites[gasIndex]!;
       const spriteMaterial = sprite.material as THREE.SpriteMaterial;
       const pulse = 1 + Math.sin(options.time / 680 + gasIndex * 0.74) * 0.08;
@@ -168,6 +197,26 @@ export function renderRouteHeatFrame(options: {
       sprite.scale.set(gasSize, gasSize, 1);
       sprite.visible = true;
       gasIndex += 1;
+    }
+
+    const sparkleCount = intensity > 0.36 ? (options.nodeFocusActive ? 1 : 2) : 1;
+    for (let spark = 0; spark < sparkleCount && sparkleIndex < options.visuals.sparkleMeshes.length; spark += 1) {
+      const sparkle = options.visuals.sparkleMeshes[sparkleIndex]!;
+      const sparkleMaterial = sparkle.material as THREE.MeshBasicMaterial;
+      const seed = hashString(`${heat.edgeId}:${spark}`);
+      const local = ((options.now - heat.startedAt) / 1250 + (seed % 997) / 997 + spark * 0.37) % 1;
+      const routeLocal = heat.reverse ? 1 - local : local;
+      sparklePosition.lerpVectors(start, end, routeLocal);
+      sparklePosition.x += Math.sin(options.time / 140 + seed) * (options.nodeFocusActive ? 0.28 : 0.52);
+      sparklePosition.y += Math.cos(options.time / 170 + seed * 0.7) * (options.nodeFocusActive ? 0.28 : 0.52);
+      sparklePosition.z += Math.sin(options.time / 190 + seed * 0.3) * (options.nodeFocusActive ? 0.38 : 0.72);
+      const twinkle = 0.55 + Math.sin(options.time / 96 + seed) * 0.45;
+      sparkleMaterial.color.set(heat.color);
+      sparkleMaterial.opacity = Math.min(1, (0.42 + intensity * 0.24) * twinkle);
+      sparkle.position.copy(sparklePosition);
+      sparkle.scale.setScalar((options.narrowViewport ? 0.48 : 0.72) * (options.nodeFocusActive ? 0.78 : 1) * (0.72 + intensity * 0.24));
+      sparkle.visible = true;
+      sparkleIndex += 1;
     }
   }
 }

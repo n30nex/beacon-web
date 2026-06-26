@@ -32,8 +32,8 @@ describe("netgraph route heat", () => {
 
     expect(heat).toHaveLength(2);
     expect(heat).toEqual(expect.arrayContaining([
-      expect.objectContaining({ edgeId: "node-alpha>node-bravo", color: "#7ab7ff", direction: "tx" }),
-      expect.objectContaining({ edgeId: "node-bravo>node-charlie", color: "#54e1a6", direction: "tx" }),
+      expect.objectContaining({ edgeId: "node-alpha>node-bravo", color: "#ffd166", direction: "tx" }),
+      expect.objectContaining({ edgeId: "node-bravo>node-charlie", color: "#ffd166", direction: "tx" }),
     ]));
   });
 
@@ -48,6 +48,7 @@ describe("netgraph route heat", () => {
   it("fades route heat after peak and prunes expired entries", () => {
     const [heat] = mergePulseRouteHeat([], pulse({ segments: [{ edgeId: "a>b", fromId: "a", toId: "b", reverse: false }] }), 1000);
     expect(heat).toBeDefined();
+    expect(heat!.decayUntil - heat!.peakAt).toBe(10000);
     const active = routeHeatIntensityAt(heat!, heat!.peakAt);
     const faded = routeHeatIntensityAt(heat!, heat!.decayUntil - 400);
 
