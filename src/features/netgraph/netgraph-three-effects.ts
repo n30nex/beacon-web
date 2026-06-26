@@ -56,6 +56,31 @@ export interface PulseNodeFlash {
   phase: number;
 }
 
+export function endpointFlashScaleProfile(options: {
+  baseSize: number;
+  direction: "tx" | "rx";
+  progress: number;
+  terminal: boolean;
+  narrowViewport: boolean;
+  nodeFocusActive: boolean;
+  wave?: number;
+}): { primary: number; ripple: number; glow: number } {
+  const progress = clamp(options.progress, 0, 1);
+  const wave = clamp(options.wave ?? 1, 0.92, 1.08);
+  const directionBoost = options.direction === "rx" ? 1.08 : 1.03;
+  const terminalBoost = options.terminal ? 1.1 : 1;
+  const focusScale = options.nodeFocusActive ? 0.58 : 1;
+  const viewportScale = options.narrowViewport ? 1.08 : 1;
+  const primary = options.baseSize * (options.narrowViewport ? 2.24 : 1.98) * (1 + progress * 0.48) * wave * directionBoost * terminalBoost * focusScale;
+  const ripple = options.baseSize * (options.narrowViewport ? 2.92 : 2.58) * (1.01 + progress * 0.72) * wave * directionBoost * terminalBoost * focusScale;
+  const glow = options.baseSize * ((options.direction === "rx" ? 2.42 : 2.14) + progress * (options.terminal ? 3.1 : 2.45)) * terminalBoost * focusScale;
+  return {
+    primary: Math.min(primary, options.baseSize * viewportScale * (options.terminal ? 3.05 : 2.62) * focusScale),
+    ripple: Math.min(ripple, options.baseSize * viewportScale * (options.terminal ? 4.1 : 3.45) * focusScale),
+    glow: Math.min(glow, options.baseSize * viewportScale * (options.terminal ? 5.2 : 4.1) * focusScale),
+  };
+}
+
 function stableRenderHash(value: string): number {
   let hash = 2166136261;
   for (let index = 0; index < value.length; index += 1) {
@@ -395,11 +420,18 @@ export function renderNetgraphEffectFrame(options: {
     const baseSize = nodeScale(node, options.nodeScaleFactor);
     const colorValue = flash.direction === "tx" ? "#91c8ff" : flash.terminal ? "#74ffc4" : flash.color;
     const wave = 1 + Math.sin(options.time / 112 + flash.phase) * 0.06;
-    const directionBoost = flash.direction === "rx" ? 1.12 : 1.06;
-    const terminalBoost = flash.terminal ? 1.26 : 1;
-    const nodeFocusCalm = options.nodeFocusActive ? 0.48 : 1;
-    const nodeFocusScale = options.nodeFocusActive ? 0.72 : 1;
+    const terminalBoost = flash.terminal ? 1.12 : 1;
+    const nodeFocusCalm = options.nodeFocusActive ? 0.38 : 1;
     const opacityScale = clamp(options.glowIntensityScale * 1.45, 0.35, 4.2) * focusEffectBoost * flash.strength * terminalBoost * nodeFocusCalm;
+    const flashScales = endpointFlashScaleProfile({
+      baseSize,
+      direction: flash.direction,
+      progress: flash.progress,
+      terminal: flash.terminal,
+      narrowViewport: options.narrowViewport,
+      nodeFocusActive: options.nodeFocusActive,
+      wave,
+    });
     const nodeEventMap = getCachedTexture(
       liveTextureCache,
       nodeEventTextureFile("node_shockwave_ring"),
@@ -433,15 +465,13 @@ export function renderNetgraphEffectFrame(options: {
       endpointIndex += 1;
     };
 
-    const primaryRingScale = baseSize * (options.narrowViewport ? 2.72 : 2.42) * (1 + flash.progress * 0.82) * wave * directionBoost * terminalBoost * nodeFocusScale;
     const primaryOpacity = Math.min(1, (0.62 + flash.strength * 0.4) * opacityScale);
     const primaryEmissive = (3.4 + flash.strength * 2.8) * options.glowIntensityScale * focusEffectBoost * terminalBoost;
-    paintEndpointRing(primaryRingScale, primaryOpacity, primaryEmissive);
+    paintEndpointRing(flashScales.primary, primaryOpacity, primaryEmissive);
 
-    const rippleScale = baseSize * (options.narrowViewport ? 3.58 : 3.16) * (1.02 + flash.progress * 1.08) * wave * directionBoost * terminalBoost * nodeFocusScale;
     const rippleOpacity = Math.min(0.72, (0.26 + flash.strength * 0.28) * opacityScale);
     const rippleEmissive = (2.2 + flash.strength * 1.85) * options.glowIntensityScale * focusEffectBoost * terminalBoost;
-    paintEndpointRing(rippleScale, rippleOpacity, rippleEmissive);
+    paintEndpointRing(flashScales.ripple, rippleOpacity, rippleEmissive);
 
     if (glowIndex < runtimeGlowBudget) {
       const mesh = options.glowMeshes[glowIndex]!;
@@ -458,7 +488,7 @@ export function renderNetgraphEffectFrame(options: {
       material.color.set(colorValue);
       material.opacity = Math.min(1, (flash.direction === "rx" ? 0.95 : 0.82) * opacityScale);
       mesh.position.copy(options.endpointPosition);
-      mesh.scale.setScalar(baseSize * ((flash.direction === "rx" ? 3.08 : 2.72) + flash.progress * (flash.terminal ? 5.6 : 4.4)) * focusEffectBoost * terminalBoost * nodeFocusScale);
+      mesh.scale.setScalar(flashScales.glow * focusEffectBoost);
       mesh.visible = true;
       glowIndex += 1;
     }

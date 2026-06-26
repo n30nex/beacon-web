@@ -156,8 +156,8 @@ export function paintRoleMeshes(options: {
       if (liveFlash) {
         const strength = Math.min(1.45, Math.max(0, liveFlash.strength));
         flashColor.set(liveFlash.color);
-        color.lerp(flashColor, usesTexture ? Math.min(0.72, 0.42 + strength * 0.32) : Math.min(0.88, 0.55 + strength * 0.34));
-        color.lerp(WHITE, Math.min(0.62, (liveFlash.direction === "rx" ? 0.22 : 0.16) + strength * 0.26));
+        color.lerp(flashColor, usesTexture ? Math.min(0.86, 0.52 + strength * 0.34) : Math.min(0.94, 0.66 + strength * 0.3));
+        color.lerp(WHITE, Math.min(0.74, (liveFlash.direction === "rx" ? 0.3 : 0.24) + strength * 0.3));
       }
       mesh.setColorAt(instanceIndex, color);
     });

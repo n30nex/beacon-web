@@ -110,4 +110,53 @@ describe("paintRoleMeshes", () => {
     expect(flashedColor.getHexString()).not.toBe(normalColor.getHexString());
     expect(flashedColor.b).toBeGreaterThan(normalColor.b);
   });
+
+  it("scales the node surface shine with live flash strength", () => {
+    const item = node();
+    const topology = graph(item);
+    const low = roleMesh();
+    const high = roleMesh();
+    const lowColor = new THREE.Color();
+    const highColor = new THREE.Color();
+
+    paintRoleMeshes({
+      roleMeshes: [low],
+      graph: topology,
+      selectedNodeId: null,
+      hoverNodeId: null,
+      directNodeNeighbors: new Set(),
+      secondHopNeighbors: new Set(),
+      searchMatches: new Set(),
+      selectedNodes: new Set(),
+      nodeFocusActive: false,
+      showDataQuality: false,
+      liveNodeFlashes: new Map([[item.id, { color: "#54e1a6", direction: "rx", strength: 0.18 }]]),
+      primary: new THREE.Color("#7ab7ff"),
+      bg: new THREE.Color("#070910"),
+      muted: new THREE.Color("#697386"),
+    });
+    low.mesh.getColorAt(0, lowColor);
+
+    paintRoleMeshes({
+      roleMeshes: [high],
+      graph: topology,
+      selectedNodeId: null,
+      hoverNodeId: null,
+      directNodeNeighbors: new Set(),
+      secondHopNeighbors: new Set(),
+      searchMatches: new Set(),
+      selectedNodes: new Set(),
+      nodeFocusActive: false,
+      showDataQuality: false,
+      liveNodeFlashes: new Map([[item.id, { color: "#54e1a6", direction: "rx", strength: 1.2 }]]),
+      primary: new THREE.Color("#7ab7ff"),
+      bg: new THREE.Color("#070910"),
+      muted: new THREE.Color("#697386"),
+    });
+    high.mesh.getColorAt(0, highColor);
+
+    expect(highColor.g).toBeGreaterThan(lowColor.g);
+    expect(highColor.r).toBeGreaterThan(lowColor.r);
+    expect(highColor.b).toBeGreaterThan(lowColor.b);
+  });
 });

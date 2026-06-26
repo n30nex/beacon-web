@@ -4,7 +4,7 @@ import {
   pruneRouteHeat,
   routeHeatIntensityAt,
 } from "../../../src/features/netgraph/netgraph-route-heat";
-import { routeHeatEffectsEnabled } from "../../../src/features/netgraph/netgraph-three-route-heat";
+import { routeHeatEffectsEnabled, routeHeatModeProfile, routeHeatVisualBudgets } from "../../../src/features/netgraph/netgraph-three-route-heat";
 import type { NetgraphPulse } from "../../../src/features/netgraph/netgraph-model";
 
 function pulse(overrides: Partial<NetgraphPulse> = {}): NetgraphPulse {
@@ -62,5 +62,22 @@ describe("netgraph route heat", () => {
     expect(routeHeatEffectsEnabled({ ...base, lowPower: true })).toBe(false);
     expect(routeHeatEffectsEnabled({ ...base, batteryQuality: true })).toBe(false);
     expect(routeHeatEffectsEnabled({ ...base, reducedMotion: true })).toBe(false);
+  });
+
+  it("keeps focus mode calmer than Galaxy route heat", () => {
+    const galaxy = routeHeatModeProfile(false);
+    const focus = routeHeatModeProfile(true);
+
+    expect(focus.gasEnabled).toBe(false);
+    expect(galaxy.gasEnabled).toBe(true);
+    expect(focus.beamOpacityScale).toBeLessThan(galaxy.beamOpacityScale);
+    expect(focus.beamRadiusScale).toBeLessThan(galaxy.beamRadiusScale);
+    expect(focus.sparkleCount).toBeLessThan(galaxy.sparkleCount);
+  });
+
+  it("uses lean route heat budgets when disabled or non-cinematic", () => {
+    expect(routeHeatVisualBudgets({ enabled: false, highQuality: true, narrowViewport: false })).toEqual({ beams: 0, gas: 0, sparkles: 0 });
+    expect(routeHeatVisualBudgets({ enabled: true, highQuality: false, narrowViewport: false }).gas).toBeLessThan(routeHeatVisualBudgets({ enabled: true, highQuality: true, narrowViewport: false }).gas);
+    expect(routeHeatVisualBudgets({ enabled: true, highQuality: true, narrowViewport: true }).sparkles).toBeLessThan(routeHeatVisualBudgets({ enabled: true, highQuality: true, narrowViewport: false }).sparkles);
   });
 });

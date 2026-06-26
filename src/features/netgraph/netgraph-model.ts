@@ -78,7 +78,7 @@ export const DEFAULT_NETGRAPH_VISUAL_PROFILE: NetgraphVisualProfile = {
   autoRotateSpeed: 1.34,
   orbitControlSpeed: 1,
   orbitDamping: 0.09,
-  nodeScale: 2.28,
+  nodeScale: 2.12,
   labelScale: 1.3,
   edgeOpacity: 1.02,
   labelDensity: 1,
@@ -89,7 +89,7 @@ export const DEFAULT_NETGRAPH_VISUAL_PROFILE: NetgraphVisualProfile = {
   cameraFov: 45,
   lightIntensity: 1.34,
   atmosphereDensity: 1.24,
-  cameraDistanceScale: 0.84,
+  cameraDistanceScale: 0.94,
   focusHaloScale: 1.08,
 };
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pulseNodeFlashEvents, resolveVisiblePulseEdgeId } from "../../../src/features/netgraph/netgraph-three-effects";
+import { endpointFlashScaleProfile, pulseNodeFlashEvents, resolveVisiblePulseEdgeId } from "../../../src/features/netgraph/netgraph-three-effects";
 import type { NetgraphPulse } from "../../../src/features/netgraph/netgraph-model";
 
 function pulse(overrides: Partial<NetgraphPulse> = {}): NetgraphPulse {
@@ -103,5 +103,49 @@ describe("netgraph live packet effect visibility", () => {
     expect(finalFlashes).toEqual([
       expect.objectContaining({ nodeId: "node-charlie", direction: "rx", terminal: true }),
     ]);
+  });
+});
+
+describe("netgraph endpoint flash scales", () => {
+  it("caps terminal ring growth so node flashes stay compact", () => {
+    const baseSize = 10;
+    const terminal = endpointFlashScaleProfile({
+      baseSize,
+      direction: "rx",
+      progress: 1,
+      terminal: true,
+      narrowViewport: false,
+      nodeFocusActive: false,
+      wave: 1.06,
+    });
+
+    expect(terminal.primary).toBeLessThanOrEqual(baseSize * 3.05);
+    expect(terminal.ripple).toBeLessThanOrEqual(baseSize * 4.1);
+    expect(terminal.glow).toBeLessThanOrEqual(baseSize * 5.2);
+  });
+
+  it("shrinks endpoint flash scales in selected-node focus mode", () => {
+    const overview = endpointFlashScaleProfile({
+      baseSize: 10,
+      direction: "tx",
+      progress: 0.8,
+      terminal: false,
+      narrowViewport: false,
+      nodeFocusActive: false,
+      wave: 1,
+    });
+    const focus = endpointFlashScaleProfile({
+      baseSize: 10,
+      direction: "tx",
+      progress: 0.8,
+      terminal: false,
+      narrowViewport: false,
+      nodeFocusActive: true,
+      wave: 1,
+    });
+
+    expect(focus.primary).toBeLessThan(overview.primary);
+    expect(focus.ripple).toBeLessThan(overview.ripple);
+    expect(focus.glow).toBeLessThan(overview.glow);
   });
 });

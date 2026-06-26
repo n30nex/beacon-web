@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildNetgraph,
+  DEFAULT_NETGRAPH_VISUAL_PROFILE,
   focusedNodeNeighborhoodLayout,
   graphSearchMatches,
   importantLabelNodeIds,
@@ -187,6 +188,28 @@ describe("buildNetgraph", () => {
     expect(labels.slice(0, 2)).toEqual(["node-01", "node-03"]);
     expect(labels[2]).toBe("node-08");
     expect(labels).toHaveLength(nodes.length);
+  });
+
+  it("keeps every node label eligible in the default netgraph view", () => {
+    const nodes = Array.from({ length: 96 }, (_, index) =>
+      node(`node-${String(index).padStart(2, "0")}`, `Node ${index}`, index % 3 === 0 ? "Repeater" : "Companion", undefined, undefined, {
+        routeCount: index % 11,
+        observationCount: 10 + index,
+      }),
+    );
+    const graph = buildNetgraph(snapshot({
+      stats: { ...snapshot().stats, nodeCount: nodes.length, edgeCount: 0 },
+      nodes,
+      edges: [],
+    }));
+
+    expect(importantLabelNodeIds(graph, new Set(), null, null).size).toBe(nodes.length);
+  });
+
+  it("keeps Galaxy defaults below the oversized node threshold", () => {
+    expect(DEFAULT_NETGRAPH_VISUAL_PROFILE.nodeScale).toBeGreaterThanOrEqual(2.05);
+    expect(DEFAULT_NETGRAPH_VISUAL_PROFILE.nodeScale).toBeLessThanOrEqual(2.15);
+    expect(DEFAULT_NETGRAPH_VISUAL_PROFILE.cameraDistanceScale).toBeGreaterThanOrEqual(0.9);
   });
 
   it("keeps fallback positions and settled layout deterministic", () => {

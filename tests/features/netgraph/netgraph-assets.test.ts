@@ -1,17 +1,21 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   PLANET_TEXTURE_NAMES,
+  ambientTextureFile,
+  backdropTextureForViewport,
   nodeEventTextureFile,
   nodePlanetTextureName,
   nodeTextureFile,
+  packetTextureFile,
   routeTrailTextureFile,
   stellarGasTextureFile,
 } from "../../../src/features/netgraph/netgraph-three-assets";
 import type { NetgraphNode, NetgraphRole } from "../../../src/features/netgraph/netgraph-model";
 
 const ASSET_ROOT = join(process.cwd(), "public", "netgraph-asset-pack", "beacon_netgraph_asset_pack");
+const ASSET_BASE = "/netgraph-asset-pack/beacon_netgraph_asset_pack/";
 
 function node(role: NetgraphRole, nodeTypeName = role): NetgraphNode {
   return {
@@ -85,5 +89,28 @@ describe("netgraph cinematic live assets", () => {
     expect(existsSync(join(ASSET_ROOT, "live", "stellar_gases", "traffic_aurora_sheet.png"))).toBe(true);
     expect(existsSync(join(ASSET_ROOT, "live", "route_trails", "route_plasma_filament.png"))).toBe(true);
     expect(existsSync(join(ASSET_ROOT, "live", "node_events", "node_shockwave_ring.png"))).toBe(true);
+  });
+
+  it("indexes the runtime textures referenced by the renderer", () => {
+    const manifest = JSON.parse(readFileSync(join(ASSET_ROOT, "ASSET_INDEX.json"), "utf8")) as {
+      assets: Array<{ path: string }>;
+    };
+    const indexed = new Set(manifest.assets.map((asset) => asset.path));
+    const runtimePaths = [
+      ambientTextureFile("focus_pulse", "active"),
+      ambientTextureFile("edge_beam_fuzzy", "default"),
+      backdropTextureForViewport(1920, 1080, "spherical", false),
+      nodeEventTextureFile("node_shockwave_ring"),
+      packetTextureFile("comet_data", "default"),
+      packetTextureFile("packet_encrypted", "soft"),
+      packetTextureFile("trail_short", "active"),
+      routeTrailTextureFile("route_plasma_filament"),
+      stellarGasTextureFile("traffic_nebula_core"),
+      stellarGasTextureFile("traffic_aurora_sheet"),
+    ];
+
+    for (const runtimePath of runtimePaths) {
+      expect(indexed.has(runtimePath.replace(ASSET_BASE, ""))).toBe(true);
+    }
   });
 });
