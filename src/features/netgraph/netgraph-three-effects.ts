@@ -42,6 +42,17 @@ export interface PulseVisuals {
   glowMeshes: THREE.Mesh[];
 }
 
+export interface PulseNodeFlash {
+  nodeId: string;
+  direction: "tx" | "rx";
+  color: string;
+  payloadTypeName: string;
+  progress: number;
+  strength: number;
+  terminal: boolean;
+  phase: number;
+}
+
 function stableRenderHash(value: string): number {
   let hash = 2166136261;
   for (let index = 0; index < value.length; index += 1) {
@@ -49,6 +60,62 @@ function stableRenderHash(value: string): number {
     hash = Math.imul(hash, 16777619);
   }
   return hash >>> 0;
+}
+
+function flashStrength(progress: number): number {
+  const clamped = clamp(progress, 0, 1);
+  const attack = 0.58 + clamp(clamped / 0.16, 0, 1) * 0.42;
+  return Math.pow(1 - clamped, 1.36) * attack;
+}
+
+function segmentStartNodeId(segment: NetgraphPulse["segments"][number]): string {
+  return segment.reverse ? segment.toId : segment.fromId;
+}
+
+function segmentEndNodeId(segment: NetgraphPulse["segments"][number]): string {
+  return segment.reverse ? segment.fromId : segment.toId;
+}
+
+export function pulseNodeFlashEvents(pulse: NetgraphPulse, now: number, flashWindowMs = 820): PulseNodeFlash[] {
+  if (pulse.segments.length === 0 || pulse.durationMs <= 0 || flashWindowMs <= 0) return [];
+  const elapsed = now - pulse.startedAt;
+  if (elapsed < 0 || elapsed > pulse.durationMs + flashWindowMs) return [];
+  const segmentDurationMs = pulse.durationMs / pulse.segments.length;
+  const events: PulseNodeFlash[] = [];
+  for (const [segmentIndex, segment] of pulse.segments.entries()) {
+    const departProgress = (elapsed - segmentIndex * segmentDurationMs) / flashWindowMs;
+    if (departProgress >= 0 && departProgress <= 1) {
+      const strength = flashStrength(departProgress);
+      events.push({
+        nodeId: segmentStartNodeId(segment),
+        direction: "tx",
+        color: pulse.txColor,
+        payloadTypeName: pulse.payloadTypeName,
+        progress: departProgress,
+        strength,
+        terminal: segmentIndex === 0 && segmentStartNodeId(segment) === pulse.txNodeId,
+        phase: segmentIndex,
+      });
+    }
+
+    const arriveProgress = (elapsed - (segmentIndex + 1) * segmentDurationMs) / flashWindowMs;
+    if (arriveProgress >= 0 && arriveProgress <= 1) {
+      const endNodeId = segmentEndNodeId(segment);
+      const terminal = segmentIndex === pulse.segments.length - 1 && endNodeId === pulse.rxNodeId;
+      const strength = flashStrength(arriveProgress) * (terminal ? 1.18 : 1);
+      events.push({
+        nodeId: endNodeId,
+        direction: "rx",
+        color: terminal ? pulse.rxColor : "#54e1a6",
+        payloadTypeName: pulse.payloadTypeName,
+        progress: arriveProgress,
+        strength,
+        terminal,
+        phase: segmentIndex + 0.48,
+      });
+    }
+  }
+  return events;
 }
 
 export function resolveVisiblePulseEdgeId(options: {
@@ -312,39 +379,102 @@ export function renderNetgraphEffectFrame(options: {
   const runtimeGlowBudget = Math.max(0, Math.floor(options.glowMeshes.length * tierRuntimeScale));
   const mirroredTrafficVisible = options.visibleEdgeIds.size > 0 && options.visibleEdgeIds.size < options.renderGraph.edges.length;
   const overviewTrafficVisible = options.visibleEdgeIds.size >= options.renderGraph.edges.length;
-  const showEndpoint = (nodeId: string | undefined, colorValue: string, phase: number, payloadTypeName?: string) => {
-    if (!nodeId || endpointIndex >= runtimeEndpointBudget) return;
+  let glowIndex = 0;
+  const showNodeFlash = (flash: PulseNodeFlash) => {
+    if (flash.strength <= 0.01) return;
+    const nodeId = flash.nodeId;
     const node = options.renderGraph.nodeById.get(nodeId);
     if (node && !options.visibleNodeIds.has(node.id)) return;
     if (!node) return;
     options.endpointPosition.set(node.position.x, node.position.y, node.position.z);
     if (!options.isVisiblePoint(options.endpointPosition, nodeScale(node, options.nodeScaleFactor) * 3.2)) return;
-    const mesh = options.endpointMeshes[endpointIndex]!;
-    const material = mesh.material as THREE.MeshStandardMaterial;
-    const wave = 1 + Math.sin(options.time / 120 + phase) * 0.08;
-    const endpointMap = payloadTypeName
-      ? getCachedTexture(
-        ambientTextureCache,
-        ambientTextureFile("focus_pulse", chooseAmbientPacketVariant(options.nodeFocusActive, options.batteryQuality || options.reducedMotion)),
-        options.pulseTextureAnisotropy,
-      )
-      : options.defaultEndpointPulseMap;
-    if (endpointMap) {
-      material.map = endpointMap;
-      material.needsUpdate = true;
+    const baseSize = nodeScale(node, options.nodeScaleFactor);
+    const colorValue = flash.color;
+    const wave = 1 + Math.sin(options.time / 112 + flash.phase) * 0.06;
+    const directionBoost = flash.direction === "rx" ? 1.1 : 1;
+    const terminalBoost = flash.terminal ? 1.18 : 1;
+    const opacityScale = clamp(options.glowIntensityScale, 0.2, 3) * focusEffectBoost * flash.strength * terminalBoost;
+    const endpointMap = getCachedTexture(
+      ambientTextureCache,
+      ambientTextureFile("focus_pulse", chooseAmbientPacketVariant(options.nodeFocusActive, options.batteryQuality || options.reducedMotion)),
+      options.pulseTextureAnisotropy,
+    );
+
+    if (endpointIndex < runtimeEndpointBudget) {
+      const mesh = options.endpointMeshes[endpointIndex]!;
+      const material = mesh.material as THREE.MeshStandardMaterial;
+      if (endpointMap) {
+        material.map = endpointMap;
+        material.needsUpdate = true;
+      } else if (options.defaultEndpointPulseMap) {
+        material.map = options.defaultEndpointPulseMap;
+        material.needsUpdate = true;
+      }
+      material.color.set(colorValue);
+      material.emissive.set(colorValue);
+      material.emissiveIntensity = (1.85 + flash.strength * 1.15) * options.glowIntensityScale * focusEffectBoost * terminalBoost;
+      material.opacity = Math.min(1, (0.34 + flash.strength * 0.62) * opacityScale);
+      mesh.position.copy(options.endpointPosition);
+      mesh.quaternion.copy(options.cameraQuaternion);
+      mesh.scale.setScalar(baseSize * (options.narrowViewport ? 3.45 : 3.05) * (1 + flash.progress * 1.15) * wave * directionBoost * terminalBoost);
+      mesh.visible = true;
+      endpointIndex += 1;
     }
-    material.color.set(colorValue);
-    material.emissive.set(colorValue);
-    material.emissiveIntensity = (1.72 + Math.sin(options.time / 150 + phase) * 0.28) * options.glowIntensityScale * focusEffectBoost;
-    material.opacity = (0.82 + Math.sin(options.time / 128 + phase) * 0.18) * clamp(options.glowIntensityScale, 0.2, 3);
-    mesh.position.copy(options.endpointPosition);
-    mesh.quaternion.copy(options.cameraQuaternion);
-    mesh.scale.setScalar(nodeScale(node, options.nodeScaleFactor) * (options.narrowViewport ? 3.55 : 3.05) * wave * focusEffectBoost);
-    mesh.visible = true;
-    endpointIndex += 1;
+
+    if (glowIndex < runtimeGlowBudget) {
+      const mesh = options.glowMeshes[glowIndex]!;
+      const material = mesh.material as THREE.MeshBasicMaterial;
+      const mappedGlow = getCachedTexture(
+        packetTextureCache,
+        packetTextureFile(glowVisualTexture(flash.payloadTypeName), options.packetTextureVariant, options.highResPackets),
+        options.pulseTextureAnisotropy,
+      );
+      if (mappedGlow) {
+        material.map = mappedGlow;
+        material.needsUpdate = true;
+      }
+      material.color.set(colorValue);
+      material.opacity = Math.min(1, (flash.direction === "rx" ? 0.62 : 0.5) * opacityScale);
+      mesh.position.copy(options.endpointPosition);
+      mesh.scale.setScalar(baseSize * ((flash.direction === "rx" ? 2.9 : 2.55) + flash.progress * (flash.terminal ? 6.4 : 4.8)) * focusEffectBoost * terminalBoost);
+      mesh.visible = true;
+      glowIndex += 1;
+    }
+  };
+  const showSegmentEdgeFlash = (edgeId: string | undefined, reverse: boolean, local: number, phase: number, payloadTypeName: string) => {
+    const edge = edgeId ? options.renderGraph.edgeById.get(edgeId) : undefined;
+    if (!edge) return;
+    if (local <= 0.3) {
+      showNodeFlash({
+        nodeId: reverse ? edge.toId : edge.fromId,
+        direction: "tx",
+        color: "#7ab7ff",
+        payloadTypeName,
+        progress: clamp(local / 0.3, 0, 1),
+        strength: flashStrength(clamp(local / 0.3, 0, 1)),
+        terminal: false,
+        phase,
+      });
+    }
+    if (local >= 0.7) {
+      const progress = clamp((local - 0.7) / 0.3, 0, 1);
+      showNodeFlash({
+        nodeId: reverse ? edge.fromId : edge.toId,
+        direction: "rx",
+        color: "#54e1a6",
+        payloadTypeName,
+        progress,
+        strength: flashStrength(progress),
+        terminal: false,
+        phase: phase + 0.48,
+      });
+    }
   };
 
   for (const pulse of options.pulses) {
+    for (const flash of pulseNodeFlashEvents(pulse, options.now)) {
+      showNodeFlash(flash);
+    }
     const progress = pulseProgress(pulse, options.now);
     if (!progress || pulseIndex >= runtimePulseBudget) continue;
     const segment = pulse.segments[progress.segmentIndex];
@@ -467,17 +597,11 @@ export function renderNetgraphEffectFrame(options: {
     }
 
     if (displayEdge.mirrored && mirroredTrafficVisible) {
-      const displayGraphEdge = options.renderGraph.edgeById.get(displayEdge.edgeId);
-      showEndpoint(displayGraphEdge?.fromId, pulse.txColor, pulseIndex, pulse.payloadTypeName);
-      showEndpoint(displayGraphEdge?.toId, pulse.rxColor, pulseIndex + 0.8, pulse.payloadTypeName);
-    } else {
-      showEndpoint(pulse.txNodeId, pulse.txColor, pulseIndex, pulse.payloadTypeName);
-      showEndpoint(pulse.rxNodeId, pulse.rxColor, pulseIndex + 0.8, pulse.payloadTypeName);
+      showSegmentEdgeFlash(displayEdge.edgeId, displayReverse, displayLocal, pulseIndex, pulse.payloadTypeName);
     }
     pulseIndex += 1;
   }
 
-  let glowIndex = 0;
   for (const glow of options.glows) {
     const elapsed = options.now - glow.startedAt;
     if (elapsed < 0 || elapsed > glow.durationMs || glowIndex >= runtimeGlowBudget) continue;
