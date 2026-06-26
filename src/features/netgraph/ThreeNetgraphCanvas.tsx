@@ -19,6 +19,7 @@ import {
   type NetgraphNode,
   type NetgraphPulse,
   type NetgraphQualityMode,
+  type NetgraphRouteHeat,
   type NetgraphViewMode,
   type NetgraphVisualProfile,
 } from "./netgraph-model";
@@ -67,6 +68,7 @@ import {
 import { createNetgraphObjectVisuals } from "./netgraph-three-objects";
 import { paintRoleMeshes, type NodeLiveFlashPaint } from "./netgraph-three-nodes";
 import { advanceNetgraphCameraControlFrame, createNetgraphFrameTimingState, startNetgraphRenderLoop } from "./netgraph-three-render-loop";
+import { renderRouteHeatFrame, routeHeatEffectsEnabled } from "./netgraph-three-route-heat";
 import { createNetgraphSceneStage, cssColor } from "./netgraph-three-scene";
 import { createNetgraphPointerHandlers } from "./netgraph-three-interactions";
 import { useNetgraphTouchFlightControls } from "./useNetgraphTouchFlightControls";
@@ -82,6 +84,7 @@ interface ThreeNetgraphCanvasProps {
   searchMatches: Set<string>;
   pulses: NetgraphPulse[];
   glows: NetgraphGlow[];
+  routeHeat: NetgraphRouteHeat[];
   reducedMotion?: boolean;
   onSelectNode: (nodeId: string) => void;
   onSelectRoute: (routeId: number) => void;
@@ -114,6 +117,7 @@ export function ThreeNetgraphCanvas({
   searchMatches,
   pulses,
   glows,
+  routeHeat,
   reducedMotion = false,
   onSelectNode,
   onSelectRoute,
@@ -123,6 +127,7 @@ export function ThreeNetgraphCanvas({
   const commandsRef = useRef<CameraCommands | null>(null);
   const pulsesRef = useRef(pulses);
   const glowsRef = useRef(glows);
+  const routeHeatRef = useRef(routeHeat);
   const [hovered, setHovered] = useState<NetgraphHoverState | null>(null);
   const [orbitActive, setOrbitActive] = useState(!reducedMotion);
   const orbitActiveRef = useRef(!reducedMotion);
@@ -145,6 +150,10 @@ export function ThreeNetgraphCanvas({
   useEffect(() => {
     glowsRef.current = glows;
   }, [glows]);
+
+  useEffect(() => {
+    routeHeatRef.current = routeHeat;
+  }, [routeHeat]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -455,6 +464,7 @@ export function ThreeNetgraphCanvas({
       pulseTailMeshes,
       pulseTextureAnisotropy,
       roleMeshes,
+      routeHeatVisuals,
       selectedSunGroup,
     } = createNetgraphObjectVisuals({
       animationsDisabled,
@@ -743,6 +753,22 @@ export function ThreeNetgraphCanvas({
         });
         hadLiveNodeFlashes = liveNodeFlashes.size > 0;
       }
+      renderRouteHeatFrame({
+        visuals: routeHeatVisuals,
+        enabled: routeHeatEffectsEnabled({
+          animationsDisabled,
+          batteryQuality,
+          lowPower,
+          reducedMotion,
+        }),
+        graph: renderGraph,
+        glowIntensityScale,
+        narrowViewport,
+        now: nowMs,
+        routeHeat: routeHeatRef.current,
+        time,
+        visibleEdgeIds,
+      });
       renderNetgraphEffectFrame({
         animationsDisabled,
         batteryQuality,

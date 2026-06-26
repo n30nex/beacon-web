@@ -15,6 +15,7 @@ import { createPulseVisuals } from "./netgraph-three-effects";
 import { createFocusVisuals } from "./netgraph-three-focus";
 import { intersectSets } from "./netgraph-three-geometry";
 import { createRoleMeshes, ROLE_COLORS, type RoleMesh } from "./netgraph-three-nodes";
+import { createRouteHeatVisuals, routeHeatEffectsEnabled, type RouteHeatVisuals } from "./netgraph-three-route-heat";
 import { createNodeLabelSprites } from "./netgraph-three-scene";
 
 export interface NetgraphObjectVisuals {
@@ -31,6 +32,7 @@ export interface NetgraphObjectVisuals {
   pulseTailMeshes: THREE.Mesh[];
   pulseTextureAnisotropy: number;
   roleMeshes: RoleMesh[];
+  routeHeatVisuals: RouteHeatVisuals;
   selectedSunGroup: THREE.Group;
 }
 
@@ -171,6 +173,19 @@ export function createNetgraphObjectVisuals(options: {
     defaultGlowMap,
   });
 
+  const routeHeatVisuals = createRouteHeatVisuals({
+    group: options.group,
+    enabled: routeHeatEffectsEnabled({
+      animationsDisabled: options.animationsDisabled,
+      batteryQuality: options.batteryQuality,
+      lowPower: options.lowPower,
+      reducedMotion: options.reducedMotion,
+    }),
+    highQuality: options.highQuality,
+    narrowViewport: options.narrowViewport,
+    textureAnisotropy: options.textureAnisotropy,
+  });
+
   const { focusHaloMeshes, selectedSunGroup } = createFocusVisuals({
     group: options.group,
     graph: options.graph,
@@ -202,6 +217,7 @@ export function createNetgraphObjectVisuals(options: {
     pulseTailMeshes,
     pulseTextureAnisotropy: options.textureAnisotropy,
     roleMeshes,
+    routeHeatVisuals,
     selectedSunGroup,
   };
 }

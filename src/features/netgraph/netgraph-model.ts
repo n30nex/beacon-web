@@ -10,6 +10,7 @@ export const MAX_NETGRAPH_NODES = 2600;
 export const MAX_NETGRAPH_EDGES = 4200;
 export const MAX_NETGRAPH_PULSES = 360;
 export const MAX_NETGRAPH_GLOWS = 220;
+export const MAX_NETGRAPH_ROUTE_HEAT = 640;
 export const NETGRAPH_LAYOUT_WIDTH = 190;
 export const NETGRAPH_LAYOUT_HEIGHT = 124;
 export const NETGRAPH_LAYOUT_DEPTH = 430;
@@ -191,6 +192,19 @@ export interface NetgraphGlow {
   direction: "tx" | "rx";
   startedAt: number;
   durationMs: number;
+}
+
+export interface NetgraphRouteHeat {
+  id: string;
+  edgeId: string;
+  payloadTypeName: string;
+  color: string;
+  direction: "tx" | "rx";
+  reverse: boolean;
+  intensity: number;
+  startedAt: number;
+  peakAt: number;
+  decayUntil: number;
 }
 
 export type NetgraphLiveVisual =

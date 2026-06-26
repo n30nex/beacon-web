@@ -7,6 +7,8 @@ import {
   chooseAmbientPacketVariant,
   getCachedTexture,
   glowVisualTexture,
+  liveTextureCache,
+  nodeEventTextureFile,
   packetHeadTexture,
   packetTextureCache,
   packetTextureFile,
@@ -396,7 +398,12 @@ export function renderNetgraphEffectFrame(options: {
     const directionBoost = flash.direction === "rx" ? 1.25 : 1.12;
     const terminalBoost = flash.terminal ? 1.55 : 1;
     const opacityScale = clamp(options.glowIntensityScale * 1.45, 0.35, 4.2) * focusEffectBoost * flash.strength * terminalBoost;
-    const endpointMap = getCachedTexture(
+    const nodeEventMap = getCachedTexture(
+      liveTextureCache,
+      nodeEventTextureFile("node_shockwave_ring"),
+      options.pulseTextureAnisotropy,
+    );
+    const endpointMap = nodeEventMap ?? getCachedTexture(
       ambientTextureCache,
       ambientTextureFile("focus_pulse", chooseAmbientPacketVariant(options.nodeFocusActive, options.batteryQuality || options.reducedMotion)),
       options.pulseTextureAnisotropy,

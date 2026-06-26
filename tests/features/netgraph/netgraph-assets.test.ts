@@ -3,8 +3,11 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   PLANET_TEXTURE_NAMES,
+  nodeEventTextureFile,
   nodePlanetTextureName,
   nodeTextureFile,
+  routeTrailTextureFile,
+  stellarGasTextureFile,
 } from "../../../src/features/netgraph/netgraph-three-assets";
 import type { NetgraphNode, NetgraphRole } from "../../../src/features/netgraph/netgraph-model";
 
@@ -68,5 +71,19 @@ describe("netgraph planet node assets", () => {
     );
 
     expect(textures.size).toBeGreaterThan(6);
+  });
+});
+
+describe("netgraph cinematic live assets", () => {
+  it("has committed stellar gas and live event textures", () => {
+    expect(stellarGasTextureFile("traffic_nebula_core")).toBe("/netgraph-asset-pack/beacon_netgraph_asset_pack/live/stellar_gases/traffic_nebula_core.png");
+    expect(stellarGasTextureFile("traffic_aurora_sheet")).toBe("/netgraph-asset-pack/beacon_netgraph_asset_pack/live/stellar_gases/traffic_aurora_sheet.png");
+    expect(routeTrailTextureFile("route_plasma_filament")).toBe("/netgraph-asset-pack/beacon_netgraph_asset_pack/live/route_trails/route_plasma_filament.png");
+    expect(nodeEventTextureFile("node_shockwave_ring")).toBe("/netgraph-asset-pack/beacon_netgraph_asset_pack/live/node_events/node_shockwave_ring.png");
+
+    expect(existsSync(join(ASSET_ROOT, "live", "stellar_gases", "traffic_nebula_core.png"))).toBe(true);
+    expect(existsSync(join(ASSET_ROOT, "live", "stellar_gases", "traffic_aurora_sheet.png"))).toBe(true);
+    expect(existsSync(join(ASSET_ROOT, "live", "route_trails", "route_plasma_filament.png"))).toBe(true);
+    expect(existsSync(join(ASSET_ROOT, "live", "node_events", "node_shockwave_ring.png"))).toBe(true);
   });
 });

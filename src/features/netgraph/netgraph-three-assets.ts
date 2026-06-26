@@ -37,10 +37,14 @@ type PacketVisualTexture =
   | "comet_data"
   | "comet_fast"
   | "comet_beacon";
+export type StellarGasTexture = "traffic_nebula_core" | "traffic_aurora_sheet";
+export type RouteTrailTexture = "route_plasma_filament";
+export type NodeEventTexture = "node_shockwave_ring";
 
 export const nodeTextureCache = new Map<string, THREE.Texture | null>();
 export const ambientTextureCache = new Map<string, THREE.Texture | null>();
 export const packetTextureCache = new Map<string, THREE.Texture | null>();
+export const liveTextureCache = new Map<string, THREE.Texture | null>();
 
 const cachedTextures = new WeakSet<THREE.Texture>();
 const textureLoader = new THREE.TextureLoader();
@@ -110,6 +114,18 @@ export function packetTextureFile(name: PacketVisualTexture, variant: PacketText
     return assetPath("packets_trails_comets", "2048", "default", `${name}.png`);
   }
   return assetPath("packets_trails_comets", "1024", variant, `${name}.png`);
+}
+
+export function stellarGasTextureFile(name: StellarGasTexture): string {
+  return assetPath("live", "stellar_gases", `${name}.png`);
+}
+
+export function routeTrailTextureFile(name: RouteTrailTexture): string {
+  return assetPath("live", "route_trails", `${name}.png`);
+}
+
+export function nodeEventTextureFile(name: NodeEventTexture): string {
+  return assetPath("live", "node_events", `${name}.png`);
 }
 
 function nodeTextureVariantForPerformance(nodeState: NodeTextureState, useHiDpiTexture: boolean): string {

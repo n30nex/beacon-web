@@ -1,8 +1,8 @@
 {
   "pack": "Beacon NetGraph Asset Pack",
   "seed_family": 872133,
-  "runtime_asset_count": 252,
-  "indexed_file_count": 254,
+  "runtime_asset_count": 256,
+  "indexed_file_count": 258,
   "assets": [
     {
       "name": "dust_sheet_soft",
@@ -2289,6 +2289,42 @@
       "alpha": false,
       "path": "nodes/planets/warning/planet_orange_warning.png",
       "sha256": "32e679ee9719362481e11f599c6ca56f6d044df7e64f74a149136e7ea2a1ed25"
+    },
+    {
+      "name": "traffic_nebula_core",
+      "category": "live",
+      "variant": "stellar_gas",
+      "resolution": "1024x1024",
+      "alpha": false,
+      "path": "live/stellar_gases/traffic_nebula_core.png",
+      "sha256": "7c4d4c578e50483816eeff15e5bf2c98d3df798f0e50cd34ded0e9492491bc2f"
+    },
+    {
+      "name": "traffic_aurora_sheet",
+      "category": "live",
+      "variant": "stellar_gas",
+      "resolution": "1024x1024",
+      "alpha": false,
+      "path": "live/stellar_gases/traffic_aurora_sheet.png",
+      "sha256": "45f3fd6581c616b064718765787474ba4851b9eede0677d216332b1cdd38e888"
+    },
+    {
+      "name": "route_plasma_filament",
+      "category": "live",
+      "variant": "route_trail",
+      "resolution": "2048x1024",
+      "alpha": false,
+      "path": "live/route_trails/route_plasma_filament.png",
+      "sha256": "8bb86f02e2d9ae9343f3db5051c21611a12af79cc61732481bdbe89c29f0fa74"
+    },
+    {
+      "name": "node_shockwave_ring",
+      "category": "live",
+      "variant": "node_event",
+      "resolution": "1024x1024",
+      "alpha": false,
+      "path": "live/node_events/node_shockwave_ring.png",
+      "sha256": "2d6f388eddf28d391b5890e7ca50a53197a30a2913d60e35c2b18547058e6d75"
     }
   ]
 }

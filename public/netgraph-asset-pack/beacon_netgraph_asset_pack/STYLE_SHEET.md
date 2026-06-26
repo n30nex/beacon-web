@@ -94,6 +94,7 @@ Node silhouettes use a strong central luminous core and distinct outer geometry 
 - `packets_trails_comets/1024/<variant>/`: 1024x1024 transparent motion sprites. Variants are `default`, `soft`, `active`, `alert`.
 - `packets_trails_comets/2048/default/`: optional 2048x2048 default desktop sprites.
 - `ambient/<variant>/`: edge beams, overlays, grid, halo, pulse, star and dust layers.
+- `live/stellar_gases/`, `live/route_trails/`, and `live/node_events/`: generated cinematic overlays for traffic heat, route afterglow, and RX/TX shockwaves. These are black-background emissive textures intended for additive blending.
 - `ui/<variant>/`: reusable glass panel, buttons, badges, dividers, corner frames, microgrid texture.
 - `previews/`: non-runtime visual contact/reference sheets.
 

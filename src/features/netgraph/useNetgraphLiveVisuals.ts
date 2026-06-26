@@ -10,7 +10,9 @@ import {
   type NetgraphGraph,
   type NetgraphPulse,
   type NetgraphRouteLimit,
+  type NetgraphRouteHeat,
 } from "./netgraph-model";
+import { mergePulseRouteHeat, pruneRouteHeat } from "./netgraph-route-heat";
 
 interface UseNetgraphLiveVisualsArgs {
   graph: NetgraphGraph;
@@ -29,6 +31,7 @@ export function useNetgraphLiveVisuals({
 }: UseNetgraphLiveVisualsArgs) {
   const [pulses, setPulses] = useState<NetgraphPulse[]>([]);
   const [glows, setGlows] = useState<NetgraphGlow[]>([]);
+  const [routeHeat, setRouteHeat] = useState<NetgraphRouteHeat[]>([]);
   const latestObservationIdRef = useRef(0);
   const seenLiveVisualIdsRef = useRef(new Set<string>());
   const graphRef = useRef(graph);
@@ -43,9 +46,17 @@ export function useNetgraphLiveVisuals({
     const id = window.setTimeout(() => {
       setPulses([]);
       setGlows([]);
+      setRouteHeat([]);
     }, 0);
     return () => window.clearTimeout(id);
   }, [regionKey, routeLimit]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setRouteHeat((current) => pruneRouteHeat(current, Date.now()));
+    }, 3200);
+    return () => window.clearInterval(id);
+  }, []);
 
   const pushLiveVisual = useCallback((data: WsPacketObservation["data"]) => {
     if (typeof data.observation.id === "number") {
@@ -59,8 +70,12 @@ export function useNetgraphLiveVisuals({
     if (seenLiveVisualIdsRef.current.size > 900) {
       seenLiveVisualIdsRef.current = new Set(Array.from(seenLiveVisualIdsRef.current).slice(-450));
     }
-    if (visual.type === "pulse") setPulses((current) => [...current, visual.pulse].slice(-MAX_NETGRAPH_PULSES));
-    else setGlows((current) => [...current, visual.glow].slice(-MAX_NETGRAPH_GLOWS));
+    if (visual.type === "pulse") {
+      setPulses((current) => [...current, visual.pulse].slice(-MAX_NETGRAPH_PULSES));
+      setRouteHeat((current) => mergePulseRouteHeat(current, visual.pulse));
+    } else {
+      setGlows((current) => [...current, visual.glow].slice(-MAX_NETGRAPH_GLOWS));
+    }
   }, []);
 
   useEffect(() => {
@@ -103,5 +118,5 @@ export function useNetgraphLiveVisuals({
     };
   }, [glows, pulses]);
 
-  return { glows, liveStats, pulses };
+  return { glows, liveStats, pulses, routeHeat };
 }
