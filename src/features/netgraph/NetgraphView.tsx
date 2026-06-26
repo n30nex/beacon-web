@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useState, type SVGProps } from "react";
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useState, type SVGProps } from "react";
 import { useQuery } from "@tanstack/react-query";
 import "./netgraph.css";
 import { getNetgraphSnapshot } from "../../api/client";
@@ -23,7 +23,6 @@ import {
   type NetgraphRouteLimit,
 } from "./netgraph-model";
 import { layoutRequestFromGraph, resultToPositionMap, settleNetgraphLayout, type NetgraphLayoutResult } from "./netgraph-layout";
-import { ThreeNetgraphCanvas } from "./ThreeNetgraphCanvas";
 import { EmptyTopologyState, TopologySnapshotErrorState } from "./NetgraphRouteStates";
 import { NetgraphSettingsIcon, NetgraphSettingsPanel } from "./NetgraphSettingsPanel";
 import {
@@ -35,6 +34,8 @@ import {
 import { FallbackList, Inspector, NodeInspector } from "./NetgraphPanels";
 import { useNetgraphLiveVisuals } from "./useNetgraphLiveVisuals";
 import { useNetgraphSelection } from "./useNetgraphSelection";
+
+const ThreeNetgraphCanvas = lazy(() => import("./ThreeNetgraphCanvas").then((mod) => ({ default: mod.ThreeNetgraphCanvas })));
 
 interface NetgraphViewProps {
   selectedNodeId: string | null;
@@ -86,21 +87,23 @@ function DeviceLegend() {
     ["OTH", "#ffc766"],
   ];
   return (
-    <aside className="pointer-events-auto absolute left-3 top-16 z-10 hidden max-w-[260px] rounded-sm border border-border bg-bg-surface/90 p-3 shadow-2xl backdrop-blur md:block" aria-label="Netgraph legend">
-      <div className="font-mono text-[10px] font-bold uppercase text-primary">Devices</div>
-      <div className="mt-2 flex flex-wrap gap-1.5">
+    <aside className="netgraph-legend pointer-events-auto absolute left-3 top-16 z-10 hidden max-w-[260px] rounded-sm border border-border bg-bg-surface/90 p-2.5 shadow-2xl backdrop-blur-md md:block" aria-label="Netgraph legend">
+      <div className="flex items-center justify-between gap-3">
+        <div className="font-mono text-[10px] font-bold uppercase text-primary">Topology</div>
+        <span className="font-mono text-[9px] uppercase text-text-dim">Live</span>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-1.5">
         {devices.map((item) => (
-          <span key={item.role} className="inline-flex items-center gap-1.5 rounded-sm border border-border-subtle bg-bg-base/70 px-2 py-1 font-mono text-[10px] font-semibold text-text-muted">
-            <i className={`${item.shape} ${item.className}`} />
-            {item.role}
+          <span key={item.role} className="inline-flex min-w-0 items-center gap-1.5 rounded-sm border border-border-subtle bg-bg-base/60 px-1.5 py-1 font-mono text-[9px] font-semibold uppercase text-text-muted">
+            <i className={`shrink-0 ${item.shape} ${item.className}`} />
+            <span className="truncate">{item.role}</span>
           </span>
         ))}
       </div>
-      <div className="mt-3 font-mono text-[10px] font-bold uppercase text-primary">Packets</div>
-      <div className="mt-2 flex flex-wrap gap-1.5">
+      <div className="mt-2.5 flex flex-wrap gap-1">
         {packets.map(([label, color]) => (
-          <span key={label} className="inline-flex items-center gap-1.5 rounded-sm border border-border-subtle bg-bg-base/70 px-2 py-1 font-mono text-[10px] font-semibold text-text-muted">
-            <i className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+          <span key={label} className="inline-flex items-center gap-1 rounded-sm border border-border-subtle bg-bg-base/50 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-text-muted">
+            <i className="h-2 w-2 rounded-full shadow-[0_0_8px_currentColor]" style={{ backgroundColor: color, color }} />
             {label}
           </span>
         ))}
@@ -303,23 +306,25 @@ export function NetgraphView({ selectedNodeId, onSelectNode, wsManager }: Netgra
         ) : webglError ? (
           <FallbackList graph={graph} selectedRouteId={selectedRouteId} onSelectRoute={selectRoute} />
         ) : (
-      <ThreeNetgraphCanvas
-            graph={graph}
-            selectedNodeId={effectiveSelectedNodeId}
-            selectedRouteId={selectedRouteId}
-            viewMode={viewMode}
-            qualityMode={qualityMode}
-            showDataQuality={showDataQuality}
-            visualProfile={visualProfile}
-            searchMatches={searchMatches}
-            pulses={pulses}
-            glows={glows}
-            reducedMotion={reducedMotion}
-            onSelectNode={selectNode}
-            onSelectRoute={selectRoute}
-            onClearSelection={clearSelection}
-            onError={setWebglError}
-          />
+          <Suspense fallback={<TerminalLoadingState label="LOADING 3D ENGINE" detail="Preparing WebGL topology view." className="h-full" />}>
+            <ThreeNetgraphCanvas
+              graph={graph}
+              selectedNodeId={effectiveSelectedNodeId}
+              selectedRouteId={selectedRouteId}
+              viewMode={viewMode}
+              qualityMode={qualityMode}
+              showDataQuality={showDataQuality}
+              visualProfile={visualProfile}
+              searchMatches={searchMatches}
+              pulses={pulses}
+              glows={glows}
+              reducedMotion={reducedMotion}
+              onSelectNode={selectNode}
+              onSelectRoute={selectRoute}
+              onClearSelection={clearSelection}
+              onError={setWebglError}
+            />
+          </Suspense>
         )}
         <DeviceLegend />
         <NetgraphSettingsPanel
@@ -343,7 +348,7 @@ export function NetgraphView({ selectedNodeId, onSelectNode, wsManager }: Netgra
           onChangeVisualProfile={changeVisualProfile}
           onClose={() => setSettingsOpen(false)}
         />
-        <div className="pointer-events-auto absolute bottom-2 left-2 z-10 hidden max-w-[calc(100%-1rem)] items-center gap-2 rounded-sm border border-border bg-bg-surface/92 px-2 py-1.5 font-mono text-[10px] shadow-2xl backdrop-blur md:bottom-3 md:left-3 md:inline-flex md:px-3 md:py-2 md:text-[11px]">
+        <div className="netgraph-live-pill pointer-events-auto absolute bottom-2 left-2 z-10 hidden max-w-[calc(100%-1rem)] items-center gap-2 rounded-sm border border-border bg-bg-surface/88 px-2 py-1.5 font-mono text-[10px] shadow-2xl backdrop-blur-md md:bottom-3 md:left-3 md:inline-flex md:px-3 md:py-2 md:text-[11px]">
           <ActivityIcon size={14} className="text-primary" />
           <span className="text-text-muted">{wsManager?.getStatus() ?? "offline"}</span>
           <b className="text-green">{liveStats.visualCount} live pulses</b>

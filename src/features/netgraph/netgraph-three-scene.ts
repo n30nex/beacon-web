@@ -16,19 +16,23 @@ export function createNetgraphSceneLights(options: {
   richPacketLighting: boolean;
 }): THREE.Light[] {
   const lights: THREE.Light[] = [
-    new THREE.AmbientLight(0xffffff, 0.9 * options.lightIntensityScale * (0.72 + options.atmosphereScale * 0.2)),
+    new THREE.AmbientLight(0xffffff, 0.82 * options.lightIntensityScale * (0.74 + options.atmosphereScale * 0.18)),
   ];
-  const keyLight = new THREE.DirectionalLight(0xffffff, 2.25 * options.lightIntensityScale);
-  keyLight.position.set(24, 44, 84);
+  const keyLight = new THREE.DirectionalLight(0xffffff, 2.42 * options.lightIntensityScale);
+  keyLight.position.set(30, 52, 92);
   lights.push(keyLight);
 
-  const rimLight = new THREE.DirectionalLight(0x75ccff, 1.2 * options.lightIntensityScale * (0.8 + options.atmosphereScale * 0.2));
-  rimLight.position.set(-72, -40, 62);
+  const rimLight = new THREE.DirectionalLight(0x75ccff, 1.42 * options.lightIntensityScale * (0.78 + options.atmosphereScale * 0.22));
+  rimLight.position.set(-86, -44, 70);
   lights.push(rimLight);
 
+  const underLight = new THREE.DirectionalLight(0x54e1a6, 0.32 * options.lightIntensityScale * (0.72 + options.atmosphereScale * 0.18));
+  underLight.position.set(36, -58, 28);
+  lights.push(underLight);
+
   if (options.richPacketLighting) {
-    const packetFillLight = new THREE.DirectionalLight(0x54e1a6, 0.42 * options.lightIntensityScale * (0.75 + options.atmosphereScale * 0.28));
-    packetFillLight.position.set(38, -52, 44);
+    const packetFillLight = new THREE.DirectionalLight(0xffd166, 0.36 * options.lightIntensityScale * (0.72 + options.atmosphereScale * 0.24));
+    packetFillLight.position.set(-34, 48, 40);
     lights.push(packetFillLight);
   }
   return lights;
@@ -43,16 +47,16 @@ export function createReferenceGrid(options: {
   radius: number;
 }): THREE.GridHelper {
   const referenceGrid = new THREE.GridHelper(
-    options.radius * 3.8,
-    options.narrowViewport || options.batteryQuality ? 18 : 30,
+    options.radius * 4.2,
+    options.narrowViewport || options.batteryQuality ? 16 : 28,
     options.primary,
     options.muted,
   );
   referenceGrid.rotation.x = Math.PI / 2;
-  referenceGrid.position.set(options.center.x, options.center.y, options.center.z - options.radius * 0.86);
+  referenceGrid.position.set(options.center.x, options.center.y, options.center.z - options.radius * 0.96);
   const referenceGridMaterial = referenceGrid.material as THREE.LineBasicMaterial;
   referenceGridMaterial.transparent = true;
-  referenceGridMaterial.opacity = options.batteryQuality ? 0.08 : 0.13;
+  referenceGridMaterial.opacity = options.batteryQuality ? 0.055 : 0.105;
   referenceGridMaterial.depthWrite = false;
   return referenceGrid;
 }
@@ -93,7 +97,7 @@ export function createNetgraphSceneStage(options: {
   const box = new THREE.Box3().setFromPoints(nodePositions);
   const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3());
-  const radius = Math.max(56, Math.max(size.x, size.y, Math.abs(size.z) * 1.3) * 1.16 * options.cameraDistanceScale * depthSpread);
+  const radius = Math.max(options.narrowViewport ? 42 : 38, Math.max(size.x, size.y, Math.abs(size.z) * 1.3) * 1.16 * options.cameraDistanceScale * depthSpread);
 
   options.scene.fog = new THREE.Fog(
     options.bg,
@@ -130,8 +134,8 @@ type LabelTier = "primary" | "secondary";
 export function makeLabelSprite(text: string, color: string, tier: LabelTier = "primary"): THREE.Sprite {
   const primary = tier === "primary";
   const font = primary
-    ? "800 28px Inter, ui-sans-serif, system-ui, sans-serif"
-    : "750 18px Inter, ui-sans-serif, system-ui, sans-serif";
+    ? "800 27px Inter, ui-sans-serif, system-ui, sans-serif"
+    : "750 17px Inter, ui-sans-serif, system-ui, sans-serif";
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d")!;
   context.font = font;
@@ -141,21 +145,21 @@ export function makeLabelSprite(text: string, color: string, tier: LabelTier = "
   context.font = font;
   context.textBaseline = "middle";
   context.lineJoin = "round";
-  context.lineWidth = primary ? 7 : 4;
+  context.lineWidth = primary ? 6 : 4;
   context.strokeStyle = "rgba(0,0,0,0.94)";
   context.fillStyle = color;
   const plateInset = primary ? 6 : 3;
-  const plateRadius = primary ? 14 : 8;
+  const plateRadius = primary ? 8 : 5;
   context.beginPath();
   context.roundRect(plateInset, plateInset, canvas.width - plateInset * 2, canvas.height - plateInset * 2, plateRadius);
-  context.fillStyle = primary ? "rgba(4,10,22,0.84)" : "rgba(4,10,22,0.66)";
+  context.fillStyle = primary ? "rgba(4,10,22,0.78)" : "rgba(4,10,22,0.52)";
   context.fill();
-  context.lineWidth = primary ? 3 : 1.5;
+  context.lineWidth = primary ? 2 : 1.25;
   context.strokeStyle = color;
-  context.globalAlpha = primary ? 0.62 : 0.46;
+  context.globalAlpha = primary ? 0.54 : 0.34;
   context.stroke();
   context.globalAlpha = 1;
-  context.lineWidth = primary ? 7 : 4;
+  context.lineWidth = primary ? 6 : 4;
   context.strokeStyle = "rgba(0,0,0,0.94)";
   context.fillStyle = color;
   context.shadowColor = "rgba(0,0,0,0.96)";
@@ -201,8 +205,17 @@ export function createNodeLabelSprites(options: {
   narrowViewport: boolean;
 }): THREE.Sprite[] {
   const visibleLabelIds = Array.from(options.importantLabels).filter((id) => options.visibleNodeIds.has(id));
-  const minimumLabelCap = options.labelDensity >= 0.98 ? visibleLabelIds.length : 1;
-  const requestedLabelCap = Math.floor(visibleLabelIds.length * options.labelDensity * options.labelBudgetScale);
+  const priorityLabelCount = visibleLabelIds.filter((id) =>
+    options.selectedNodeId === id ||
+    options.searchMatches.has(id) ||
+    options.directNodeNeighbors.has(id) ||
+    options.selectedNodes.has(id)
+  ).length;
+  const baseLabelCap = options.denseGraph
+    ? options.narrowViewport ? 44 : 96
+    : options.narrowViewport ? 72 : 180;
+  const requestedLabelCap = Math.floor(baseLabelCap * options.labelDensity * options.labelBudgetScale);
+  const minimumLabelCap = Math.max(1, priorityLabelCount);
   const labelCap = Math.min(MAX_LABELS, Math.max(minimumLabelCap, requestedLabelCap));
   const labelIds = visibleLabelIds.slice(0, labelCap);
   const sprites: THREE.Sprite[] = [];
@@ -218,10 +231,10 @@ export function createNodeLabelSprites(options: {
     const labelColor = isSelectedOrSearch || isDirectFocus || isRouteContext ? "#ffffff" : options.roleColors[node.role];
     const isPriority = isSelectedOrSearch || isDirectFocus || isRouteContext || (!options.nodeFocusActive && index < primaryCount);
     const sprite = makeLabelSprite(node.label, labelColor, isPriority ? "primary" : "secondary");
-    sprite.scale.multiplyScalar(options.labelScale * (isPriority ? (options.denseGraph ? 1.08 : 1.12) : (options.denseGraph ? 0.74 : 0.86)));
+    sprite.scale.multiplyScalar(options.labelScale * (isPriority ? (options.denseGraph ? 1.04 : 1.08) : (options.denseGraph ? 0.66 : 0.78)));
     const labelRadius = node.radius * options.labelScale;
-    const labelDrop = labelRadius * (options.narrowViewport ? 2.7 : 2.08) + sprite.scale.y * (isPriority ? 0.34 : 0.22);
-    sprite.position.set(node.position.x, node.position.y - labelDrop, node.position.z + labelRadius * (isPriority ? 1.22 : 0.92) + (isPriority ? 8 : 4));
+    const labelDrop = labelRadius * (options.narrowViewport ? 2.55 : 1.92) + sprite.scale.y * (isPriority ? 0.3 : 0.18);
+    sprite.position.set(node.position.x, node.position.y - labelDrop, node.position.z + labelRadius * (isPriority ? 1.34 : 0.96) + (isPriority ? 10 : 5));
     options.group.add(sprite);
     sprites.push(sprite);
   }
@@ -291,13 +304,13 @@ export function createSpaceBackdrop(
       transparent: true,
       depthWrite: false,
       depthTest: false,
-      opacity: 0.22 * (0.7 + atmosphereFactor * 0.5),
+      opacity: 0.18 * (0.7 + atmosphereFactor * 0.5),
       blending: THREE.AdditiveBlending,
       toneMapped: false,
     }));
     drift.position.copy(center);
-    drift.position.z -= radius * 2.4;
-    drift.scale.set(radius * 4.4, radius * 4.2, 1);
+    drift.position.z -= radius * 2.55;
+    drift.scale.set(radius * 4.8, radius * 4.5, 1);
     drift.renderOrder = -20;
     drift.center.set(0.5, 0.5);
     group.add(drift);
@@ -309,13 +322,13 @@ export function createSpaceBackdrop(
       transparent: true,
       depthWrite: false,
       depthTest: false,
-      opacity: 0.15 * (0.8 + atmosphereFactor * 0.4),
+      opacity: 0.12 * (0.8 + atmosphereFactor * 0.35),
       blending: THREE.AdditiveBlending,
       toneMapped: false,
     }));
     scanGrid.position.copy(center);
-    scanGrid.position.z -= radius * 2.06;
-    scanGrid.scale.set(radius * 3.9, radius * 3.1, 1);
+    scanGrid.position.z -= radius * 2.18;
+    scanGrid.scale.set(radius * 4.25, radius * 3.25, 1);
     scanGrid.renderOrder = -28;
     scanGrid.center.set(0.5, 0.5);
     group.add(scanGrid);
@@ -327,19 +340,19 @@ export function createSpaceBackdrop(
       transparent: true,
       depthWrite: false,
       depthTest: false,
-      opacity: 0.08 * (0.9 + atmosphereFactor * 0.4),
+      opacity: 0.095 * (0.88 + atmosphereFactor * 0.42),
       blending: THREE.AdditiveBlending,
       toneMapped: false,
     }));
     dust.position.copy(center);
-    dust.position.z -= radius * 2.1;
-    dust.scale.set(radius * 5.5, radius * 4.1, 1);
+    dust.position.z -= radius * 2.28;
+    dust.scale.set(radius * 5.9, radius * 4.4, 1);
     dust.renderOrder = -29;
     dust.center.set(0.5, 0.5);
     group.add(dust);
   }
 
-  const starCount = Math.max(1, Math.round((reduced ? 120 : 360) * density * (0.76 + atmosphereFactor)));
+  const starCount = Math.max(1, Math.round((reduced ? 110 : 330) * density * (0.74 + atmosphereFactor)));
   const positions = new Float32Array(starCount * 3);
   const colors = new Float32Array(starCount * 3);
   const shell = radius * 4.8;
@@ -366,7 +379,7 @@ export function createSpaceBackdrop(
       size: (reduced ? 0.75 : 1.05) * (0.86 + atmosphereFactor * 0.35),
       vertexColors: true,
       transparent: true,
-      opacity: (reduced ? 0.22 : 0.34) * (0.72 + atmosphereFactor * 0.28),
+      opacity: (reduced ? 0.18 : 0.28) * (0.72 + atmosphereFactor * 0.28),
       depthWrite: false,
     }),
   );
@@ -377,13 +390,13 @@ export function createSpaceBackdrop(
     const nebula = new THREE.Sprite(new THREE.SpriteMaterial({
       map: makeNebulaTexture(primary, green),
       transparent: true,
-      opacity: 0.42 * (0.72 + atmosphereFactor * 0.28),
+      opacity: 0.36 * (0.72 + atmosphereFactor * 0.28),
       depthWrite: false,
       depthTest: false,
       blending: THREE.AdditiveBlending,
     }));
-    nebula.position.set(center.x - radius * 0.5, center.y + radius * 0.12, center.z - radius * 2.2);
-    nebula.scale.set(radius * (4.4 + atmosphereFactor * 0.8), radius * (2.6 + atmosphereFactor * 0.45), 1);
+    nebula.position.set(center.x - radius * 0.58, center.y + radius * 0.16, center.z - radius * 2.36);
+    nebula.scale.set(radius * (4.8 + atmosphereFactor * 0.82), radius * (2.7 + atmosphereFactor * 0.48), 1);
     nebula.renderOrder = -30;
     group.add(nebula);
   }

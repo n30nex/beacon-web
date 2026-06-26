@@ -43,8 +43,8 @@ function CanvasControlButton({ label, onClick, active = false, disabled = false,
       aria-pressed={active}
       title={label}
       disabled={disabled}
-      className={`grid h-8 w-8 place-items-center rounded-sm border font-mono text-sm font-bold shadow-lg backdrop-blur transition-colors md:h-9 md:w-9 ${
-        active ? "border-primary/55 bg-primary/15 text-primary" : "border-border bg-bg-surface/88 text-text-normal hover:border-primary/60 hover:text-text-bright"
+      className={`netgraph-control-button grid h-8 w-8 place-items-center rounded-sm border font-mono text-sm font-bold shadow-lg backdrop-blur-md transition-colors md:h-9 md:w-9 ${
+        active ? "border-primary/60 bg-primary/15 text-primary" : "border-border bg-bg-surface/80 text-text-normal hover:border-primary/60 hover:bg-primary/10 hover:text-text-bright"
       } disabled:cursor-not-allowed disabled:border-border-subtle disabled:bg-bg-surface/55 disabled:text-text-dim/45`}
       onClick={onClick}
     >
@@ -193,7 +193,7 @@ export function NetgraphCanvasHud({
       </div>
       {hovered && (
         <div
-          className="pointer-events-none absolute z-10 max-w-64 rounded-sm border border-primary/35 bg-bg-surface/95 px-2.5 py-2 font-mono text-[11px] shadow-lg"
+          className="netgraph-hover-card pointer-events-none absolute z-10 max-w-64 rounded-sm border border-primary/35 bg-bg-surface/95 px-2.5 py-2 font-mono text-[11px] shadow-lg backdrop-blur-md"
           style={{
             left: `min(${Math.max(12, hovered.x + 12)}px, calc(100% - 270px))`,
             top: Math.max(12, hovered.y - 18),

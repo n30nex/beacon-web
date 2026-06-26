@@ -35,14 +35,14 @@ export function createFocusVisuals(options: {
     const material = new THREE.MeshBasicMaterial({
       color: nodeId === options.selectedNodeId ? 0xffffff : options.directNodeNeighbors.has(nodeId) ? options.primary : options.green,
       transparent: true,
-      opacity: nodeId === options.selectedNodeId ? 0.23 : options.directNodeNeighbors.has(nodeId) ? 0.13 : 0.08,
+      opacity: nodeId === options.selectedNodeId ? 0.29 : options.directNodeNeighbors.has(nodeId) ? 0.16 : 0.07,
       wireframe: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
     const mesh = new THREE.Mesh(focusHaloGeometry, material);
     if (node) {
-      const baseScale = nodeScale(node, options.nodeScaleFactor) * options.focusHaloScale * (nodeId === options.selectedNodeId ? 3.2 : options.directNodeNeighbors.has(nodeId) ? 2.45 : 1.9);
+      const baseScale = nodeScale(node, options.nodeScaleFactor) * options.focusHaloScale * (nodeId === options.selectedNodeId ? 3.55 : options.directNodeNeighbors.has(nodeId) ? 2.65 : 1.82);
       mesh.position.set(node.position.x, node.position.y, node.position.z);
       mesh.scale.setScalar(baseScale);
       mesh.userData.baseScale = baseScale;
@@ -61,12 +61,12 @@ export function createFocusVisuals(options: {
       new THREE.MeshStandardMaterial({
         color: sunColor,
         emissive: sunColor,
-        emissiveIntensity: options.highQuality ? 1.85 : 1.35,
+        emissiveIntensity: options.highQuality ? 2.05 : 1.46,
         metalness: 0.08,
         roughness: 0.24,
       }),
     );
-    sunCore.scale.setScalar(nodeScale(selectedSunNode, options.nodeScaleFactor) * 1.75);
+    sunCore.scale.setScalar(nodeScale(selectedSunNode, options.nodeScaleFactor) * 1.86);
     selectedSunGroup.add(sunCore);
 
     const corona = new THREE.Mesh(
@@ -74,21 +74,21 @@ export function createFocusVisuals(options: {
       new THREE.MeshBasicMaterial({
         color: sunColor,
         transparent: true,
-        opacity: options.highQuality ? 0.28 : 0.2,
+        opacity: options.highQuality ? 0.34 : 0.23,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       }),
     );
-    corona.scale.setScalar(nodeScale(selectedSunNode, options.nodeScaleFactor) * 4.6);
+    corona.scale.setScalar(nodeScale(selectedSunNode, options.nodeScaleFactor) * 5.2);
     selectedSunGroup.add(corona);
 
-    for (let index = 0; index < 3; index += 1) {
+    for (let index = 0; index < 4; index += 1) {
       const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(nodeScale(selectedSunNode, options.nodeScaleFactor) * (3.2 + index * 1.35), 0.045, 8, 96),
+        new THREE.TorusGeometry(nodeScale(selectedSunNode, options.nodeScaleFactor) * (3.05 + index * 1.18), 0.04, 8, 112),
         new THREE.MeshBasicMaterial({
           color: index % 2 === 0 ? options.primary : options.green,
           transparent: true,
-          opacity: 0.2 - index * 0.04,
+          opacity: 0.23 - index * 0.035,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
         }),

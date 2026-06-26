@@ -45,11 +45,11 @@ export function createEdgeVisuals(options: {
     1,
     options.edgeOpacityScale * (options.selectedEdgesCount > 0
       ? options.nodeFocusActive
-        ? options.narrowViewport ? 0.32 : 0.24
-        : options.narrowViewport ? 0.24 : 0.16
+        ? options.narrowViewport ? 0.34 : 0.26
+        : options.narrowViewport ? 0.26 : 0.18
       : options.liveFocusActive
-        ? options.narrowViewport ? 0.52 : 0.38
-        : options.narrowViewport ? 0.64 : 0.48),
+        ? options.narrowViewport ? 0.46 : 0.34
+        : options.narrowViewport ? 0.54 : 0.4),
   );
   const edgeGeometry = new THREE.BufferGeometry();
   edgeGeometry.setAttribute("position", new THREE.Float32BufferAttribute(edgePositions(options.graph, options.visibleEdgeIds), 3));
@@ -68,7 +68,7 @@ export function createEdgeVisuals(options: {
   const selectedMaterial = new THREE.LineBasicMaterial({
     color: options.primary,
     transparent: true,
-    opacity: Math.min(1, (options.selectedEdgesCount > 0 ? 0.96 : 0) * options.edgeOpacityScale),
+    opacity: Math.min(1, (options.selectedEdgesCount > 0 ? 1 : 0) * options.edgeOpacityScale),
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
@@ -79,7 +79,7 @@ export function createEdgeVisuals(options: {
   const directMaterial = new THREE.LineBasicMaterial({
     color: 0xffffff,
     transparent: true,
-    opacity: Math.min(1, (options.directNodeEdgesCount > 0 ? 0.98 : 0) * options.edgeOpacityScale),
+    opacity: Math.min(1, (options.directNodeEdgesCount > 0 ? 1 : 0) * options.edgeOpacityScale),
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
@@ -113,7 +113,7 @@ export function updateHoverEdgeVisual(options: {
     "position",
     new THREE.Float32BufferAttribute(options.edgeId ? edgePositions(options.graph, new Set([options.edgeId])) : new Float32Array(), 3),
   );
-  options.hoverMaterial.opacity = options.edgeId ? Math.min(1, 0.9 * options.edgeOpacityScale) : 0;
+  options.hoverMaterial.opacity = options.edgeId ? Math.min(1, 1.08 * options.edgeOpacityScale) : 0;
   options.hoverGeometry.computeBoundingSphere();
 }
 
@@ -122,6 +122,8 @@ function createEdgeBeamGroup(options: {
   visibleEdgeIds: Set<string>;
   selectedEdgeIds: Set<string>;
   directEdgeIds: Set<string>;
+  selectedEdgesCount: number;
+  directNodeEdgesCount: number;
   nodeFocusActive: boolean;
   highQuality: boolean;
   batteryQuality: boolean;
@@ -133,15 +135,18 @@ function createEdgeBeamGroup(options: {
   ambientMapAnisotropy: number;
 }): THREE.Group {
   const edgeBeamsGroup = new THREE.Group();
-  const edgeBeamEnabled = options.highQuality && !options.batteryQuality && (!options.denseGraph || options.nodeFocusActive) && !options.lowPower;
+  const hasEmphasis = options.selectedEdgesCount > 0 || options.directNodeEdgesCount > 0;
+  const edgeBeamEnabled = options.highQuality && !options.batteryQuality && (!options.denseGraph || options.nodeFocusActive || hasEmphasis) && !options.lowPower;
   if (!edgeBeamEnabled) return edgeBeamsGroup;
 
   const edgeBeamVariant = chooseAmbientPacketVariant(options.nodeFocusActive, options.batteryQuality);
   const edgeBeamSolid = getCachedTexture(ambientTextureCache, ambientTextureFile("edge_beam_solid", edgeBeamVariant), options.ambientMapAnisotropy);
   const edgeBeamFuzzy = getCachedTexture(ambientTextureCache, ambientTextureFile("edge_beam_fuzzy", edgeBeamVariant), options.ambientMapAnisotropy);
   const visibleEdgeIdsArray = Array.from(options.visibleEdgeIds);
-  const maxRegularEdgeBeams = options.narrowViewport ? 96 : 180;
-  const maxEmphasisEdgeBeams = options.narrowViewport ? 44 : 76;
+  const maxRegularEdgeBeams = options.denseGraph && !options.nodeFocusActive
+    ? options.narrowViewport ? 36 : 72
+    : options.narrowViewport ? 96 : 180;
+  const maxEmphasisEdgeBeams = options.narrowViewport ? 48 : 84;
   let beamCount = 0;
   const emphasisEdgeIds = new Set<string>();
   const edgeRadius = options.narrowViewport ? 0.024 : 0.03;
@@ -156,7 +161,7 @@ function createEdgeBeamGroup(options: {
     const start = nodePosition(from);
     const end = nodePosition(to);
     const mesh = edgeBeamMesh(start, end, color, {
-      emissiveIntensity: 0.68,
+      emissiveIntensity: 0.82,
       highFidelity: true,
       radius,
       opacity: Math.min(1, Math.max(0.1, opacity * (options.narrowViewport ? 0.9 : 1))),
@@ -174,19 +179,21 @@ function createEdgeBeamGroup(options: {
     }
   };
 
-  addEdgeBeamSet(options.selectedEdgeIds, new THREE.Color(0xffffff), edgeBeamOpacityForDensity(options.edgeOpacityScale, true));
-  addEdgeBeamSet(options.directEdgeIds, options.primary.clone(), edgeBeamOpacityForDensity(options.edgeOpacityScale, true));
+  addEdgeBeamSet(options.selectedEdgeIds, new THREE.Color(0xffffff), edgeBeamOpacityForDensity(options.edgeOpacityScale, true) * 1.08);
+  addEdgeBeamSet(options.directEdgeIds, options.primary.clone(), edgeBeamOpacityForDensity(options.edgeOpacityScale, true) * 1.02);
 
   let regularBeamCount = 0;
   const regularCap = maxRegularEdgeBeams;
-  for (const edgeId of visibleEdgeIdsArray) {
-    if (beamCount >= regularCap) break;
-    if (emphasisEdgeIds.has(edgeId)) continue;
-    const edge = options.graph.edgeById.get(edgeId);
-    if (!edge || !options.graph.nodeById.has(edge.fromId) || !options.graph.nodeById.has(edge.toId)) continue;
-    if (regularBeamCount >= maxRegularEdgeBeams - Math.min(maxEmphasisEdgeBeams, 64)) continue;
-    regularBeamCount += 1;
-    addBeam(edgeId, colorForEdge(edge.observationCount), edgeBeamOpacityForDensity(options.edgeOpacityScale, false), edgeRadius * 0.72, edgeBeamSolid);
+  if (!options.denseGraph || options.nodeFocusActive) {
+    for (const edgeId of visibleEdgeIdsArray) {
+      if (beamCount >= regularCap) break;
+      if (emphasisEdgeIds.has(edgeId)) continue;
+      const edge = options.graph.edgeById.get(edgeId);
+      if (!edge || !options.graph.nodeById.has(edge.fromId) || !options.graph.nodeById.has(edge.toId)) continue;
+      if (regularBeamCount >= maxRegularEdgeBeams - Math.min(maxEmphasisEdgeBeams, 64)) continue;
+      regularBeamCount += 1;
+      addBeam(edgeId, colorForEdge(edge.observationCount), edgeBeamOpacityForDensity(options.edgeOpacityScale, false) * 0.82, edgeRadius * 0.66, edgeBeamSolid);
+    }
   }
 
   return edgeBeamsGroup;

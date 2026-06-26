@@ -24,7 +24,7 @@ interface CameraControlsOptions {
 }
 
 export function createObliqueCameraDirection() {
-  return new THREE.Vector3(0.44, -0.32, 0.84).normalize();
+  return new THREE.Vector3(0.52, -0.38, 0.76).normalize();
 }
 
 export function currentCameraDirection({ camera, controls }: CameraControlsOptions, fallbackDirection: THREE.Vector3) {
@@ -77,7 +77,7 @@ export function createOverviewCameraFrame({
 }: OverviewFrameOptions): Required<NetgraphCameraFrame> {
   const aspect = Math.max(0.45, Math.min(2.5, rawAspect || 1));
   const narrowBoost = aspect < 0.82 ? 0.82 / aspect : 1;
-  const distance = radius * (narrowViewport ? 1.3 : 1.54) * narrowBoost * (0.82 + cameraDistanceScale * 0.56);
+  const distance = radius * (narrowViewport ? 1.34 : 1.5) * narrowBoost * (0.84 + cameraDistanceScale * 0.54);
   const target = center.clone();
   const position = target.clone().add(obliqueDirection.clone().multiplyScalar(distance));
   if (aspect < 0.82) position.y = center.y - radius * 0.1;

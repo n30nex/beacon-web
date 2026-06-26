@@ -2,6 +2,29 @@
   min-height: 0;
 }
 
+.netgraph-canvas-host::before,
+.netgraph-canvas-host::after {
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+.netgraph-canvas-host::before {
+  background:
+    radial-gradient(circle at 50% 42%, transparent 0%, transparent 48%, color-mix(in srgb, var(--color-bg-base) 54%, transparent) 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 9%, transparent), transparent 28%, color-mix(in srgb, var(--color-bg-base) 36%, transparent));
+}
+
+.netgraph-canvas-host::after {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 10%, transparent), transparent 18%, transparent 82%, color-mix(in srgb, var(--color-green) 8%, transparent)),
+    repeating-linear-gradient(180deg, transparent 0 7px, color-mix(in srgb, var(--color-primary) 5%, transparent) 7px 8px);
+  mix-blend-mode: screen;
+  opacity: 0.36;
+}
+
 .netgraph-three-canvas {
   display: block;
   height: 100%;
@@ -9,13 +32,62 @@
   width: 100%;
 }
 
+.netgraph-control-button,
+.netgraph-hover-card,
+.netgraph-legend,
+.netgraph-live-pill {
+  box-shadow:
+    0 18px 45px color-mix(in srgb, black 42%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+}
+
+.netgraph-control-button {
+  position: relative;
+}
+
+.netgraph-control-button::after {
+  background: color-mix(in srgb, var(--color-primary) 42%, transparent);
+  bottom: 5px;
+  content: "";
+  height: 1px;
+  left: 8px;
+  opacity: 0;
+  position: absolute;
+  right: 8px;
+  transition: opacity 160ms ease;
+}
+
+.netgraph-control-button:hover::after,
+.netgraph-control-button[aria-pressed="true"]::after {
+  opacity: 1;
+}
+
+.netgraph-legend,
+.netgraph-live-pill {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--color-bg-surface) 92%, transparent), color-mix(in srgb, var(--color-bg-base) 82%, transparent)),
+    color-mix(in srgb, var(--color-bg-surface) 88%, transparent);
+}
+
+.netgraph-hover-card {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--color-bg-surface) 96%, transparent), color-mix(in srgb, var(--color-bg-base) 88%, transparent)),
+    color-mix(in srgb, var(--color-bg-surface) 94%, transparent);
+}
+
 .netgraph-range {
   appearance: none;
-  background: color-mix(in srgb, var(--color-bg-base) 82%, var(--color-primary) 18%);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 42%, transparent), color-mix(in srgb, var(--color-green) 34%, transparent)),
+    color-mix(in srgb, var(--color-bg-base) 82%, var(--color-primary) 18%);
   border: 1px solid color-mix(in srgb, var(--color-primary) 28%, var(--color-border-subtle));
   border-radius: 999px;
   height: 8px;
   outline: none;
+}
+
+.netgraph-range:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 24%, transparent);
 }
 
 .netgraph-range::-webkit-slider-thumb {
