@@ -32,6 +32,7 @@ const OVERVIEW_TRAFFIC_TAIL_BOOST = 1.92;
 const MIRRORED_TRAFFIC_BRIGHTNESS_BOOST = 2.18;
 const MIRRORED_TRAFFIC_SIZE_BOOST = 1.5;
 const MIRRORED_TRAFFIC_TAIL_BOOST = 1.5;
+const NODE_FLASH_WINDOW_MS = 1280;
 
 export interface PulseVisuals {
   pulseBeamMeshes: THREE.Mesh[];
@@ -64,8 +65,9 @@ function stableRenderHash(value: string): number {
 
 function flashStrength(progress: number): number {
   const clamped = clamp(progress, 0, 1);
-  const attack = 0.58 + clamp(clamped / 0.16, 0, 1) * 0.42;
-  return Math.pow(1 - clamped, 1.36) * attack;
+  const attack = 0.82 + clamp(clamped / 0.08, 0, 1) * 0.44;
+  const decay = Math.pow(1 - clamped, 0.72);
+  return Math.min(1.26, attack * decay);
 }
 
 function segmentStartNodeId(segment: NetgraphPulse["segments"][number]): string {
@@ -76,7 +78,7 @@ function segmentEndNodeId(segment: NetgraphPulse["segments"][number]): string {
   return segment.reverse ? segment.fromId : segment.toId;
 }
 
-export function pulseNodeFlashEvents(pulse: NetgraphPulse, now: number, flashWindowMs = 820): PulseNodeFlash[] {
+export function pulseNodeFlashEvents(pulse: NetgraphPulse, now: number, flashWindowMs = NODE_FLASH_WINDOW_MS): PulseNodeFlash[] {
   if (pulse.segments.length === 0 || pulse.durationMs <= 0 || flashWindowMs <= 0) return [];
   const elapsed = now - pulse.startedAt;
   if (elapsed < 0 || elapsed > pulse.durationMs + flashWindowMs) return [];
@@ -102,7 +104,7 @@ export function pulseNodeFlashEvents(pulse: NetgraphPulse, now: number, flashWin
     if (arriveProgress >= 0 && arriveProgress <= 1) {
       const endNodeId = segmentEndNodeId(segment);
       const terminal = segmentIndex === pulse.segments.length - 1 && endNodeId === pulse.rxNodeId;
-      const strength = flashStrength(arriveProgress) * (terminal ? 1.18 : 1);
+      const strength = flashStrength(arriveProgress) * (terminal ? 1.38 : 1);
       events.push({
         nodeId: endNodeId,
         direction: "rx",
@@ -381,26 +383,27 @@ export function renderNetgraphEffectFrame(options: {
   const overviewTrafficVisible = options.visibleEdgeIds.size >= options.renderGraph.edges.length;
   let glowIndex = 0;
   const showNodeFlash = (flash: PulseNodeFlash) => {
-    if (flash.strength <= 0.01) return;
+    if (flash.strength <= 0.018) return;
     const nodeId = flash.nodeId;
     const node = options.renderGraph.nodeById.get(nodeId);
     if (node && !options.visibleNodeIds.has(node.id)) return;
     if (!node) return;
     options.endpointPosition.set(node.position.x, node.position.y, node.position.z);
-    if (!options.isVisiblePoint(options.endpointPosition, nodeScale(node, options.nodeScaleFactor) * 3.2)) return;
+    if (!options.isVisiblePoint(options.endpointPosition, nodeScale(node, options.nodeScaleFactor) * 6.2)) return;
     const baseSize = nodeScale(node, options.nodeScaleFactor);
-    const colorValue = flash.color;
+    const colorValue = flash.direction === "tx" ? "#91c8ff" : flash.terminal ? "#74ffc4" : flash.color;
     const wave = 1 + Math.sin(options.time / 112 + flash.phase) * 0.06;
-    const directionBoost = flash.direction === "rx" ? 1.1 : 1;
-    const terminalBoost = flash.terminal ? 1.18 : 1;
-    const opacityScale = clamp(options.glowIntensityScale, 0.2, 3) * focusEffectBoost * flash.strength * terminalBoost;
+    const directionBoost = flash.direction === "rx" ? 1.25 : 1.12;
+    const terminalBoost = flash.terminal ? 1.55 : 1;
+    const opacityScale = clamp(options.glowIntensityScale * 1.45, 0.35, 4.2) * focusEffectBoost * flash.strength * terminalBoost;
     const endpointMap = getCachedTexture(
       ambientTextureCache,
       ambientTextureFile("focus_pulse", chooseAmbientPacketVariant(options.nodeFocusActive, options.batteryQuality || options.reducedMotion)),
       options.pulseTextureAnisotropy,
     );
 
-    if (endpointIndex < runtimeEndpointBudget) {
+    const paintEndpointRing = (scale: number, opacity: number, emissiveIntensity: number) => {
+      if (endpointIndex >= runtimeEndpointBudget) return;
       const mesh = options.endpointMeshes[endpointIndex]!;
       const material = mesh.material as THREE.MeshStandardMaterial;
       if (endpointMap) {
@@ -412,14 +415,24 @@ export function renderNetgraphEffectFrame(options: {
       }
       material.color.set(colorValue);
       material.emissive.set(colorValue);
-      material.emissiveIntensity = (1.85 + flash.strength * 1.15) * options.glowIntensityScale * focusEffectBoost * terminalBoost;
-      material.opacity = Math.min(1, (0.34 + flash.strength * 0.62) * opacityScale);
+      material.emissiveIntensity = emissiveIntensity;
+      material.opacity = opacity;
       mesh.position.copy(options.endpointPosition);
       mesh.quaternion.copy(options.cameraQuaternion);
-      mesh.scale.setScalar(baseSize * (options.narrowViewport ? 3.45 : 3.05) * (1 + flash.progress * 1.15) * wave * directionBoost * terminalBoost);
+      mesh.scale.setScalar(scale);
       mesh.visible = true;
       endpointIndex += 1;
-    }
+    };
+
+    const primaryRingScale = baseSize * (options.narrowViewport ? 5.15 : 4.72) * (1 + flash.progress * 1.7) * wave * directionBoost * terminalBoost;
+    const primaryOpacity = Math.min(1, (0.62 + flash.strength * 0.4) * opacityScale);
+    const primaryEmissive = (3.4 + flash.strength * 2.8) * options.glowIntensityScale * focusEffectBoost * terminalBoost;
+    paintEndpointRing(primaryRingScale, primaryOpacity, primaryEmissive);
+
+    const rippleScale = baseSize * (options.narrowViewport ? 7.4 : 6.65) * (1.1 + flash.progress * 2.35) * wave * directionBoost * terminalBoost;
+    const rippleOpacity = Math.min(0.72, (0.26 + flash.strength * 0.28) * opacityScale);
+    const rippleEmissive = (2.2 + flash.strength * 1.85) * options.glowIntensityScale * focusEffectBoost * terminalBoost;
+    paintEndpointRing(rippleScale, rippleOpacity, rippleEmissive);
 
     if (glowIndex < runtimeGlowBudget) {
       const mesh = options.glowMeshes[glowIndex]!;
@@ -434,9 +447,9 @@ export function renderNetgraphEffectFrame(options: {
         material.needsUpdate = true;
       }
       material.color.set(colorValue);
-      material.opacity = Math.min(1, (flash.direction === "rx" ? 0.62 : 0.5) * opacityScale);
+      material.opacity = Math.min(1, (flash.direction === "rx" ? 0.95 : 0.82) * opacityScale);
       mesh.position.copy(options.endpointPosition);
-      mesh.scale.setScalar(baseSize * ((flash.direction === "rx" ? 2.9 : 2.55) + flash.progress * (flash.terminal ? 6.4 : 4.8)) * focusEffectBoost * terminalBoost);
+      mesh.scale.setScalar(baseSize * ((flash.direction === "rx" ? 4.55 : 3.95) + flash.progress * (flash.terminal ? 9.4 : 7.2)) * focusEffectBoost * terminalBoost);
       mesh.visible = true;
       glowIndex += 1;
     }

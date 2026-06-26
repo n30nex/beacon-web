@@ -73,6 +73,15 @@ describe("netgraph live packet effect visibility", () => {
     ]);
   });
 
+  it("keeps the departure flash visible long enough to read in the overview", () => {
+    const flashes = pulseNodeFlashEvents(pulse(), 1880);
+
+    expect(flashes).toEqual([
+      expect.objectContaining({ nodeId: "node-alpha", direction: "tx" }),
+    ]);
+    expect(flashes[0]?.strength).toBeGreaterThan(0.3);
+  });
+
   it("times relay rx and tx flashes at the segment boundary", () => {
     const flashes = pulseNodeFlashEvents(pulse(), 2000);
 
