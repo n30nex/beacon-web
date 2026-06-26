@@ -40,7 +40,7 @@ import {
   getCachedTexture,
   preserveDrawingBufferForTest,
 } from "./netgraph-three-assets";
-import { renderNetgraphEffectFrame } from "./netgraph-three-effects";
+import { pulseNodeFlashEvents, renderNetgraphEffectFrame } from "./netgraph-three-effects";
 import { registerNetgraphCanvasEvents } from "./netgraph-three-events";
 import {
   applyCameraFrame as applyCameraFrameToControls,
@@ -65,6 +65,7 @@ import {
   createFlightKeys,
 } from "./netgraph-three-flight";
 import { createNetgraphObjectVisuals } from "./netgraph-three-objects";
+import { paintRoleMeshes, type NodeLiveFlashPaint } from "./netgraph-three-nodes";
 import { advanceNetgraphCameraControlFrame, createNetgraphFrameTimingState, startNetgraphRenderLoop } from "./netgraph-three-render-loop";
 import { createNetgraphSceneStage, cssColor } from "./netgraph-three-scene";
 import { createNetgraphPointerHandlers } from "./netgraph-three-interactions";
@@ -495,6 +496,7 @@ export function ThreeNetgraphCanvas({
     const pulseTailAxis = new THREE.Vector3(0, 1, 0);
     const tailDirection = new THREE.Vector3();
     const tailMidpoint = new THREE.Vector3();
+    const liveNodeFlashes = new Map<string, NodeLiveFlashPaint>();
     const endpointPosition = new THREE.Vector3();
     const glowPosition = new THREE.Vector3();
     const projectionScreenMatrix = new THREE.Matrix4();
@@ -516,6 +518,7 @@ export function ThreeNetgraphCanvas({
     let userInteracted = false;
     const targetFrameMs = denseGraph && !narrowViewport ? 33 : 0;
     let frameTiming = createNetgraphFrameTimingState();
+    let hadLiveNodeFlashes = false;
     const markUserInteracted = () => {
       userInteracted = true;
     };
@@ -705,6 +708,41 @@ export function ThreeNetgraphCanvas({
       if (!frameState) return;
       cameraTween = frameState.cameraTween;
       frameTiming = frameState.frameTiming;
+      const nowMs = Date.now();
+      liveNodeFlashes.clear();
+      for (const pulse of pulsesRef.current) {
+        for (const flash of pulseNodeFlashEvents(pulse, nowMs)) {
+          const strength = flash.strength * (flash.direction === "rx" ? 1.12 : 1);
+          const existing = liveNodeFlashes.get(flash.nodeId);
+          if (!existing || strength > existing.strength) {
+            liveNodeFlashes.set(flash.nodeId, {
+              color: flash.direction === "tx" ? "#91c8ff" : flash.terminal ? "#74ffc4" : flash.color,
+              direction: flash.direction,
+              strength,
+            });
+          }
+        }
+      }
+      if (liveNodeFlashes.size > 0 || hadLiveNodeFlashes) {
+        paintRoleMeshes({
+          roleMeshes,
+          graph: renderGraph,
+          selectedNodeId,
+          hoverNodeId: pointerHandlers.getHoverNodeId(),
+          directNodeNeighbors,
+          secondHopNeighbors,
+          searchMatches,
+          selectedNodes,
+          nodeFocusActive,
+          showDataQuality,
+          liveNodeFlashes,
+          primary,
+          bg,
+          muted,
+          now: nowMs,
+        });
+        hadLiveNodeFlashes = liveNodeFlashes.size > 0;
+      }
       renderNetgraphEffectFrame({
         animationsDisabled,
         batteryQuality,
@@ -722,7 +760,7 @@ export function ThreeNetgraphCanvas({
         narrowViewport,
         nodeFocusActive,
         nodeScaleFactor,
-        now: Date.now(),
+        now: nowMs,
         packetTextureVariant,
         pulseBeamMeshes,
         pulseLights,

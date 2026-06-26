@@ -22,6 +22,12 @@ export interface RoleMesh {
   usesTexture: boolean;
 }
 
+export interface NodeLiveFlashPaint {
+  color: string;
+  direction: "tx" | "rx";
+  strength: number;
+}
+
 export const ROLE_COLORS: Record<NetgraphRole, string> = {
   repeater: "#48df7b",
   companion: "#6aa2ff",
@@ -114,12 +120,14 @@ export function paintRoleMeshes(options: {
   selectedNodes: Set<string>;
   nodeFocusActive: boolean;
   showDataQuality: boolean;
+  liveNodeFlashes?: Map<string, NodeLiveFlashPaint>;
   primary: THREE.Color;
   bg: THREE.Color;
   muted: THREE.Color;
   now?: number;
 }): void {
   const color = new THREE.Color();
+  const flashColor = new THREE.Color();
   const now = options.now ?? Date.now();
   for (const { mesh, nodeIndices, usesTexture } of options.roleMeshes) {
     nodeIndices.forEach((nodeIndex, instanceIndex) => {
@@ -144,6 +152,13 @@ export function paintRoleMeshes(options: {
       }
       if (options.showDataQuality && nodeMissingGeo(node)) color.lerp(new THREE.Color("#ffd45a"), usesTexture ? 0.12 : 0.22);
       if (options.showDataQuality && nodeIsStale(node, now)) color.lerp(options.muted, usesTexture ? 0.28 : 0.48);
+      const liveFlash = options.liveNodeFlashes?.get(node.id);
+      if (liveFlash) {
+        const strength = Math.min(1.45, Math.max(0, liveFlash.strength));
+        flashColor.set(liveFlash.color);
+        color.lerp(flashColor, usesTexture ? Math.min(0.72, 0.42 + strength * 0.32) : Math.min(0.88, 0.55 + strength * 0.34));
+        color.lerp(WHITE, Math.min(0.62, (liveFlash.direction === "rx" ? 0.22 : 0.16) + strength * 0.26));
+      }
       mesh.setColorAt(instanceIndex, color);
     });
     mesh.instanceColor!.needsUpdate = true;

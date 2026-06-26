@@ -20,6 +20,7 @@ interface PointerStart {
 }
 
 export interface NetgraphPointerHandlers {
+  getHoverNodeId: () => string | null;
   onCanvasClick: (event: MouseEvent) => void;
   onPointerCancel: (event: PointerEvent) => void;
   onPointerDown: (event: PointerEvent) => void;
@@ -160,6 +161,7 @@ export function createNetgraphPointerHandlers(options: {
   };
 
   return {
+    getHoverNodeId: () => hoverNodeId,
     onCanvasClick: (event: MouseEvent) => {
       if (!options.flightControls.isLocked) return;
       event.preventDefault();
