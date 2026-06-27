@@ -86,6 +86,30 @@ const statsHome = {
   ],
 };
 
+const statsSummary = {
+  ...statsHome,
+  health: {
+    totalObservers: 2,
+    staleObservers: 0,
+    lowBattery: 0,
+    highNoise: 0,
+    highAirtime: 0,
+    queueBacklog: 0,
+    receiveErrors: 0,
+    noTelemetry: 0,
+  },
+  nodeTypes: [{ nodeType: 1, nodeTypeName: "repeater", count: 1 }],
+  payloadMix: liveSummary.payloadMix,
+  radioPresets: [{ preset: "915.0,250,11", iata: "YVR", sourceType: "node", count: 4 }],
+  routeMix: liveSummary.routeMix,
+  scopes: [{ name: "#bc", packetCount: 24, observerCount: 1, nodeCount: 1 }],
+};
+
+const statsObservations = [
+  { hour: now - 3_600_000, iata: "YVR", observationCount: 12, uniquePackets: 6, activeObservers: 1 },
+  { hour: now, iata: "YVR", observationCount: 48, uniquePackets: 24, activeObservers: 2 },
+];
+
 const nodePage = {
   items: [
     {
@@ -285,6 +309,12 @@ async function mockBeaconRuntime(page: Page) {
     if (path === "/stats/home") {
       return route.fulfill({ json: statsHome });
     }
+    if (path === "/stats/summary") {
+      return route.fulfill({ json: statsSummary });
+    }
+    if (path === "/stats/observations") {
+      return route.fulfill({ json: statsObservations });
+    }
     if (path === "/live/summary") {
       return route.fulfill({ json: liveSummary });
     }
@@ -322,19 +352,36 @@ async function primeLocalStorage(page: Page, values: Record<string, string>) {
   }, Object.entries(values));
 }
 
-async function expectNoBlockingAxeViolations(page: Page) {
-  const results = await new AxeBuilder({ page }).withTags(axeTags).analyze();
+async function openRouteForA11y(page: Page, route: (typeof routes)[number], context: string) {
+  await test.step(`${context}: open ${route.label}`, async () => {
+    await page.goto(route.url, { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("main"), `${context}: app main should be visible`).toBeVisible();
+    await route.ready(page);
+  });
+}
+
+async function expectNoBlockingAxeViolations(page: Page, context: string) {
+  const results = await test.step(`${context}: run axe`, () => new AxeBuilder({ page }).withTags(axeTags).analyze());
   const blocking = results.violations.filter((violation) => violation.impact === "serious" || violation.impact === "critical");
-  expect(blocking).toEqual([]);
+  const summary = blocking.map((violation) => ({
+    help: violation.help,
+    id: violation.id,
+    impact: violation.impact,
+    targets: violation.nodes.slice(0, 3).map((node) => node.target.join(" ")),
+  }));
+  expect(summary, `${context}: serious or critical axe violations`).toEqual([]);
 }
 
 const routes = [
   { label: "Home", url: "/?tab=Home&boot=0", ready: (page: Page) => expect(page.getByRole("heading", { name: "Home" })).toBeVisible({ timeout: 15_000 }) },
   { label: "Live", url: "/?tab=Live&boot=0", ready: (page: Page) => expect(page.getByText("Packet Inspector")).toBeVisible({ timeout: 15_000 }) },
   { label: "Map", url: "/?tab=Map&boot=0", ready: (page: Page) => expect(page.getByRole("button", { name: "Map Settings" })).toBeVisible({ timeout: 15_000 }) },
+  { label: "Analytics", url: "/?tab=Analytics&boot=0", ready: (page: Page) => expect(page.getByRole("heading", { name: "Analytics" })).toBeVisible({ timeout: 15_000 }) },
   { label: "Observers", url: "/?tab=Observers&boot=0", ready: (page: Page) => expect(page.getByRole("toolbar", { name: "Observer filters" })).toBeVisible({ timeout: 15_000 }) },
   { label: "Netgraph", url: "/?tab=Netgraph&boot=0", ready: (page: Page) => expect(page.getByRole("heading", { name: "Netgraph" })).toBeVisible({ timeout: 15_000 }) },
 ] as const;
+
+const routeA11yRoutes = routes.filter((route) => route.label !== "Netgraph");
 
 test.beforeEach(async ({ page }) => {
   await mockBeaconRuntime(page);
@@ -355,14 +402,15 @@ for (const route of routes) {
   });
 }
 
-test("core routes have no serious or critical axe violations @a11y", async ({ page }) => {
-  await page.goto("/?tab=Home&boot=0", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "Home" })).toBeVisible({ timeout: 15_000 });
-  await expectNoBlockingAxeViolations(page);
-});
+for (const route of routeA11yRoutes) {
+  test(`${route.label} route has no serious or critical axe violations @a11y @a11y-route`, async ({ page }) => {
+    await openRouteForA11y(page, route, `${route.label} route a11y`);
+    await expectNoBlockingAxeViolations(page, `${route.label} route`);
+  });
+}
 
 for (const style of modernStyles) {
-  test(`modern style ${style.name} has no serious or critical axe violations @a11y`, async ({ page }) => {
+  test(`modern style ${style.name} has no serious or critical axe violations @a11y @a11y-style`, async ({ page }) => {
     await primeLocalStorage(page, {
       "beacon-design-mode": "modern",
       "beacon-modern-style": style.id,
@@ -370,7 +418,7 @@ for (const style of modernStyles) {
     await page.goto("/?tab=Home&boot=0", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "Home" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("button", { name: new RegExp(`Appearance ${style.name}`) })).toBeVisible();
-    await expectNoBlockingAxeViolations(page);
+    await expectNoBlockingAxeViolations(page, `modern style ${style.name}`);
   });
 }
 
@@ -383,10 +431,10 @@ test("keyboard can reach primary navigation and search", async ({ page }) => {
   await expect(page.getByRole("dialog")).toBeVisible();
 });
 
-test("Netgraph has no serious or critical axe violations @a11y", async ({ page }) => {
+test("Netgraph has no serious or critical axe violations @a11y @a11y-netgraph", async ({ page }) => {
   await page.goto("/?tab=Netgraph&boot=0", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "Netgraph" })).toBeVisible({ timeout: 15_000 });
-  await expectNoBlockingAxeViolations(page);
+  await expectNoBlockingAxeViolations(page, "Netgraph");
 });
 
 for (const profile of [
@@ -394,7 +442,7 @@ for (const profile of [
   { name: "dark boosted", style: "dark", contrast: "high", tint: "theme", glow: "boosted", relief: "strong" },
   { name: "light high contrast", style: "positron", contrast: "high", tint: "neutral", glow: "normal", relief: "soft" },
 ] as const) {
-  test(`map overlay mode ${profile.name} has no serious or critical axe violations @a11y`, async ({ page }) => {
+  test(`map overlay mode ${profile.name} has no serious or critical axe violations @a11y @a11y-map`, async ({ page }) => {
     await primeLocalStorage(page, {
       "beacon-map-style": profile.style,
       "beacon-map-contrast": profile.contrast,
@@ -405,7 +453,7 @@ for (const profile of [
     await page.goto("/?tab=Map&boot=0", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("button", { name: "Map Settings" })).toBeVisible({ timeout: 15_000 });
     await expect(page.locator(".map-profile-scope")).toHaveAttribute("data-map-contrast", profile.contrast === "auto" && profile.style === "dark" ? "normal" : profile.contrast);
-    await expectNoBlockingAxeViolations(page);
+    await expectNoBlockingAxeViolations(page, `map overlay mode ${profile.name}`);
   });
 }
 

@@ -110,13 +110,13 @@ function mockThemeFetch() {
   );
 }
 
-function renderShell(activeTab = "Home", onTabChange: (tab: string) => void = () => {}) {
+function renderShell(activeTab = "Home", onTabChange: (tab: string) => void = () => {}, onOpenSearch?: () => void) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <ThemeProvider>
         <RegionProvider defaultSelection={ALL_REGIONS}>
-          <AppShell activeTab={activeTab} onTabChange={onTabChange} wsManager={wsManager}>
+          <AppShell activeTab={activeTab} onTabChange={onTabChange} wsManager={wsManager} onOpenSearch={onOpenSearch}>
             <div />
           </AppShell>
         </RegionProvider>
@@ -247,6 +247,17 @@ describe("AppShell", () => {
     fireEvent.click(within(pagesNav).getByRole("button", { name: "System" }));
     const systemMenu = screen.getByRole("menu", { name: "System" });
     expect(within(systemMenu).queryByRole("menuitem", { name: "Netgraph" })).not.toBeInTheDocument();
+  });
+
+  it("exposes global search from mobile navigation", () => {
+    vi.mocked(getIatas).mockResolvedValue([]);
+    const onOpenSearch = vi.fn();
+    renderShell("Home", () => {}, onOpenSearch);
+
+    const mobileNav = screen.getByRole("navigation", { name: "Mobile navigation" });
+    fireEvent.click(within(mobileNav).getByRole("button", { name: "Search" }));
+
+    expect(onOpenSearch).toHaveBeenCalledTimes(1);
   });
 
   it("region picker shows an error state when the IATA list fails to load", async () => {

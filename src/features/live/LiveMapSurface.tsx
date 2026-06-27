@@ -93,7 +93,8 @@ export function LiveMapSurface({
       <div className="live-signal-bar pointer-events-none absolute top-12 left-2 right-2 z-10 flex max-w-[calc(100vw-16px)] flex-wrap items-center gap-1.5 md:top-3 md:left-3 md:right-[360px] md:max-w-[calc(100vw-24px)] md:gap-2">
         <div className="crt-float-panel live-signal-chip pointer-events-auto flex items-center gap-2 rounded-sm border border-border px-2.5 py-1.5 md:px-3 md:py-2">
           <span className={`crt-glow-dot w-2.5 h-2.5 rounded-full ${paused ? "bg-warn text-warn" : "bg-green text-green animate-pulse"}`} />
-          <span className="font-mono text-xs font-semibold tracking-wider text-text-bright">{paused ? "PAUSED" : "STREAM"}</span>
+          <h1 className="m-0 font-mono text-xs font-semibold tracking-wider text-text-bright">Live</h1>
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-text-muted">{paused ? "Paused" : "Stream"}</span>
           <span className="live-signal-region hidden font-mono text-[11px] text-text-dim sm:inline">{regionKey}</span>
           {realisticPropagation && <span className="live-mode-token hidden font-mono text-[10px] text-primary sm:inline">PACE</span>}
           {heatVisible && <span className="live-mode-token hidden font-mono text-[10px] text-warn sm:inline">HEAT</span>}

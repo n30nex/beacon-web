@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from "react";
+import { QueryStatePanel } from "./QueryStatePanel";
 
 interface Props {
   children: ReactNode;
@@ -23,16 +24,16 @@ export class ErrorBoundary extends Component<Props, State> {
       // (e.g. a deploy swapped the hashed assets out from under us) — only a real reload can
       const chunkFailure = /dynamically imported module|Loading chunk|error loading/i.test(this.state.error.message);
       return (
-        <div className="flex flex-col items-center justify-center flex-1 gap-3 p-8 text-text-dim">
-          <p className="text-sm font-mono">Something went wrong rendering this view.</p>
-          <button
-            type="button"
-            className="text-xs font-mono underline cursor-pointer text-primary"
-            onClick={() => (chunkFailure ? window.location.reload() : this.setState({ error: null }))}
-          >
-            {chunkFailure ? "reload" : "try again"}
-          </button>
-        </div>
+        <QueryStatePanel
+          actionLabel={chunkFailure ? "Reload app" : "Try again"}
+          className="p-8"
+          diagnostic={chunkFailure ? "MODULE CHANGED" : this.state.error.name}
+          kind="error"
+          onAction={() => (chunkFailure ? window.location.reload() : this.setState({ error: null }))}
+          subtitle={chunkFailure ? "A fresh deployment replaced a page module. Reload to pick up the current build." : "This view hit a rendering error. Try again, or use another page while the issue is checked."}
+          title="View could not render"
+          tone="danger"
+        />
       );
     }
     return this.props.children;

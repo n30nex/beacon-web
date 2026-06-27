@@ -1,11 +1,13 @@
 import { type ReactNode } from "react";
 import { NavIcon } from "../../components/NavIcon";
 import { TerminalLoadingState } from "../../components/TerminalLoader";
+import { QueryStatePanel } from "../../components/QueryStatePanel";
 import { useRegion } from "../../hooks/useRegion";
 import { useStatsHome } from "../stats/useStats";
 import { useLiveOverview } from "../stats/useLiveStats";
 import { formatCount, timeAgoMs } from "../../lib/formatters";
 import { sanitizeDisplayLabel } from "../../lib/display-label";
+import { queryStateForError } from "../../lib/query-state";
 import type { PageTab } from "../../lib/navigation";
 import type { WsManager } from "../../api/ws-manager";
 
@@ -61,7 +63,7 @@ function CommandButton({ tab, onNavigate }: { tab: PageTab; onNavigate: (tab: Pa
     <button
       type="button"
       aria-label={tab}
-      className="crt-panel inline-flex h-8 min-w-[6.25rem] items-center justify-center gap-1.5 rounded-sm border border-border bg-bg-base/55 px-2.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-text-muted transition-colors hover:border-primary/55 hover:bg-primary/8 hover:text-text-bright"
+      className="crt-panel inline-flex h-9 min-w-[6.25rem] items-center justify-center gap-1.5 rounded-sm border border-border bg-bg-base/55 px-2.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-text-muted transition-colors hover:border-primary/55 hover:bg-primary/8 hover:text-text-bright"
       onClick={() => onNavigate(tab)}
     >
       <NavIcon name={ICON_FOR_TAB[tab]} size={15} />
@@ -72,7 +74,7 @@ function CommandButton({ tab, onNavigate }: { tab: PageTab; onNavigate: (tab: Pa
 
 function CommandBar({ onNavigate }: { onNavigate: (tab: PageTab) => void }) {
   return (
-    <section aria-label="Home commands" className="rounded-sm border border-border bg-bg-surface p-3">
+    <section aria-label="Home commands" className="hidden rounded-sm border border-border bg-bg-surface p-3 md:block">
       <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="font-mono text-[11px] font-semibold uppercase tracking-wider text-text-normal">Command</h2>
         <span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">Direct jump</span>
@@ -251,8 +253,12 @@ export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNa
             <TerminalLoadingState label="QUERYING HOME DATA" detail="PLEASE WAIT" className="h-full" />
           </div>
         ) : home.isError ? (
-          <div className="rounded-sm border border-border bg-bg-surface p-6 font-mono text-sm text-danger">
-            Home data unavailable.
+          <div className="rounded-sm border border-border bg-bg-surface">
+            <QueryStatePanel
+              {...queryStateForError(home.error, "home dashboard")}
+              className="min-h-[320px]"
+              onAction={() => void home.refetch()}
+            />
           </div>
         ) : (
           <>
@@ -277,7 +283,7 @@ export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNa
               <Panel title="Nodes">
                 <div className="space-y-1.5">
                   {topNodes.length === 0 ? (
-                    <div className="font-mono text-[11px] text-text-dim">No data</div>
+                    <div className="rounded-sm border border-border-subtle bg-bg-base/45 px-2.5 py-2 font-mono text-[11px] text-text-dim">No node activity in this window</div>
                   ) : (
                     topNodes.map((node) => (
                       <EntityRow
@@ -295,7 +301,7 @@ export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNa
               <Panel title="Observers">
                 <div className="space-y-1.5">
                   {topObservers.length === 0 ? (
-                    <div className="font-mono text-[11px] text-text-dim">No data</div>
+                    <div className="rounded-sm border border-border-subtle bg-bg-base/45 px-2.5 py-2 font-mono text-[11px] text-text-dim">No observer activity in this window</div>
                   ) : (
                     topObservers.map((observer) => (
                       <EntityRow
@@ -313,7 +319,7 @@ export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNa
               <Panel title="IATAs">
                 <div className="grid grid-cols-2 gap-1.5">
                   {topIatas.length === 0 ? (
-                    <div className="font-mono text-[11px] text-text-dim">No data</div>
+                    <div className="col-span-2 rounded-sm border border-border-subtle bg-bg-base/45 px-2.5 py-2 font-mono text-[11px] text-text-dim">No IATA activity in this window</div>
                   ) : (
                     topIatas.map((iata) => (
                       <button

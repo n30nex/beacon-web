@@ -3,7 +3,9 @@
 
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:5174";
+// Keep Playwright's default server off Beacon's usual local runtime port (5174), so local smoke tests
+// exercise the current worktree instead of silently reusing a stale already-running app.
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:5184";
 const base = new URL(baseURL);
 const localWebServer = ["127.0.0.1", "localhost", "::1"].includes(base.hostname);
 const webServerHost = base.hostname === "localhost" ? "127.0.0.1" : base.hostname;

@@ -19,7 +19,7 @@ interface SegmentedProps {
 // tint + inset ring, inactive pills are muted. Used for the Stats sub-tabs (md, with icons) and the
 // time-range selector (sm). Active state is conveyed with aria-pressed, not color alone.
 export function Segmented({ options, value, onChange, ariaLabel, size = "sm", className }: SegmentedProps) {
-  const pad = size === "md" ? "px-2 py-1 text-[11px] md:px-3 md:py-1.5 md:text-xs" : "px-2 py-1 text-[10px] md:px-2.5 md:text-[11px]";
+  const pad = size === "md" ? "min-h-9 px-2 py-1 text-[11px] md:px-3 md:py-1.5 md:text-xs" : "min-h-9 px-2 py-1 text-[10px] md:px-2.5 md:text-[11px]";
   return (
     <div
       role="group"

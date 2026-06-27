@@ -101,7 +101,7 @@ function GroupSheet({
   );
 }
 
-export function BottomNav({ activeTab, onTabChange }: { activeTab: string; onTabChange: (tab: string) => void }) {
+export function BottomNav({ activeTab, onOpenSearch, onTabChange }: { activeTab: string; onOpenSearch?: () => void; onTabChange: (tab: string) => void }) {
   const [openGroup, setOpenGroup] = useState<"Data" | "System" | null>(null);
   const dataActive = isDataTab(activeTab);
   const systemActive = isSystemTab(activeTab);
@@ -117,6 +117,7 @@ export function BottomNav({ activeTab, onTabChange }: { activeTab: string; onTab
         <NavButton label="Home" icon={<NavIcon name="home" />} active={activeTab === "Home"} onClick={() => pick("Home")} />
         <NavButton label="Live" icon={<NavIcon name="live" />} active={activeTab === "Live"} onClick={() => pick("Live")} />
         <NavButton label="Netgraph" icon={<NavIcon name="netgraph" />} active={activeTab === "Netgraph"} onClick={() => pick("Netgraph")} />
+        {onOpenSearch && <NavButton label="Search" icon={<NavIcon name="search" />} active={false} onClick={onOpenSearch} />}
         <NavButton
           label="Data"
           icon={<NavIcon name="data" />}

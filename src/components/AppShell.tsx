@@ -140,7 +140,7 @@ function LiveBadge({ wsManager }: { wsManager: WsManager }) {
         <button
           type="button"
           aria-label={`Live system ${label.toLowerCase()}`}
-          className={`crt-panel flex items-center gap-1.5 rounded-sm border px-2 py-0.5 font-mono text-[11px] transition-colors hover:border-primary ${toneClass}`}
+          className={`crt-panel flex min-h-9 items-center gap-1.5 rounded-sm border px-2 py-1 font-mono text-[11px] transition-colors hover:border-primary ${toneClass}`}
           onClick={toggle}
         >
           <NavIcon name="signal" size={14} />
@@ -225,7 +225,7 @@ function RegionSelector() {
           type="button"
           aria-label={`Region ${regionSummaryLabel(selection)}`}
           title="Region"
-          className="crt-panel flex items-center gap-1.5 bg-bg-raised border border-border rounded px-2 py-1 text-text-bright font-mono text-xs font-semibold hover:border-primary transition-colors"
+          className="crt-panel flex min-h-9 items-center gap-1.5 bg-bg-raised border border-border rounded px-2 py-1 text-text-bright font-mono text-xs font-semibold hover:border-primary transition-colors"
           onClick={toggle}
         >
           <NavIcon name="region" size={16} />
@@ -508,7 +508,7 @@ function AppearanceMenu() {
           type="button"
           aria-label={`Appearance ${label}`}
           title="Appearance"
-          className={`crt-panel flex items-center gap-1.5 rounded border px-2 py-1 font-mono text-[11px] transition-colors ${
+          className={`crt-panel flex min-h-9 items-center gap-1.5 rounded border px-2 py-1 font-mono text-[11px] transition-colors ${
             designMode === "modern"
               ? "border-primary/60 bg-primary/12 text-text-bright hover:border-primary"
               : "border-border bg-bg-raised text-text-muted hover:border-primary hover:text-text-normal"
@@ -693,7 +693,7 @@ export function AppShell({ activeTab, onTabChange, wsManager, onOpenSearch, chil
               <button
                 type="button"
                 aria-label="Search"
-                className="crt-panel hidden h-8 w-8 items-center justify-center rounded border border-border bg-bg-raised text-text-muted transition-colors hover:border-primary hover:text-text-normal sm:flex"
+                className="crt-panel hidden h-9 w-9 items-center justify-center rounded border border-border bg-bg-raised text-text-muted transition-colors hover:border-primary hover:text-text-normal sm:flex"
                 onClick={onOpenSearch}
                 title="Search"
               >
@@ -749,7 +749,7 @@ export function AppShell({ activeTab, onTabChange, wsManager, onOpenSearch, chil
         </span>
       </footer>
 
-      <BottomNav activeTab={activeTab} onTabChange={onTabChange} />
+      <BottomNav activeTab={activeTab} onOpenSearch={onOpenSearch} onTabChange={onTabChange} />
     </div>
   );
 }

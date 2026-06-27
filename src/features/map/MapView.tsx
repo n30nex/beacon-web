@@ -25,13 +25,14 @@ import {
   resolveMapVisualProfile,
   type MapAppearanceSettings,
 } from "./appearance";
-import { EmptyState } from "../../components/EmptyState";
 import { LoadingPill } from "../../components/LoadingPill";
+import { QueryStatePanel } from "../../components/QueryStatePanel";
 import { useRegion } from "../../hooks/useRegion";
 import { useTheme } from "../../hooks/useTheme";
 import { useWsNodeUpdateHandler } from "../../hooks/useWsHandlers";
 import { getIatas, getKnownRoute } from "../../api/client";
 import { formatHex } from "../../lib/formatters";
+import { queryStateForError } from "../../lib/query-state";
 import type { WsManager } from "../../api/ws-manager";
 import type { KnownRoute } from "../../types/api";
 import type { WsNodeUpdate } from "../../types/ws";
@@ -394,6 +395,10 @@ export function MapView({ wsManager, selectedNodeId, onSelectNode }: MapViewProp
           to this element, which overrides Tailwind's `absolute` and would collapse inset-0 to 0
           height. data-dark drives the maplibre control theming in index.css. */}
       <div ref={containerRef} data-dark={isDark} className="flex-1" />
+      <div className="crt-float-panel pointer-events-none absolute right-3 top-3 z-10 hidden items-center gap-2 rounded-sm border border-border px-3 py-2 font-mono md:flex">
+        <h1 className="m-0 text-xs font-semibold uppercase tracking-wider text-text-bright">Map</h1>
+        <span className="text-[10px] uppercase tracking-wider text-text-dim">{loadedCount > 0 ? `${loadedCount.toLocaleString()} nodes` : "node view"}</span>
+      </div>
       <RouteReplayMapOverlay mapRef={mapRef} isReady={isReady} route={selectedRoute.data} active={routeReplayActive} />
       <MapSettingsPanel
         styleId={styleId}
@@ -420,7 +425,7 @@ export function MapView({ wsManager, selectedNodeId, onSelectNode }: MapViewProp
       {error && (
         // z-20 so the failure overlay covers the settings card (z-10) instead of it floating on top
         <div className="absolute inset-0 z-20 bg-bg-base">
-          <EmptyState title="Map failed to load" subtitle="Check your connection and reload" />
+          <QueryStatePanel {...queryStateForError(error, "map")} onAction={() => window.location.reload()} />
         </div>
       )}
     </div>

@@ -78,7 +78,9 @@ describe("HomeView", () => {
     const commands = await screen.findByRole("region", { name: "Home commands" });
     const mapCommand = within(commands).getByRole("button", { name: "Map" });
 
-    expect(mapCommand).toHaveClass("h-8");
+    expect(commands).toHaveClass("hidden");
+    expect(commands).toHaveClass("md:block");
+    expect(mapCommand).toHaveClass("h-9");
     expect(mapCommand).not.toHaveClass("aspect-square");
     fireEvent.click(mapCommand);
     expect(onNavigate).toHaveBeenCalledWith("Map");

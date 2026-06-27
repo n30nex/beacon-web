@@ -7,6 +7,7 @@ interface Row {
 }
 const rows: Row[] = [{ id: "a" }, { id: "b" }];
 const columns: Column<Row>[] = [{ header: "ID", cell: (r) => r.id }];
+const sortableColumns: Column<Row>[] = [{ header: "ID", cell: (r) => r.id, sortValue: (r) => r.id }];
 
 // Force the mobile media query to match so DataTable enters card mode.
 function setMobile(matches: boolean) {
@@ -66,6 +67,69 @@ describe("DataTable onEndReached", () => {
   });
 });
 
+describe("DataTable desktop accessibility", () => {
+  it("selects and clears rows with Enter and Space", () => {
+    setMobile(false);
+    const onSelect = vi.fn();
+    const { rerender } = render(
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowKey={(r) => r.id}
+        rowAriaLabel={(r) => `Node ${r.id}`}
+        selectedKey={null}
+        onSelect={onSelect}
+        emptyLabel="none"
+      />,
+    );
+
+    const row = screen.getByRole("row", { name: "Node a" });
+    expect(row).toHaveAttribute("tabindex", "0");
+    expect(row).toHaveAttribute("aria-selected", "false");
+    fireEvent.keyDown(row, { key: "Enter" });
+    expect(onSelect).toHaveBeenCalledWith("a");
+
+    rerender(
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowKey={(r) => r.id}
+        rowAriaLabel={(r) => `Node ${r.id}`}
+        selectedKey="a"
+        onSelect={onSelect}
+        emptyLabel="none"
+      />,
+    );
+
+    const selectedRow = screen.getByRole("row", { name: "Node a" });
+    expect(selectedRow).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(selectedRow, { key: " " });
+    expect(onSelect).toHaveBeenLastCalledWith(null);
+  });
+
+  it("announces sortable column direction and next action", () => {
+    setMobile(false);
+    render(
+      <DataTable
+        columns={sortableColumns}
+        rows={rows}
+        rowKey={(r) => r.id}
+        selectedKey={null}
+        onSelect={() => {}}
+        emptyLabel="none"
+        defaultSort={{ header: "ID", direction: "asc" }}
+      />,
+    );
+
+    const header = screen.getByRole("columnheader", { name: /ID/ });
+    expect(header).toHaveAttribute("aria-sort", "ascending");
+    const sortButton = screen.getByRole("button", { name: "Sort by ID descending" });
+    fireEvent.click(sortButton);
+    expect(header).toHaveAttribute("aria-sort", "descending");
+    expect(screen.getByRole("button", { name: "Sort by ID ascending" })).toBeInTheDocument();
+  });
+});
+
 describe("DataTable card mode", () => {
   it("renders cards instead of a table when mobile and renderCard is provided", () => {
     setMobile(true);
@@ -110,13 +174,16 @@ describe("DataTable card mode", () => {
         columns={columns}
         rows={rows}
         rowKey={(r) => r.id}
+        rowAriaLabel={(r) => `Node ${r.id}`}
         selectedKey={null}
         onSelect={onSelect}
         emptyLabel="none"
         renderCard={(r) => <span>card-{r.id}</span>}
       />,
     );
-    fireEvent.click(screen.getByText("card-a"));
+    const card = screen.getByRole("button", { name: "Node a" });
+    expect(card).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(card);
     expect(onSelect).toHaveBeenCalledWith("a");
   });
 

@@ -83,8 +83,19 @@ export function StatsOverview({ wsManager }: StatsOverviewProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <header className="shrink-0 border-b border-border bg-bg-surface px-3 py-2 md:px-4">
+        <div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0">
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-text-dim">Beacon Analytics</div>
+            <h1 className="m-0 font-mono text-lg font-semibold uppercase tracking-wider text-text-bright">Analytics</h1>
+          </div>
+          <div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+            {tab} / {range}
+          </div>
+        </div>
+      </header>
       <StatsSubHeader tab={tab} onTabChange={handleTab} range={range} onRangeChange={handleRange} wsManager={wsManager} />
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div aria-label="Analytics dashboard panels" className="min-h-0 flex-1 overflow-y-auto" role="region" tabIndex={0}>
         {tab === "overview" && <OverviewTab range={range} onSelectObserver={handleSelectObserver} wsManager={wsManager} />}
         {tab === "regions" && <RegionsTab range={range} onDrill={handleDrill} />}
         {tab === "payloads" && <PayloadsTab range={range} />}

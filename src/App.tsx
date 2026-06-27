@@ -171,7 +171,11 @@ function clearDetailParamsForNavigation(params: URLSearchParams, navigation: Nav
 
 function SystemView({ wsManager }: { wsManager: WsManager }) {
   return (
-    <div className="flex min-h-0 flex-1 overflow-y-auto bg-bg-base p-3 md:p-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto bg-bg-base p-3 md:p-4">
+      <header className="rounded-sm border border-border bg-bg-surface p-3">
+        <div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-text-dim">Runtime Confidence</div>
+        <h1 className="m-0 font-mono text-lg font-semibold uppercase tracking-wider text-text-bright">System</h1>
+      </header>
       <RuntimeStatusPanel wsManager={wsManager} variant="page" />
     </div>
   );
