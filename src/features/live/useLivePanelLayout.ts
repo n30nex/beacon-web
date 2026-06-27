@@ -6,19 +6,19 @@ const LIVE_DESKTOP_LAYOUT_WIDTH = 1024;
 function liveInspectorRailStyle(desktop: boolean, expanded: boolean): CSSProperties {
   if (desktop) {
     return {
-      bottom: 86,
+      bottom: 92,
       left: "auto",
       maxHeight: "none",
-      right: "0.75rem",
-      top: "0.75rem",
-      width: 340,
+      right: "1rem",
+      top: "1rem",
+      width: 352,
     };
   }
   return {
-    bottom: 58,
-    height: expanded ? undefined : 96,
+    bottom: 64,
+    height: expanded ? undefined : 92,
     left: "0.5rem",
-    maxHeight: expanded ? "46dvh" : 96,
+    maxHeight: expanded ? "44dvh" : 92,
     right: "0.5rem",
   };
 }
@@ -26,25 +26,25 @@ function liveInspectorRailStyle(desktop: boolean, expanded: boolean): CSSPropert
 function liveCommandDockStyle(desktop: boolean): CSSProperties {
   if (desktop) {
     return {
-      bottom: "0.75rem",
+      bottom: "1rem",
       flexWrap: "wrap",
       gap: "0.5rem",
       left: "auto",
-      maxWidth: "calc(100vw - 372px)",
+      maxWidth: "calc(100vw - 392px)",
       overflowX: "auto",
       padding: "0.5rem",
-      right: 360,
+      right: 376,
       width: "fit-content",
     };
   }
   return {
-    bottom: "0.375rem",
+    bottom: "0.5rem",
     flexWrap: "nowrap",
-    gap: "0.25rem",
+    gap: "0.375rem",
     left: "0.5rem",
     maxWidth: "calc(100vw - 1rem)",
     overflowX: "auto",
-    padding: "0.25rem",
+    padding: "0.375rem",
     right: "0.5rem",
   };
 }

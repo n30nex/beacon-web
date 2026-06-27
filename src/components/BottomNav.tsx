@@ -116,7 +116,7 @@ export function BottomNav({ activeTab, onTabChange }: { activeTab: string; onTab
       <nav className="crt-panel flex md:hidden shrink-0 bg-bg-surface border-t border-border pb-[env(safe-area-inset-bottom)]" aria-label="Mobile navigation">
         <NavButton label="Home" icon={<NavIcon name="home" />} active={activeTab === "Home"} onClick={() => pick("Home")} />
         <NavButton label="Live" icon={<NavIcon name="live" />} active={activeTab === "Live"} onClick={() => pick("Live")} />
-        <NavButton label="Map" icon={<NavIcon name="map" />} active={activeTab === "Map"} onClick={() => pick("Map")} />
+        <NavButton label="Netgraph" icon={<NavIcon name="netgraph" />} active={activeTab === "Netgraph"} onClick={() => pick("Netgraph")} />
         <NavButton
           label="Data"
           icon={<NavIcon name="data" />}

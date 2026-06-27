@@ -33,6 +33,7 @@ type NavIconName = Parameters<typeof NavIcon>[0]["name"];
 const DESKTOP_PAGES: { tab: PageTab; icon: NavIconName }[] = [
   { tab: "Home", icon: "home" },
   { tab: "Live", icon: "live" },
+  { tab: "Netgraph", icon: "netgraph" },
   { tab: "Map", icon: "map" },
   { tab: "Analytics", icon: "analytics" },
 ];

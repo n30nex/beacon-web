@@ -1,0 +1,191 @@
+.live-map-shell::before,
+.live-map-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.live-map-shell::before {
+  z-index: 4;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-bg-base) 34%, transparent), transparent 24%, color-mix(in srgb, var(--color-bg-base) 22%, transparent) 100%),
+    radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--color-primary) 16%, transparent), transparent 34%),
+    radial-gradient(circle at 82% 76%, color-mix(in srgb, var(--color-secondary) 11%, transparent), transparent 36%);
+}
+
+.live-map-shell::after {
+  z-index: 7;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 9%, transparent), transparent 18%, transparent 82%, color-mix(in srgb, var(--color-green) 7%, transparent)),
+    repeating-linear-gradient(180deg, transparent 0 9px, color-mix(in srgb, var(--color-primary) 4%, transparent) 9px 10px);
+  mix-blend-mode: screen;
+  opacity: 0.2;
+}
+
+.live-signal-bar {
+  align-content: flex-start;
+}
+
+.live-signal-chip,
+.live-signal-stat,
+.live-command-dock,
+.live-inspector-rail {
+  box-shadow:
+    0 18px 45px color-mix(in srgb, black 38%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+}
+
+.live-signal-chip,
+.live-signal-stat {
+  position: relative;
+}
+
+.live-command-dock,
+.live-inspector-rail {
+  position: absolute;
+}
+
+.live-signal-chip,
+.live-signal-stat,
+.live-command-dock {
+  overflow: hidden;
+}
+
+.live-signal-chip::before,
+.live-signal-stat::before,
+.live-command-dock::before,
+.live-inspector-rail::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-primary) 58%, transparent), color-mix(in srgb, var(--color-secondary) 42%, transparent), transparent);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.live-signal-region {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-mode-token {
+  border: 1px solid color-mix(in srgb, currentColor 34%, transparent);
+  border-radius: 999px;
+  padding: 0.12rem 0.38rem;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  line-height: 1;
+}
+
+.live-control-button {
+  min-width: 2.25rem;
+  position: relative;
+  isolation: isolate;
+}
+
+.live-control-button svg {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, currentColor 32%, transparent));
+}
+
+.live-control-button[aria-pressed="true"] {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, currentColor 24%, transparent),
+    0 0 18px color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.live-dock-status {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.live-dock-metrics span {
+  white-space: nowrap;
+}
+
+.live-command-dock {
+  scrollbar-gutter: stable;
+}
+
+.live-command-dock::-webkit-scrollbar {
+  height: 6px;
+}
+
+.live-command-dock::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-primary) 34%, transparent);
+  border-radius: 999px;
+}
+
+html[data-design-mode="modern"] .live-map-shell::before {
+  background:
+    linear-gradient(180deg, rgba(5, 7, 13, 0.3), transparent 28%, rgba(5, 7, 13, 0.28) 100%),
+    radial-gradient(circle at 16% 20%, color-mix(in srgb, var(--color-primary) 22%, transparent), transparent 32%),
+    radial-gradient(circle at 84% 72%, color-mix(in srgb, var(--color-secondary) 18%, transparent), transparent 34%);
+}
+
+html[data-design-mode="modern"] .live-map-shell::after {
+  opacity: 0.13;
+}
+
+html[data-design-mode="modern"] .live-signal-chip,
+html[data-design-mode="modern"] .live-signal-stat,
+html[data-design-mode="modern"] .live-command-dock,
+html[data-design-mode="modern"] .live-inspector-rail {
+  border-color: var(--modern-glass-border-strong, rgba(255,255,255,0.28));
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.03) 42%, transparent),
+    rgba(12, 18, 31, 0.68);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    0 18px 50px rgba(0,0,0,0.44);
+  backdrop-filter: blur(calc(var(--modern-glass-blur, 14px) * 1.05)) saturate(var(--modern-glass-saturate, 1.22));
+  -webkit-backdrop-filter: blur(calc(var(--modern-glass-blur, 14px) * 1.05)) saturate(var(--modern-glass-saturate, 1.22));
+}
+
+html[data-design-mode="modern"] .live-control-button {
+  background: color-mix(in srgb, var(--color-bg-raised) 68%, transparent);
+  border-color: color-mix(in srgb, var(--modern-glass-border, rgba(255,255,255,0.17)) 72%, var(--color-border));
+}
+
+html[data-design-mode="modern"] .live-control-button:hover {
+  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-bg-raised));
+}
+
+@media (max-width: 767px) {
+  .live-signal-bar {
+    gap: 0.375rem;
+  }
+
+  .live-signal-chip {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .live-signal-stat {
+    padding: 0.45rem 0.55rem;
+  }
+
+  .live-command-dock--compact {
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    mask-image: linear-gradient(90deg, transparent 0, black 0.7rem, black calc(100% - 0.7rem), transparent 100%);
+  }
+
+  .live-command-dock--compact::-webkit-scrollbar {
+    display: none;
+  }
+
+  .live-command-dock--compact .live-control-button {
+    height: 2.125rem;
+    min-width: 2.125rem;
+    width: 2.125rem;
+  }
+
+  .live-command-dock--compact .live-dock-status {
+    height: 2.125rem;
+    padding-inline: 0.55rem;
+  }
+}

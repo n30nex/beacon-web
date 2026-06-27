@@ -1,10 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RegionProvider } from "../../../src/hooks/useRegion";
 import { ALL_REGIONS } from "../../../src/hooks/region-selection";
 import { HomeView } from "../../../src/features/home/HomeView";
 import { getRegion, getRegions, getStatsHome } from "../../../src/api/client";
+import type { PageTab } from "../../../src/lib/navigation";
 import type { WsManager } from "../../../src/api/ws-manager";
 
 vi.mock("../../../src/api/client", () => ({
@@ -17,12 +18,12 @@ const wsManager = {
   onPacketObservation: () => () => {},
 } as unknown as WsManager;
 
-function renderHome() {
+function renderHome(onNavigate: (tab: PageTab) => void = () => {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <RegionProvider defaultSelection={ALL_REGIONS}>
-        <HomeView wsManager={wsManager} onNavigate={() => {}} />
+        <HomeView wsManager={wsManager} onNavigate={onNavigate} />
       </RegionProvider>
     </QueryClientProvider>,
   );
@@ -60,19 +61,26 @@ describe("HomeView", () => {
 
     expect(await screen.findByText("1.2k")).toBeInTheDocument();
     expect(screen.getByText("5.7k")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Packets" })).toBeInTheDocument();
-    expect(screen.getByText("Node One")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Home commands" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Activity now" })).toBeInTheDocument();
+    expect(screen.getAllByText("Node One")).toHaveLength(2);
+    expect(screen.getByText("Live packets")).toBeInTheDocument();
     expect(screen.queryByText(/Atlas/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Network critical/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Investigate Queue/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/RF Flags/i)).not.toBeInTheDocument();
   });
 
-  it("keeps the shortcut launcher out of the mobile Home flow", async () => {
-    renderHome();
+  it("renders compact command buttons instead of oversized shortcut tiles", async () => {
+    const onNavigate = vi.fn();
+    renderHome(onNavigate);
 
-    const packetsShortcut = await screen.findByRole("button", { name: "Packets" });
-    expect(packetsShortcut.parentElement).toHaveClass("hidden");
-    expect(packetsShortcut.parentElement).toHaveClass("md:grid");
+    const commands = await screen.findByRole("region", { name: "Home commands" });
+    const mapCommand = within(commands).getByRole("button", { name: "Map" });
+
+    expect(mapCommand).toHaveClass("h-8");
+    expect(mapCommand).not.toHaveClass("aspect-square");
+    fireEvent.click(mapCommand);
+    expect(onNavigate).toHaveBeenCalledWith("Map");
   });
 });

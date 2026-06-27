@@ -81,7 +81,7 @@ function DeviceLegend() {
     ["OTH", "#ffc766"],
   ];
   return (
-    <aside className="netgraph-legend pointer-events-auto absolute left-3 top-16 z-10 hidden max-w-[260px] rounded-sm border border-border bg-bg-surface/90 p-2.5 shadow-2xl backdrop-blur-md md:block" aria-label="Netgraph legend">
+    <aside className="netgraph-legend pointer-events-auto absolute left-3 top-3 z-10 hidden max-w-[260px] rounded-sm border border-border bg-bg-surface/90 p-2.5 shadow-2xl backdrop-blur-md md:block" aria-label="Netgraph legend">
       <div className="flex items-center justify-between gap-3">
         <div className="font-mono text-[10px] font-bold uppercase text-primary">Topology</div>
         <span className="font-mono text-[9px] uppercase text-text-dim">Live</span>
@@ -224,8 +224,8 @@ export function NetgraphView({ selectedNodeId, onSelectNode, wsManager }: Netgra
 
   if (snapshot.isError) {
     return (
-      <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-border bg-bg-base md:rounded-sm md:border" aria-label="Netgraph">
-        <header className="border-b border-border bg-bg-surface/88 px-3 py-3">
+      <section className="netgraph-workspace flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-border bg-bg-base md:rounded-sm md:border" aria-label="Netgraph">
+        <header className="netgraph-toolbar border-b border-border bg-bg-surface/88 px-3 py-3">
           <h1 className="text-base font-semibold text-text-bright">Netgraph</h1>
           <p className="font-mono text-[11px] text-text-normal">Verified-route topology workspace</p>
         </header>
@@ -235,8 +235,8 @@ export function NetgraphView({ selectedNodeId, onSelectNode, wsManager }: Netgra
   }
 
   return (
-    <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-border bg-bg-base md:rounded-sm md:border" aria-label="Netgraph">
-      <header className="flex shrink-0 flex-col gap-1 border-b border-border bg-bg-surface/88 px-2 py-1.5 backdrop-blur md:gap-3 md:px-3 md:py-3">
+    <section className="netgraph-workspace flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-border bg-bg-base md:rounded-sm md:border" aria-label="Netgraph">
+      <header className="netgraph-toolbar flex shrink-0 flex-col gap-1 border-b border-border bg-bg-surface/88 px-2 py-1.5 backdrop-blur md:gap-2 md:px-3 md:py-2.5">
         <div className="flex min-w-0 flex-col gap-1.5 md:flex-row md:items-center md:justify-between md:gap-3">
           <div className="flex min-w-0 items-baseline justify-between gap-2 md:block">
             <h1 className="text-base font-semibold text-text-bright">Netgraph</h1>
@@ -249,7 +249,7 @@ export function NetgraphView({ selectedNodeId, onSelectNode, wsManager }: Netgra
             </p>
           </div>
           <div className="flex w-full min-w-0 items-center gap-1.5 md:w-auto md:gap-2">
-            <label className="flex min-w-0 flex-1 items-center gap-2 rounded-sm border border-border bg-bg-base/90 px-2 py-1.5 md:w-72 md:flex-none md:px-2.5">
+            <label className="netgraph-search flex min-w-0 flex-1 items-center gap-2 rounded-sm border border-border bg-bg-base/90 px-2 py-1.5 md:w-72 md:flex-none md:px-2.5">
               <SearchIcon size={15} className="shrink-0 text-text-dim" />
               <input
                 value={query}
@@ -262,7 +262,7 @@ export function NetgraphView({ selectedNodeId, onSelectNode, wsManager }: Netgra
               type="button"
               aria-label="Open netgraph settings"
               aria-pressed={settingsOpen}
-              className={`inline-flex items-center gap-1.5 rounded-sm border px-2 py-1.5 text-[10px] font-mono font-semibold uppercase transition-colors ${
+              className={`netgraph-settings-button inline-flex items-center gap-1.5 rounded-sm border px-2 py-1.5 text-[10px] font-mono font-semibold uppercase transition-colors ${
                 settingsOpen ? "border-primary/45 bg-primary/10 text-primary" : "border-border bg-bg-base/90 text-text-muted hover:text-text-bright"
               }`}
               onClick={() => setSettingsOpen((value) => !value)}

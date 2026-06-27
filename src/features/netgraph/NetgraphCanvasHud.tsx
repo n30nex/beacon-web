@@ -127,7 +127,7 @@ export function NetgraphCanvasHud({
 }: NetgraphCanvasHudProps) {
   return (
     <>
-      <div className={`pointer-events-auto absolute right-2 top-2 z-20 grid grid-cols-2 gap-1.5 transition-opacity md:right-3 md:top-3 md:grid-cols-1 ${controlMode === "touch-flight" ? "opacity-35 md:opacity-100" : "opacity-100"}`} aria-label="Netgraph camera controls">
+      <div className={`netgraph-control-rail pointer-events-auto absolute right-2 top-2 z-20 grid grid-cols-2 gap-1.5 transition-opacity md:right-3 md:top-3 md:grid-cols-1 ${controlMode === "touch-flight" ? "opacity-35 md:opacity-100" : "opacity-100"}`} aria-label="Netgraph camera controls">
         <CanvasControlButton label={controlMode === "flight" ? "Exit flight mode" : "Enter flight mode"} onClick={controlMode === "flight" ? onExitFlight : onEnterFlight}>
           <span className="text-[9px]">F</span>
         </CanvasControlButton>
@@ -162,14 +162,14 @@ export function NetgraphCanvasHud({
             <span className="absolute left-0 top-1/2 h-px w-2 -translate-y-1/2 bg-primary/70" />
             <span className="absolute right-0 top-1/2 h-px w-2 -translate-y-1/2 bg-primary/70" />
           </div>
-          <div className="pointer-events-none absolute left-3 top-3 z-20 rounded-sm border border-primary/30 bg-bg-surface/80 px-2 py-1 font-mono text-[10px] font-bold uppercase text-primary shadow-lg backdrop-blur">
+          <div className="netgraph-flight-badge pointer-events-none absolute left-3 top-3 z-20 rounded-sm border border-primary/30 bg-bg-surface/80 px-2 py-1 font-mono text-[10px] font-bold uppercase text-primary shadow-lg backdrop-blur">
             Flight
           </div>
         </>
       )}
-      <div className="pointer-events-none absolute inset-x-0 bottom-2 z-[8] flex items-end justify-between px-2.5 md:hidden" aria-label="Mobile netgraph flight controls">
+      <div className="netgraph-touch-controls pointer-events-none absolute inset-x-0 bottom-2 z-[8] flex items-end justify-between px-2.5 md:hidden" aria-label="Mobile netgraph flight controls">
         <div
-          className={`pointer-events-auto grid h-20 w-20 place-items-center rounded-full border border-primary/25 bg-bg-surface/25 shadow-[0_0_20px_rgba(122,183,255,0.16)] backdrop-blur-md transition-opacity ${controlMode === "touch-flight" ? "opacity-100" : "opacity-40"}`}
+          className={`netgraph-touch-pad netgraph-touch-pad--move pointer-events-auto grid h-20 w-20 place-items-center rounded-full border border-primary/25 bg-bg-surface/25 shadow-[0_0_20px_rgba(122,183,255,0.16)] backdrop-blur-md transition-opacity ${controlMode === "touch-flight" ? "opacity-100" : "opacity-40"}`}
           role="application"
           aria-label="Netgraph movement control"
           onPointerDown={onMovePadPointerDown}
@@ -180,7 +180,7 @@ export function NetgraphCanvasHud({
           <span className="h-9 w-9 rounded-full border border-green/45 bg-green/12 shadow-[0_0_16px_rgba(84,225,166,0.24)]" />
         </div>
         <div
-          className={`pointer-events-auto grid h-24 w-16 place-items-center rounded-full border border-border bg-bg-surface/20 shadow-[0_0_20px_rgba(186,102,255,0.1)] backdrop-blur-md transition-opacity ${controlMode === "touch-flight" ? "opacity-100" : "opacity-40"}`}
+          className={`netgraph-touch-pad netgraph-touch-pad--look pointer-events-auto grid h-24 w-16 place-items-center rounded-full border border-border bg-bg-surface/20 shadow-[0_0_20px_rgba(186,102,255,0.1)] backdrop-blur-md transition-opacity ${controlMode === "touch-flight" ? "opacity-100" : "opacity-40"}`}
           role="application"
           aria-label="Netgraph look control"
           onPointerDown={onLookPadPointerDown}

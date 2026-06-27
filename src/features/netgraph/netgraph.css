@@ -1,5 +1,60 @@
+.netgraph-workspace {
+  position: relative;
+  background:
+    radial-gradient(circle at 50% 28%, color-mix(in srgb, var(--color-primary) 11%, transparent), transparent 44%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-bg-surface) 82%, black), var(--color-bg-base));
+}
+
+.netgraph-workspace::before {
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 8%, transparent), transparent 18%, transparent 82%, color-mix(in srgb, var(--color-green) 6%, transparent)),
+    linear-gradient(180deg, color-mix(in srgb, white 4%, transparent), transparent 44%);
+  opacity: 0.7;
+}
+
+.netgraph-workspace > * {
+  position: relative;
+  z-index: 1;
+}
+
+.netgraph-toolbar {
+  box-shadow:
+    0 12px 30px color-mix(in srgb, black 22%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-primary) 16%, transparent);
+}
+
+.netgraph-search,
+.netgraph-settings-button {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 8%, transparent),
+    0 10px 24px color-mix(in srgb, black 22%, transparent);
+}
+
+.netgraph-search:focus-within {
+  border-color: color-mix(in srgb, var(--color-primary) 58%, var(--color-border));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 10%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--color-primary) 16%, transparent),
+    0 12px 28px color-mix(in srgb, black 26%, transparent);
+}
+
+.netgraph-settings-button[aria-pressed="true"] {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 20%, transparent),
+    0 0 22px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
 .netgraph-canvas-host {
   min-height: 0;
+  background:
+    radial-gradient(circle at 50% 48%, color-mix(in srgb, var(--color-primary) 9%, transparent), transparent 34%),
+    radial-gradient(circle at 72% 24%, color-mix(in srgb, var(--color-secondary) 9%, transparent), transparent 32%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-bg-base) 82%, black), var(--color-bg-base));
 }
 
 .netgraph-canvas-host::before,
@@ -13,16 +68,18 @@
 
 .netgraph-canvas-host::before {
   background:
-    radial-gradient(circle at 50% 42%, transparent 0%, transparent 48%, color-mix(in srgb, var(--color-bg-base) 54%, transparent) 100%),
-    linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 9%, transparent), transparent 28%, color-mix(in srgb, var(--color-bg-base) 36%, transparent));
+    radial-gradient(circle at 50% 42%, transparent 0%, transparent 52%, color-mix(in srgb, var(--color-bg-base) 58%, transparent) 100%),
+    radial-gradient(circle at 32% 32%, color-mix(in srgb, var(--color-primary) 12%, transparent), transparent 42%),
+    radial-gradient(circle at 74% 68%, color-mix(in srgb, var(--color-green) 8%, transparent), transparent 38%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 8%, transparent), transparent 30%, color-mix(in srgb, var(--color-bg-base) 40%, transparent));
 }
 
 .netgraph-canvas-host::after {
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 10%, transparent), transparent 18%, transparent 82%, color-mix(in srgb, var(--color-green) 8%, transparent)),
-    repeating-linear-gradient(180deg, transparent 0 7px, color-mix(in srgb, var(--color-primary) 5%, transparent) 7px 8px);
+    linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 8%, transparent), transparent 18%, transparent 82%, color-mix(in srgb, var(--color-green) 7%, transparent)),
+    repeating-linear-gradient(180deg, transparent 0 8px, color-mix(in srgb, var(--color-primary) 4%, transparent) 8px 9px);
   mix-blend-mode: screen;
-  opacity: 0.36;
+  opacity: 0.28;
 }
 
 .netgraph-three-canvas {
@@ -35,7 +92,9 @@
 .netgraph-control-button,
 .netgraph-hover-card,
 .netgraph-legend,
-.netgraph-live-pill {
+.netgraph-live-pill,
+.netgraph-flight-badge,
+.netgraph-touch-pad {
   box-shadow:
     0 18px 45px color-mix(in srgb, black 42%, transparent),
     inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
@@ -43,6 +102,11 @@
 
 .netgraph-control-button {
   position: relative;
+  overflow: hidden;
+}
+
+.netgraph-control-rail {
+  filter: drop-shadow(0 12px 28px color-mix(in srgb, black 36%, transparent));
 }
 
 .netgraph-control-button::after {
@@ -63,16 +127,40 @@
 }
 
 .netgraph-legend,
-.netgraph-live-pill {
+.netgraph-live-pill,
+.netgraph-flight-badge {
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--color-bg-surface) 92%, transparent), color-mix(in srgb, var(--color-bg-base) 82%, transparent)),
     color-mix(in srgb, var(--color-bg-surface) 88%, transparent);
+}
+
+.netgraph-legend {
+  backdrop-filter: blur(14px) saturate(1.18);
+  -webkit-backdrop-filter: blur(14px) saturate(1.18);
 }
 
 .netgraph-hover-card {
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--color-bg-surface) 96%, transparent), color-mix(in srgb, var(--color-bg-base) 88%, transparent)),
     color-mix(in srgb, var(--color-bg-surface) 94%, transparent);
+}
+
+.netgraph-touch-controls {
+  padding-bottom: 0.125rem;
+}
+
+.netgraph-touch-pad {
+  background:
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, currentColor 18%, transparent), transparent 56%),
+    color-mix(in srgb, var(--color-bg-surface) 34%, transparent);
+}
+
+.netgraph-touch-pad--move {
+  color: var(--color-green);
+}
+
+.netgraph-touch-pad--look {
+  color: var(--color-primary);
 }
 
 .netgraph-range {
@@ -118,5 +206,68 @@
   .netgraph-canvas-host {
     height: 100%;
     min-height: 0;
+  }
+}
+
+html[data-design-mode="modern"] .netgraph-workspace {
+  border-color: var(--modern-glass-border, rgba(255,255,255,0.17));
+  background:
+    radial-gradient(circle at 50% 26%, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent 46%),
+    radial-gradient(circle at 78% 72%, color-mix(in srgb, var(--color-secondary) 13%, transparent), transparent 34%),
+    linear-gradient(180deg, rgba(10, 15, 26, 0.92), rgba(5, 7, 13, 0.98));
+}
+
+html[data-design-mode="modern"] .netgraph-toolbar {
+  border-color: var(--modern-glass-border, rgba(255,255,255,0.17));
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02)),
+    rgba(12, 18, 31, 0.72);
+  backdrop-filter: blur(var(--modern-glass-blur, 14px)) saturate(var(--modern-glass-saturate, 1.22));
+  -webkit-backdrop-filter: blur(var(--modern-glass-blur, 14px)) saturate(var(--modern-glass-saturate, 1.22));
+}
+
+html[data-design-mode="modern"] .netgraph-search,
+html[data-design-mode="modern"] .netgraph-settings-button,
+html[data-design-mode="modern"] .netgraph-control-button,
+html[data-design-mode="modern"] .netgraph-hover-card,
+html[data-design-mode="modern"] .netgraph-legend,
+html[data-design-mode="modern"] .netgraph-live-pill,
+html[data-design-mode="modern"] .netgraph-flight-badge {
+  border-color: var(--modern-glass-border, rgba(255,255,255,0.17));
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.11), rgba(255,255,255,0.03) 42%, transparent),
+    rgba(13, 19, 32, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.16),
+    0 18px 45px rgba(0,0,0,0.38);
+}
+
+@media (max-width: 767px) {
+  .netgraph-toolbar {
+    padding-block: 0.45rem;
+  }
+
+  .netgraph-control-rail {
+    gap: 0.375rem;
+  }
+
+  .netgraph-control-button {
+    height: 2.125rem;
+    width: 2.125rem;
+  }
+
+  .netgraph-touch-controls {
+    bottom: 0.75rem;
+    padding-inline: 0.75rem;
+  }
+
+  .netgraph-touch-pad--move {
+    height: 5rem;
+    width: 5rem;
+  }
+
+  .netgraph-touch-pad--look {
+    height: 5.75rem;
+    width: 4rem;
   }
 }

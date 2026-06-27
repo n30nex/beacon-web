@@ -33,7 +33,7 @@ export function LiveControlButton({
   return (
     <button
       type="button"
-      className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-sm border font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors md:text-[11px] ${
+      className={`live-control-button inline-flex shrink-0 items-center justify-center gap-1.5 rounded-sm border font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors md:text-[11px] ${
         compact ? "h-8 w-8 px-0" : "h-9 px-2 md:px-2.5"
       } ${activeClass} ${className}`}
       onClick={onClick}
@@ -140,10 +140,10 @@ export const LiveControlDock = memo(function LiveControlDock({
 }) {
   if (compact) {
     return (
-      <div className="crt-float-panel live-command-dock absolute z-30 flex items-center rounded-sm border border-border" style={style}>
+      <div className="crt-float-panel live-command-dock live-command-dock--compact absolute z-30 flex items-center rounded-sm border border-border" style={style}>
         <LiveControlButton compact icon={paused ? "play" : "pause"} label={paused ? "Resume" : "Pause"} active={paused} onClick={onTogglePaused} />
         <div
-          className={`flex h-8 shrink-0 items-center gap-1.5 rounded border px-2 font-mono text-[10px] font-semibold tracking-wider ${
+          className={`live-dock-status flex h-8 shrink-0 items-center gap-1.5 rounded border px-2 font-mono text-[10px] font-semibold tracking-wider ${
             paused ? "border-warn/25 bg-warn/8 text-warn" : "border-green/20 bg-green/8 text-green"
           }`}
         >
@@ -161,18 +161,18 @@ export const LiveControlDock = memo(function LiveControlDock({
   }
 
   return (
-    <div className="crt-float-panel live-command-dock absolute z-30 flex items-center rounded-sm border border-border" style={style}>
+    <div className="crt-float-panel live-command-dock live-command-dock--desktop absolute z-30 flex items-center rounded-sm border border-border" style={style}>
       <div className="flex min-w-0 shrink-0 items-center gap-1.5 pr-1 md:gap-2">
         <LiveControlButton icon={paused ? "play" : "pause"} label={paused ? "Resume" : "Pause"} active={paused} onClick={onTogglePaused} />
         <div
-          className={`flex items-center gap-1.5 rounded border px-2 py-1.5 font-mono text-[10px] font-semibold tracking-wider md:px-2.5 md:text-[11px] ${
+          className={`live-dock-status flex items-center gap-1.5 rounded border px-2 py-1.5 font-mono text-[10px] font-semibold tracking-wider md:px-2.5 md:text-[11px] ${
             paused ? "border-warn/25 bg-warn/8 text-warn" : "border-green/20 bg-green/8 text-green"
           }`}
         >
           <span className={`crt-glow-dot h-1.5 w-1.5 rounded-full ${paused ? "bg-warn text-warn" : "bg-green text-green animate-pulse"}`} />
           {paused ? "PAUSED" : "RUNNING"}
         </div>
-        <div className="hidden min-w-0 items-center gap-3 font-mono text-[11px] text-text-muted xl:flex">
+        <div className="live-dock-metrics hidden min-w-0 items-center gap-3 font-mono text-[11px] text-text-muted xl:flex">
           <span>{formatCount(totalPackets)} pkts</span>
           <span>{ratePerMin}/m</span>
           <span>{activeAnimations} active</span>

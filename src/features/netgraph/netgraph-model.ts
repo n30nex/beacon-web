@@ -67,11 +67,11 @@ export interface NetgraphRenderTier {
 
 export const DEFAULT_NETGRAPH_GALAXY_PROFILE: NetgraphGalaxyProfile = {
   seedShape: "spherical",
-  clusterScale: 2.78,
-  spiralIntensity: 0.5,
-  depthContrast: 3.72,
-  settleStrength: 1.88,
-  edgeSpacingScale: 2.92,
+  clusterScale: 2.9,
+  spiralIntensity: 0.42,
+  depthContrast: 3.85,
+  settleStrength: 1.98,
+  edgeSpacingScale: 3.05,
 };
 
 export const DEFAULT_NETGRAPH_VISUAL_PROFILE: NetgraphVisualProfile = {
@@ -79,18 +79,18 @@ export const DEFAULT_NETGRAPH_VISUAL_PROFILE: NetgraphVisualProfile = {
   orbitControlSpeed: 1,
   orbitDamping: 0.09,
   nodeScale: 2.12,
-  labelScale: 1.3,
-  edgeOpacity: 1.02,
-  labelDensity: 1,
-  pulseDensity: 1.38,
-  glowDensity: 1.28,
-  glowIntensity: 1.62,
-  starDensity: 1.16,
-  cameraFov: 45,
-  lightIntensity: 1.34,
-  atmosphereDensity: 1.24,
-  cameraDistanceScale: 0.94,
-  focusHaloScale: 1.08,
+  labelScale: 1.38,
+  edgeOpacity: 0.96,
+  labelDensity: 1.08,
+  pulseDensity: 1.24,
+  glowDensity: 1.18,
+  glowIntensity: 1.48,
+  starDensity: 0.92,
+  cameraFov: 42,
+  lightIntensity: 1.24,
+  atmosphereDensity: 1.08,
+  cameraDistanceScale: 0.92,
+  focusHaloScale: 1.12,
 };
 
 export type NetgraphCameraMode = "orbit" | "flight" | "touch-flight";

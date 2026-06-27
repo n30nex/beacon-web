@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  SYSTEM_TABS,
   applyNavigationParams,
   canonicalizeNavigationParams,
+  isSystemTab,
   navigationForTarget,
   navigationFromParams,
 } from "../../src/lib/navigation";
@@ -43,9 +45,11 @@ describe("simplified navigation model", () => {
     expect(next.toString()).toBe("tab=System&nodeId=n1");
   });
 
-  it("keeps Netgraph as a direct system page", () => {
+  it("keeps Netgraph as a direct standalone page outside System", () => {
     const params = new URLSearchParams("tab=Netgraph&nodeId=n1&routeId=42");
 
+    expect(SYSTEM_TABS).not.toContain("Netgraph");
+    expect(isSystemTab("Netgraph")).toBe(false);
     expect(navigationFromParams(params)).toEqual({ tab: "Netgraph" });
     expect(canonicalizeNavigationParams(params).toString()).toBe("tab=Netgraph&nodeId=n1&routeId=42");
     expect(navigationForTarget("Netgraph")).toEqual({ tab: "Netgraph" });

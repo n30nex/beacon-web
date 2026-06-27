@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { useQuery } from "@tanstack/react-query";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "../map/map.css";
+import "./live.css";
 import { useMapLibre } from "../map/useMapLibre";
 import { useMapNodes } from "../map/useMapNodes";
 import { useMapNodesData } from "../map/useMapNodesData";

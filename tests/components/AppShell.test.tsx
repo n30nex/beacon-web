@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppShell } from "../../src/components/AppShell";
 import { RuntimeStatusPanel } from "../../src/components/RuntimeStatusPanel";
@@ -110,13 +110,13 @@ function mockThemeFetch() {
   );
 }
 
-function renderShell(activeTab = "Home") {
+function renderShell(activeTab = "Home", onTabChange: (tab: string) => void = () => {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <ThemeProvider>
         <RegionProvider defaultSelection={ALL_REGIONS}>
-          <AppShell activeTab={activeTab} onTabChange={() => {}} wsManager={wsManager}>
+          <AppShell activeTab={activeTab} onTabChange={onTabChange} wsManager={wsManager}>
             <div />
           </AppShell>
         </RegionProvider>
@@ -233,6 +233,20 @@ describe("AppShell", () => {
     renderShell("Netgraph");
     expect(screen.getAllByText("BEACON v", { exact: false }).at(-1)?.closest("footer")).toHaveClass("hidden");
     expect(screen.getAllByText("BEACON v", { exact: false }).at(-1)?.closest("footer")).toHaveClass("md:flex");
+  });
+
+  it("promotes Netgraph to standalone desktop navigation outside System", () => {
+    vi.mocked(getIatas).mockResolvedValue([]);
+    const onTabChange = vi.fn();
+    renderShell("Home", onTabChange);
+
+    const pagesNav = screen.getByRole("navigation", { name: "Pages" });
+    fireEvent.click(within(pagesNav).getByRole("button", { name: "Netgraph" }));
+    expect(onTabChange).toHaveBeenCalledWith("Netgraph");
+
+    fireEvent.click(within(pagesNav).getByRole("button", { name: "System" }));
+    const systemMenu = screen.getByRole("menu", { name: "System" });
+    expect(within(systemMenu).queryByRole("menuitem", { name: "Netgraph" })).not.toBeInTheDocument();
   });
 
   it("region picker shows an error state when the IATA list fails to load", async () => {
