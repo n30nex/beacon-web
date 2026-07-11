@@ -19,6 +19,21 @@ const emptyPage = { items: [], nextCursor: null, hasMore: false };
 const healthStatus = {
   status: "ok",
   ready: true,
+  serviceLevel: {
+    status: "ok",
+    worstRoute: "GET /api/v1/stats/home",
+    worstP95Ms: 82,
+    targetMs: 250,
+  },
+  build: {
+    sha: "e2e0123456789",
+    builtAt: "2026-07-10T00:00:00Z",
+    dirty: false,
+  },
+  backup: {
+    status: "ok",
+    ageMs: 30 * 60_000,
+  },
   version: "e2e",
   serverTime: now,
   mode: "playwright",
@@ -32,7 +47,15 @@ const healthStatus = {
     publicRest: { requestsPerMinute: 600, burst: 60, activeBuckets: 1, allowed: 12, rejected: 0 },
   },
   cacheMetrics: {
-    stats: { hits: 2, misses: 1, invalidations: 0, ttlSeconds: 3600 },
+    stats: { hits: 2, misses: 1, invalidations: 0, ttlSeconds: 3600, staleServed: 0 },
+  },
+  databasePool: {
+    acquiredConnections: 1,
+    idleConnections: 2,
+    totalConnections: 3,
+    maxConnections: 12,
+    emptyAcquireCount: 0,
+    canceledAcquireCount: 0,
   },
   backgroundTasks: {
     view_refresh: {
@@ -42,6 +65,40 @@ const healthStatus = {
       lastStatus: "success",
       lastFinishedAt: now,
       lastDurationMs: 12,
+      lastAffectedRows: 4,
+      nextRunAt: now + 60 * 60_000,
+    },
+  },
+};
+
+const degradedHealthStatus = {
+  ...healthStatus,
+  status: "degraded",
+  serviceLevel: {
+    status: "degraded",
+    worstRoute: "GET /api/v1/atlas",
+    worstP95Ms: 6200,
+    targetMs: 750,
+  },
+  build: { ...healthStatus.build, dirty: true },
+  backup: { status: "degraded", ageMs: 30 * 60 * 60_000 },
+  cacheMetrics: {
+    atlas: {
+      hits: 2,
+      misses: 4,
+      invalidations: 0,
+      ttlSeconds: 30,
+      staleServed: 3,
+      lastRefreshError: "refresh deadline exceeded",
+      errors: { refresh: 1 },
+    },
+  },
+  backgroundTasks: {
+    view_refresh: {
+      ...healthStatus.backgroundTasks.view_refresh,
+      failures: 1,
+      lastStatus: "failed",
+      lastError: "lock timeout",
     },
   },
 };
@@ -429,6 +486,110 @@ test("keyboard can reach primary navigation and search", async ({ page }) => {
   await page.getByRole("button", { name: "Search" }).focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("dialog")).toBeVisible();
+});
+
+test("mobile Home keeps KPI density and rankings ordered without overflow", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/?tab=Home&boot=0", { waitUntil: "domcontentloaded" });
+
+  const kpis = page.getByRole("region", { name: "Home KPIs" });
+  const activity = page.getByRole("region", { name: "Activity now" });
+  const myNodes = page.getByRole("region", { name: "My Nodes" });
+  const rankings = page.getByRole("region", { name: "Mobile rankings" });
+  await expect(kpis).toBeVisible();
+  await expect(activity).toBeVisible();
+  await expect(myNodes).toBeVisible();
+  await expect(rankings).toBeVisible();
+
+  const kpiBoxes = await kpis.locator(":scope > *").evaluateAll((items) => items.slice(0, 4).map((item) => item.getBoundingClientRect()));
+  expect(kpiBoxes).toHaveLength(4);
+  expect(Math.abs(kpiBoxes[0].top - kpiBoxes[1].top)).toBeLessThan(2);
+  expect(kpiBoxes[2].top).toBeGreaterThan(kpiBoxes[0].top);
+
+  const [activityBox, nodesBox, rankingBox] = await Promise.all([activity.boundingBox(), myNodes.boundingBox(), rankings.boundingBox()]);
+  expect(activityBox!.y).toBeLessThan(rankingBox!.y);
+  expect(nodesBox!.y).toBeLessThan(rankingBox!.y);
+  await expect(rankings.getByRole("button", { name: "nodes" })).toHaveAttribute("aria-pressed", "true");
+  await rankings.getByRole("button", { name: "observers" }).click();
+  await expect(rankings.getByText("Observer Alpha")).toBeVisible();
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+  expect(overflow).toBe(false);
+});
+
+test("System leads with degraded state and keeps raw counters expandable", async ({ page }) => {
+  await page.route("**/healthz", (route) => route.fulfill({ json: degradedHealthStatus }));
+  await page.route("**/readyz", (route) => route.fulfill({ json: degradedHealthStatus }));
+  await page.goto("/?tab=System&boot=0", { waitUntil: "domcontentloaded" });
+
+  const panel = page.locator(".runtime-status-panel");
+  await expect(page.getByRole("heading", { name: "System" })).toBeVisible();
+  await expect(panel.getByText("DEGRADED", { exact: true }).first()).toBeVisible();
+  await expect(panel.getByText("6200 / 750 ms")).toBeVisible();
+  await expect(panel.getByText(/DIRTY/).first()).toBeVisible();
+  const raw = panel.getByText("Raw diagnostics");
+  await expect(panel.getByText("refresh deadline exceeded")).toBeHidden();
+  await raw.click();
+  await expect(panel.getByText("REFRESH refresh deadline exceeded")).toBeVisible();
+  await expect(panel.getByText("lock timeout")).toBeVisible();
+});
+
+test("mobile Live exposes four primary controls and reduced-motion defaults", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/?tab=Live&boot=0", { waitUntil: "domcontentloaded" });
+
+  const dock = page.locator(".live-command-dock--compact");
+  await expect(dock).toBeVisible({ timeout: 15_000 });
+  await expect(dock.getByRole("button")).toHaveCount(4);
+  for (const name of ["Pause", "Focus", "Console", "Settings"]) {
+    const button = dock.getByRole("button", { name });
+    await expect(button).toBeVisible();
+    expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
+  await expect(page.getByLabel("Node loading progress")).toContainText("Nodes 1 / 1");
+
+  await dock.getByRole("button", { name: "Settings" }).click();
+  const settings = page.getByRole("dialog", { name: "View settings" });
+  await expect(settings).toBeVisible();
+  for (const name of ["Trails", "Pace", "Heat", "Color"]) {
+    await expect(settings.getByRole("button", { name })).toBeVisible();
+  }
+  await expect(settings.getByRole("button", { name: "Trails" })).toHaveAttribute("aria-pressed", "false");
+  await expect(settings.getByRole("button", { name: "Pace" })).toHaveAttribute("aria-pressed", "false");
+});
+
+test("saved investigation lifecycle survives export, import, and history navigation", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const source = "/?tab=Nodes&nodeId=node-alpha&q=alpha";
+  await page.goto(`/?tab=Investigations&create=1&source=${encodeURIComponent(source)}&boot=0`, { waitUntil: "domcontentloaded" });
+  await page.getByLabel("Investigation name").fill("Road test");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+
+  const rename = page.getByLabel("Rename Road test");
+  await rename.fill("Road test renamed");
+  await page.getByRole("heading", { name: "Investigations" }).click();
+  await expect(page.getByLabel("Rename Road test renamed")).toBeVisible();
+
+  await page.getByRole("button", { name: "Copy link" }).click();
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain("tab=Nodes");
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export" }).click();
+  const download = await downloadPromise;
+  const exportPath = await download.path();
+  expect(exportPath).toBeTruthy();
+
+  await page.getByRole("button", { name: "Open" }).click();
+  await expect(page).toHaveURL(/tab=Nodes/);
+  await expect(page).toHaveURL(/nodeId=node-alpha/);
+  await page.goBack();
+  await expect(page.getByRole("heading", { name: "Investigations" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByText(/No saved investigations/)).toBeVisible();
+  await page.locator('input[type="file"]').setInputFiles(exportPath!);
+  await expect(page.getByLabel("Rename Road test renamed")).toBeVisible();
 });
 
 test("Netgraph has no serious or critical axe violations @a11y @a11y-netgraph", async ({ page }) => {

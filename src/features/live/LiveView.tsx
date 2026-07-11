@@ -64,6 +64,7 @@ import { LiveMapSurface } from "./LiveMapSurface";
 import { useLiveAudio } from "./useLiveAudio";
 import { useLivePanelLayout } from "./useLivePanelLayout";
 import { useWsSubscriptionReady } from "./useWsSubscriptionReady";
+import { useWatchlist } from "../investigations/useLocalInvestigations";
 
 interface LiveViewProps {
   wsManager: WsManager;
@@ -119,9 +120,10 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
   const [clustered, setClustered] = useState(false);
   const [events, setEvents] = useState<LivePacketEvent[]>([]);
   const [queuedEvents, setQueuedEvents] = useState<LivePacketEvent[]>([]);
+  const reducedMotion = useMemo(() => typeof window !== "undefined" && Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches), []);
   const [paused, setPaused] = useState(false);
-  const [trails, setTrails] = useState(true);
-  const [realisticPropagation, setRealisticPropagation] = useState(true);
+  const [trails, setTrails] = useState(() => !reducedMotion);
+  const [realisticPropagation, setRealisticPropagation] = useState(() => !reducedMotion);
   const [heatVisible, setHeatVisible] = useState(false);
   const [colorByHash, setColorByHash] = useState(true);
   const [matrixMode, setMatrixMode] = useState(false);
@@ -151,6 +153,10 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
     toggleConsole,
     toggleSettings,
   } = useLivePanelLayout();
+
+  useEffect(() => {
+    if (reducedMotion && audioEnabled) setAudioEnabled(false);
+  }, [audioEnabled, reducedMotion, setAudioEnabled]);
 
   useEffect(() => {
     pausedRef.current = paused;
@@ -252,7 +258,9 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
   const { byKey: nodeCoords, byPathPrefix } = useMemo(() => buildNodeCoordMaps(nodes), [nodes]);
   const iataCoords = useMemo(() => buildIataCoordMap(iataCodes), [iataCodes]);
 
-  const baseFc = useMemo(() => nodesToFeatureCollection(nodes), [nodes]);
+  const [watchlist] = useWatchlist();
+  const watchedPublicKeys = useMemo(() => new Set(watchlist.map((item) => item.publicKey)), [watchlist]);
+  const baseFc = useMemo(() => nodesToFeatureCollection(nodes, watchedPublicKeys), [nodes, watchedPublicKeys]);
   const geojson = useMemo(() => filterByNodeType(baseFc, typeFilter), [baseFc, typeFilter]);
 
   const { containerRef, mapRef, isReady, error } = useMapLibre(styleId, null, handleStyleError, {
@@ -475,6 +483,20 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
   const toggleHeat = useCallback(() => setHeatVisible((v) => !v), []);
   const togglePropagation = useCallback(() => setRealisticPropagation((v) => !v), []);
   const toggleTrails = useCallback(() => setTrails((v) => !v), []);
+  const focusMap = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const selected = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId && node.lat != null && node.lng != null) : undefined;
+    if (selected?.lat != null && selected.lng != null) {
+      map.flyTo({ center: [selected.lng, selected.lat], zoom: Math.max(map.getZoom(), 10), duration: reducedMotion ? 0 : 500 });
+      return;
+    }
+    const located = nodes.filter((node) => node.lat != null && node.lng != null);
+    if (located.length === 0) return;
+    const lngs = located.map((node) => node.lng as number);
+    const lats = located.map((node) => node.lat as number);
+    map.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 48, maxZoom: 10, duration: reducedMotion ? 0 : 500 });
+  }, [mapRef, nodes, reducedMotion, selectedNodeId]);
 
   const feedClock = Math.floor(now / 5_000);
   const ratePerMin = useMemo(() => countRecent(events, now, 60_000), [events, now]);
@@ -556,6 +578,7 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
         onToggleColorByHash={toggleColorByHash}
         onToggleConsole={toggleConsole}
         onToggleHeat={toggleHeat}
+        onFocus={focusMap}
         onTogglePaused={togglePaused}
         onTogglePropagation={togglePropagation}
         onToggleSettings={toggleSettings}
@@ -582,6 +605,10 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
           clustered={clustered}
           matrixMode={matrixMode}
           matrixRain={matrixRain}
+          colorByHash={colorByHash}
+          heatVisible={heatVisible}
+          realisticPropagation={realisticPropagation}
+          trails={trails}
           onAppearanceChange={handleAppearanceChange}
           onAudioBpmChange={setAudioBpm}
           onAudioVolumeChange={setAudioVolume}
@@ -591,6 +618,10 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
           onToggleAudio={() => setAudioEnabled((value) => !value)}
           onToggleMatrix={() => setMatrixMode((v) => !v)}
           onToggleRain={() => setMatrixRain((v) => !v)}
+          onToggleColorByHash={toggleColorByHash}
+          onToggleHeat={toggleHeat}
+          onTogglePropagation={togglePropagation}
+          onToggleTrails={toggleTrails}
           onTypeChange={setTypeFilter}
           styleId={styleId}
           typeFilter={typeFilter}

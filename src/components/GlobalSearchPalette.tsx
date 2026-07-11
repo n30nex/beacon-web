@@ -6,6 +6,8 @@ import { useFocusTrap } from "../hooks/useFocusTrap";
 import { CloseButton } from "./CloseButton";
 import { TerminalCursor, TerminalLoadingState } from "./TerminalLoader";
 import type { GlobalSearchResult, GlobalSearchResultType } from "../types/api";
+import { canonicalizeInvestigationPath } from "../features/investigations/storage";
+import { WatchNodeButton } from "../features/investigations/WatchNodeButton";
 
 interface GlobalSearchPaletteProps {
   open: boolean;
@@ -26,7 +28,24 @@ const PAGE_RESULTS: GlobalSearchResult[] = [
   { type: "page", id: "routes", label: "Routes", subtitle: "Known route catalogue", url: "/?tab=Routes", score: 291, matched: "page" },
   { type: "page", id: "traces", label: "Traces", subtitle: "Trace and ping series", url: "/?tab=Traces", score: 290, matched: "page" },
   { type: "page", id: "system", label: "System", subtitle: "API, readiness, broker, and live bus status", url: "/?tab=System", score: 289, matched: "page" },
+  { type: "page", id: "investigations", label: "Investigations", subtitle: "Saved browser-local workspaces", url: "/?tab=Investigations", score: 288, matched: "page" },
 ];
+
+const PAGE_ALIASES: Record<string, string> = {
+  home: "dashboard summary",
+  live: "console realtime",
+  map: "geography",
+  packets: "messages traffic",
+  channels: "chat catalogue",
+  nodes: "radios devices",
+  observers: "gateways",
+  analytics: "atlas stats statistics",
+  netgraph: "network graph",
+  routes: "paths",
+  traces: "pings",
+  system: "diagnostics health ready readiness slo",
+  investigations: "saved workspace watchlist case",
+};
 
 const TYPE_LABEL: Record<GlobalSearchResultType, string> = {
   page: "PAGE",
@@ -69,8 +88,36 @@ function writeRecentSearches(searches: string[]) {
 
 function localPageResults(query: string): GlobalSearchResult[] {
   const needle = query.trim().toLowerCase();
-  if (!needle) return PAGE_RESULTS;
-  return PAGE_RESULTS.filter((item) => `${item.label} ${item.subtitle ?? ""}`.toLowerCase().includes(needle));
+  let source = "/?tab=Home";
+  try {
+    source = canonicalizeInvestigationPath(window.location.href);
+    if (source.includes("tab=Investigations")) source = "/?tab=Home";
+  } catch {
+    // Keep the safe Home fallback.
+  }
+  const saveParams = new URLSearchParams({ tab: "Investigations", create: "1", source });
+  const saveAction: GlobalSearchResult = {
+    type: "page",
+    id: "save-investigation",
+    label: "Save Investigation",
+    subtitle: "Capture the current URL workspace",
+    url: `/?${saveParams.toString()}`,
+    score: 400,
+    matched: "action",
+  };
+  const values = [saveAction, ...PAGE_RESULTS];
+  if (!needle) return values;
+  return values.filter((item) => `${item.label} ${item.subtitle ?? ""} ${PAGE_ALIASES[item.id] ?? ""}`.toLowerCase().includes(needle));
+}
+
+function mergeSearchResults(local: GlobalSearchResult[], remote: GlobalSearchResult[]): GlobalSearchResult[] {
+  const seen = new Set<string>();
+  return [...remote, ...local].filter((item) => {
+    const key = `${item.type}:${item.id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function GlobalSearchPalette({ open, onClose, onSelect }: GlobalSearchPaletteProps) {
@@ -91,15 +138,16 @@ export function GlobalSearchPalette({ open, onClose, onSelect }: GlobalSearchPal
 
   const search = useQuery({
     queryKey: ["global-search", regionKey, debounced],
-    queryFn: () => getGlobalSearch(iatas, { q: debounced, limit: 24 }),
+    queryFn: ({ signal }) => getGlobalSearch(iatas, { q: debounced, limit: 24 }, signal),
     enabled: open && debounced.length >= 2,
     staleTime: 15_000,
   });
 
-  const items = useMemo(
-    () => (debounced.length >= 2 ? (search.data?.items ?? []) : localPageResults(query)),
-    [debounced.length, query, search.data?.items],
-  );
+  const items = useMemo(() => {
+    const local = localPageResults(query);
+    if (debounced.length < 2) return local;
+    return mergeSearchResults(local, search.data?.items ?? []);
+  }, [debounced.length, query, search.data?.items]);
 
   if (!open) return null;
 
@@ -193,37 +241,49 @@ export function GlobalSearchPalette({ open, onClose, onSelect }: GlobalSearchPal
         )}
 
         <div className="min-h-0 overflow-y-auto p-2">
-          {search.isLoading && debounced.length >= 2 ? (
-            <TerminalLoadingState label="QUERYING GLOBAL INDEX" detail="PLEASE WAIT" />
-          ) : search.isError ? (
-            <div className="p-4 font-mono text-[12px] text-danger">SEARCH BUS DEGRADED</div>
-          ) : items.length === 0 ? (
+          {(search.isLoading || debounced !== query.trim()) && query.trim().length >= 2 && (
+            <div className="mb-2 border border-primary/25 bg-primary/5 p-2">
+              <TerminalLoadingState label="QUERYING REMOTE PROVIDERS" detail="LOCAL PAGE MATCHES REMAIN AVAILABLE" />
+            </div>
+          )}
+          {(search.isError || search.data?.partial) && debounced.length >= 2 && (
+            <div role="status" className="mb-2 flex items-center justify-between gap-2 border border-warn/45 bg-warn/8 px-2.5 py-2 font-mono text-[11px] text-warn">
+              <span>PARTIAL RESULTS — ONE OR MORE SEARCH PROVIDERS ARE DEGRADED</span>
+              <button type="button" className="min-h-11 shrink-0 border border-warn/50 px-3 text-[10px] font-semibold hover:bg-warn/10" onClick={() => void search.refetch()}>
+                RETRY
+              </button>
+            </div>
+          )}
+          {items.length === 0 && !search.isLoading ? (
             <div className="p-4 font-mono text-[12px] text-text-dim">NO MATCHING SIGNALS</div>
           ) : (
             <div role="listbox" aria-label="Search results" className="space-y-1">
               {items.map((item, index) => (
-                <button
+                <div
                   key={`${item.type}:${item.id}`}
-                  type="button"
                   role="option"
                   aria-selected={index === safeSelectedIndex}
-                  className={`flex w-full items-center gap-2 rounded-sm border px-2.5 py-2 text-left transition-colors ${
+                  className={`flex w-full items-center rounded-sm border transition-colors ${
                     index === safeSelectedIndex
                       ? "border-primary bg-primary/12 text-text-bright"
                       : "border-transparent text-text-muted hover:border-border hover:bg-bg-raised/60 hover:text-text-normal"
                   }`}
                   onMouseEnter={() => setSelectedIndex(index)}
-                  onClick={() => choose(item)}
                 >
-                  <span className="w-12 shrink-0 rounded-sm border border-primary/35 bg-primary/8 px-1.5 py-0.5 text-center font-mono text-[10px] font-semibold text-primary">
-                    {TYPE_LABEL[item.type]}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-mono text-[13px] font-semibold">{item.label}</span>
-                    {item.subtitle && <span className="block truncate font-mono text-[11px] text-text-dim">{item.subtitle}</span>}
-                  </span>
-                  <span className="hidden shrink-0 font-mono text-[10px] uppercase text-text-dim sm:block">{item.matched ?? item.type}</span>
-                </button>
+                  <button type="button" className="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left" onClick={() => choose(item)}>
+                    <span className="w-12 shrink-0 rounded-sm border border-primary/35 bg-primary/8 px-1.5 py-0.5 text-center font-mono text-[10px] font-semibold text-primary">
+                      {TYPE_LABEL[item.type]}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-mono text-[13px] font-semibold">{item.label}</span>
+                      {item.subtitle && <span className="block truncate font-mono text-[11px] text-text-dim">{item.subtitle}</span>}
+                    </span>
+                    <span className="hidden shrink-0 font-mono text-[10px] uppercase text-text-dim sm:block">{item.matched ?? item.type}</span>
+                  </button>
+                  {item.type === "node" && typeof item.metadata?.publicKey === "string" && (
+                    <WatchNodeButton compact publicKey={item.metadata.publicKey} nodeId={item.id} label={item.label} />
+                  )}
+                </div>
               ))}
             </div>
           )}

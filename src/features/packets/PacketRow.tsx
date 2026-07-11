@@ -13,6 +13,7 @@ interface PacketRowProps {
   packet: PacketSummary;
   expanded: boolean;
   isFresh?: boolean;
+  watchedOrigin?: boolean;
   // takes the hash so the parent can pass one stable handler for every row (a per-row inline closure
   // would change identity each render and defeat the memo below)
   onToggle: (hash: string) => void;
@@ -21,13 +22,15 @@ interface PacketRowProps {
 // Selectable packet card; observations live in the analyzer drawer. Memoized because the virtualized
 // list re-renders on every rAF batch during a flood — only rows whose packet/expanded/isFresh props
 // actually changed should re-render.
-export const PacketRow = memo(function PacketRow({ packet, expanded, isFresh, onToggle }: PacketRowProps) {
+export const PacketRow = memo(function PacketRow({ packet, expanded, isFresh, watchedOrigin, onToggle }: PacketRowProps) {
   return (
     <div
       className={`group bg-bg-surface border rounded-md px-3.5 py-2.5 cursor-pointer ${
         expanded
           ? "border-primary bg-primary/10"
-          : isFresh
+          : watchedOrigin
+            ? "border-primary/60 bg-primary/7"
+            : isFresh
             ? "packet-fresh"
             : "border-border hover:border-text-dim/30 hover:bg-bg-raised/50"
       }`}
@@ -56,6 +59,7 @@ export const PacketRow = memo(function PacketRow({ packet, expanded, isFresh, on
             ×{packet.observationCount}
           </span>
         </Tooltip>
+        {watchedOrigin && <span className="rounded-sm border border-primary/35 bg-primary/10 px-1.5 font-mono text-[10px] font-semibold uppercase text-primary">★ My Node</span>}
       </div>
 
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[11px] text-text-dim">

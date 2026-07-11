@@ -5,6 +5,7 @@ import type { LivePacketEvent } from "../../../src/features/live/live-model";
 import {
   buildIataCoordMap,
   buildNodeCoordMaps,
+  flashMapNodeActivity,
   playLivePacketAnimation,
   resolveObserverTarget,
 } from "../../../src/features/live/live-map-animation";
@@ -164,5 +165,26 @@ describe("live-map-animation", () => {
     expect(playPacketAudio).toHaveBeenCalledTimes(1);
     expect(requestCanvasFrame).toHaveBeenCalledTimes(1);
     expect(map.setFeatureState).toHaveBeenCalled();
+  });
+
+  it("ignores node activity after MapLibre has cleared a removed map style", () => {
+    vi.useFakeTimers();
+    let removed = false;
+    const setFeatureState = vi.fn();
+    const map = {
+      getSource: () => {
+        if (removed) throw new TypeError("Cannot read properties of undefined (reading 'getSource')");
+        return {};
+      },
+      setFeatureState,
+    } as unknown as MapLibreMap;
+
+    flashMapNodeActivity(map, "node-1", "tx", 10);
+    expect(setFeatureState).toHaveBeenCalledTimes(1);
+    removed = true;
+
+    expect(() => vi.advanceTimersByTime(10)).not.toThrow();
+    expect(setFeatureState).toHaveBeenCalledTimes(1);
+    expect(() => flashMapNodeActivity(map, "node-2", "rx", 10)).not.toThrow();
   });
 });

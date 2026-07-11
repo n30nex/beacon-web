@@ -63,7 +63,7 @@ describe("HomeView", () => {
     expect(screen.getByText("5.7k")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Home commands" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Activity now" })).toBeInTheDocument();
-    expect(screen.getAllByText("Node One")).toHaveLength(2);
+    expect(screen.getAllByText("Node One")).toHaveLength(3);
     expect(screen.getByText("Live packets")).toBeInTheDocument();
     expect(screen.queryByText(/Atlas/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Network critical/i)).not.toBeInTheDocument();

@@ -1,5 +1,5 @@
-export const PAGE_TABS = ["Home", "Packets", "Map", "Live", "Channels", "Nodes", "Observers", "Routes", "Traces", "Analytics", "System", "Netgraph"] as const;
-export const DATA_TABS = ["Packets", "Channels", "Nodes", "Observers"] as const;
+export const PAGE_TABS = ["Home", "Packets", "Map", "Live", "Channels", "Nodes", "Observers", "Investigations", "Routes", "Traces", "Analytics", "System", "Netgraph"] as const;
+export const DATA_TABS = ["Packets", "Channels", "Nodes", "Observers", "Investigations"] as const;
 export const TOOL_TABS = ["Routes", "Traces"] as const;
 export const SYSTEM_TABS = ["Analytics", "System", ...TOOL_TABS] as const;
 

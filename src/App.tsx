@@ -50,6 +50,7 @@ const PacketAnalyzerDrawer = lazy(() => import("./features/packets/PacketAnalyze
 const PacketAnalyzerOverlay = lazy(() => import("./features/packets/PacketAnalyzerOverlay").then((m) => ({ default: m.PacketAnalyzerOverlay })));
 const NodeDetailPanel = lazy(() => import("./features/nodes/NodeDetailPanel").then((m) => ({ default: m.NodeDetailPanel })));
 const NodeDetailOverlay = lazy(() => import("./features/nodes/NodeDetailOverlay").then((m) => ({ default: m.NodeDetailOverlay })));
+const InvestigationsView = lazy(() => import("./features/investigations/InvestigationsView").then((m) => ({ default: m.InvestigationsView })));
 
 // Analytics pulls in ECharts (~150-200KB gz), so lazy-load it too.
 const StatsOverview = lazy(() => import("./features/stats/StatsOverview").then((m) => ({ default: m.StatsOverview })));
@@ -167,6 +168,10 @@ function clearDetailParamsForNavigation(params: URLSearchParams, navigation: Nav
     params.delete("compare");
     params.delete("compareIds");
   }
+  if (navigation.tab !== "Investigations") {
+    params.delete("create");
+    params.delete("source");
+  }
 }
 
 function SystemView({ wsManager }: { wsManager: WsManager }) {
@@ -232,6 +237,26 @@ function AppInner() {
     setAnalyzerHash(hash);
     setSelectedObservationId(null);
   }, [setAnalyzerHash, setSelectedObservationId]);
+
+  const handleSelectNode = useCallback((id: string | null) => {
+    setSelectedNodeId(id);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (id) next.set("nodeId", id);
+      else { next.delete("nodeId"); next.delete("mapFocus"); }
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const handleSelectObserver = useCallback((id: string | null) => {
+    setSelectedObserverId(id);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (id) next.set("observerId", id);
+      else next.delete("observerId");
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   const navigateToState = useCallback((navigation: NavigationState, replace = false) => {
     setOverlayNodeId(null);
@@ -383,19 +408,20 @@ function AppInner() {
 
   const tabContent: Record<PageTab, React.ReactNode> = {
     Home: <HomeView wsManager={wsManager} onNavigate={handleTabChange} />,
-    Live: <LiveView wsManager={wsManager} onAnalyze={setOverlayPacketHash} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} nodePanelOpen={Boolean(selectedNodeId)} />,
+    Live: <LiveView wsManager={wsManager} onAnalyze={setOverlayPacketHash} selectedNodeId={selectedNodeId} onSelectNode={(id) => handleSelectNode(id)} nodePanelOpen={Boolean(selectedNodeId)} />,
     Packets: <PacketList wsManager={wsManager} onAnalyze={handleAnalyze} />,
-    Nodes: <NodeTable wsManager={wsManager} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />,
-    Observers: <ObserverTable wsManager={wsManager} selectedObserverId={selectedObserverId} onSelectObserver={setSelectedObserverId} onAnalyzePacket={setOverlayPacketHash} onViewStats={handleViewObserverStats} />,
+    Nodes: <NodeTable wsManager={wsManager} selectedNodeId={selectedNodeId} onSelectNode={handleSelectNode} />,
+    Observers: <ObserverTable wsManager={wsManager} selectedObserverId={selectedObserverId} onSelectObserver={handleSelectObserver} onAnalyzePacket={setOverlayPacketHash} onViewStats={handleViewObserverStats} />,
+    Investigations: <InvestigationsView />,
     Routes: <RouteTable />,
-    Netgraph: <NetgraphView selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} wsManager={wsManager} />,
+    Netgraph: <NetgraphView selectedNodeId={selectedNodeId} onSelectNode={(id) => handleSelectNode(id)} wsManager={wsManager} />,
     // analyze opens the packet overlay (modal) rather than the side drawer, which suits the
     // master/detail layout and renders on any tab — same path NodeDetailPanel's onAnalyzePacket uses
     Traces: <TraceList onAnalyze={setOverlayPacketHash} onViewNode={setOverlayNodeId} />,
     Channels: <ChannelList wsManager={wsManager} onAnalyze={handleAnalyze} />,
     Analytics: <StatsOverview wsManager={wsManager} />,
     System: <SystemView wsManager={wsManager} />,
-    Map: <MapView wsManager={wsManager} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />,
+    Map: <MapView wsManager={wsManager} selectedNodeId={selectedNodeId} onSelectNode={(id) => handleSelectNode(id)} />,
   };
 
   const contentKey = workspaceKey(activeNavigation);
@@ -431,12 +457,12 @@ function AppInner() {
             <Suspense fallback={null}>
               <NodeDetailPanel
                 nodeId={selectedNodeId}
-                onClose={() => setSelectedNodeId(null)}
+                onClose={() => handleSelectNode(null)}
                 onViewObserver={(observerId) => {
                   handleTabChange("Observers");
-                  setSelectedObserverId(observerId);
+                  handleSelectObserver(observerId);
                 }}
-                onViewNode={setSelectedNodeId}
+                onViewNode={(id) => handleSelectNode(id)}
                 onAnalyzePacket={setOverlayPacketHash}
               />
             </Suspense>

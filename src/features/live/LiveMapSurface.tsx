@@ -1,5 +1,4 @@
 import type { CSSProperties, ReactNode, RefObject } from "react";
-import { LoadingPill } from "../../components/LoadingPill";
 import { formatCount } from "../../lib/formatters";
 import { LiveMapStatusOverlay } from "./LiveMapStatusOverlay";
 
@@ -108,7 +107,9 @@ export function LiveMapSurface({
         <LiveStat className="hidden sm:block" label="Active" value={activeAnimations} tone={activeAnimations > 0 ? "warn" : "primary"} />
       </div>
 
-      <LoadingPill loading={isPaging} error={nodesError} count={loadedCount} noun="nodes" position="bottom-20 left-3" showFreshness updatedAt={nodesUpdatedAt} />
+      <div aria-live="polite" aria-label="Node loading progress" className={`crt-float-panel pointer-events-none absolute bottom-20 left-3 z-10 rounded-sm border px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider ${nodesError ? "border-danger/40 text-danger" : "border-border text-text-muted"}`}>
+        Nodes {loadedCount.toLocaleString()} / {isPaging ? "…" : loadedCount.toLocaleString()}{nodesError ? " degraded" : ""}{nodesUpdatedAt ? ` · ${new Date(nodesUpdatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+      </div>
       {children}
       {mapError && <LiveMapStatusOverlay onReload={onReloadMap} />}
     </div>

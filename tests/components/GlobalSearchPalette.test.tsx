@@ -98,7 +98,7 @@ describe("GlobalSearchPalette", () => {
 
     const result = await screen.findByText("Gateway Alpha");
     expect(result).toBeInTheDocument();
-    expect(mockGetGlobalSearch).toHaveBeenCalledWith(undefined, { q: "ga", limit: 24 });
+    expect(mockGetGlobalSearch).toHaveBeenCalledWith(undefined, { q: "ga", limit: 24 }, expect.any(AbortSignal));
 
     fireEvent.keyDown(screen.getByRole("dialog", { name: "Global Beacon search" }), { key: "Enter" });
     await waitFor(() => expect(onSelect).toHaveBeenCalledWith(nodeResult));
@@ -132,6 +132,26 @@ describe("GlobalSearchPalette", () => {
     fireEvent.click(screen.getByRole("button", { name: "gateway alpha" }));
 
     expect(screen.getByRole("textbox", { name: "Global search" })).toHaveValue("gateway alpha");
-    await waitFor(() => expect(mockGetGlobalSearch).toHaveBeenCalledWith(undefined, { q: "gateway alpha", limit: 24 }));
+    await waitFor(() => expect(mockGetGlobalSearch).toHaveBeenCalledWith(undefined, { q: "gateway alpha", limit: 24 }, expect.any(AbortSignal)));
+  });
+
+  it("keeps local aliases visible while remote providers are pending", async () => {
+    mockGetGlobalSearch.mockImplementation(() => new Promise(() => undefined));
+    renderPalette();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Global search" }), { target: { value: "atlas" } });
+
+    expect(await screen.findByText("Analytics")).toBeInTheDocument();
+    expect(screen.getByText("LOCAL PAGE MATCHES REMAIN AVAILABLE")).toBeInTheDocument();
+  });
+
+  it("distinguishes partial results and offers retry", async () => {
+    mockGetGlobalSearch.mockResolvedValue({ query: "alpha", items: [], partial: true, providers: { node: { status: "timeout", durationMs: 1000 } } });
+    renderPalette();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Global search" }), { target: { value: "alpha" } });
+
+    expect(await screen.findByText(/PARTIAL RESULTS/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "RETRY" })).toBeInTheDocument();
   });
 });

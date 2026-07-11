@@ -43,6 +43,7 @@ describe("nodesToFeatureCollection", () => {
       name: "Relay A",
       nodeTypeName: "sensor",
       isObserver: false,
+      watched: false,
     });
   });
 

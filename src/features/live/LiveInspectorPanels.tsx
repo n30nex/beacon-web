@@ -12,6 +12,7 @@ import {
   type LivePacketEvent,
 } from "./live-model";
 import { LiveSettingsPanel } from "./LiveSettingsPanel";
+import { LiveControlButton } from "./LiveControls";
 
 const LIVE_PACKET_WAIT_PROGRESS_MS = 30_000;
 
@@ -533,6 +534,10 @@ export function LiveMobileSettingsSheet({
   clustered,
   matrixMode,
   matrixRain,
+  colorByHash,
+  heatVisible,
+  realisticPropagation,
+  trails,
   onAppearanceChange,
   onAudioBpmChange,
   onAudioVolumeChange,
@@ -542,6 +547,10 @@ export function LiveMobileSettingsSheet({
   onToggleAudio,
   onToggleMatrix,
   onToggleRain,
+  onToggleColorByHash,
+  onToggleHeat,
+  onTogglePropagation,
+  onToggleTrails,
   onTypeChange,
   styleId,
   typeFilter,
@@ -553,6 +562,10 @@ export function LiveMobileSettingsSheet({
   clustered: boolean;
   matrixMode: boolean;
   matrixRain: boolean;
+  colorByHash: boolean;
+  heatVisible: boolean;
+  realisticPropagation: boolean;
+  trails: boolean;
   onAppearanceChange: (patch: Partial<MapAppearanceSettings>) => void;
   onAudioBpmChange: (value: number) => void;
   onAudioVolumeChange: (value: number) => void;
@@ -562,6 +575,10 @@ export function LiveMobileSettingsSheet({
   onToggleAudio: () => void;
   onToggleMatrix: () => void;
   onToggleRain: () => void;
+  onToggleColorByHash: () => void;
+  onToggleHeat: () => void;
+  onTogglePropagation: () => void;
+  onToggleTrails: () => void;
   onTypeChange: (value: string) => void;
   styleId: string;
   typeFilter: string;
@@ -593,6 +610,12 @@ export function LiveMobileSettingsSheet({
           styleId={styleId}
           typeFilter={typeFilter}
         />
+        <div className="grid grid-cols-2 gap-2 border-t border-border-subtle p-3">
+          <LiveControlButton icon="trail" label="Trails" active={trails} onClick={onToggleTrails} />
+          <LiveControlButton icon="pace" label="Pace" active={realisticPropagation} onClick={onTogglePropagation} />
+          <LiveControlButton icon="heat" label="Heat" active={heatVisible} onClick={onToggleHeat} />
+          <LiveControlButton icon="color" label="Color" active={colorByHash} onClick={onToggleColorByHash} />
+        </div>
       </div>
     </BottomSheet>
   );

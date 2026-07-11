@@ -4,6 +4,7 @@ import type { PacketSummary } from "../../types/api";
 import { PacketRow } from "./PacketRow";
 import { useFreshHashes } from "./useFreshHashes";
 import { SCROLL_TOP_THRESHOLD_PX, SCROLL_BOTTOM_THRESHOLD_PX } from "../../lib/constants";
+import { useWatchlist } from "../investigations/useLocalInvestigations";
 
 interface PacketVirtualListProps {
   packets: PacketSummary[];
@@ -30,6 +31,8 @@ export function PacketVirtualList({
 }: PacketVirtualListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const freshHashes = useFreshHashes(packets);
+  const [watchlist] = useWatchlist();
+  const watchedKeys = new Set(watchlist.map((item) => item.publicKey));
   const isAtTopRef = useRef(true);
   const prevCountRef = useRef(packets.length);
   const prevFirstKeyRef = useRef<string | undefined>(packets[0]?.packetHash);
@@ -133,6 +136,7 @@ export function PacketVirtualList({
                   packet={packet}
                   expanded={expandedHash === packet.packetHash}
                   isFresh={freshHashes.has(packet.packetHash)}
+                  watchedOrigin={Boolean(packet.originPublicKey && watchedKeys.has(packet.originPublicKey.toLowerCase()))}
                   onToggle={onToggleExpand}
                 />
               </div>

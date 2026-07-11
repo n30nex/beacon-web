@@ -112,11 +112,23 @@ function RuntimeDiagnosticsDetails({
       <RuntimeDetailSection title="Runtime">
         <div className="grid gap-2 md:grid-cols-4">
           <RuntimeMetric label="API Version" value={status?.version ?? "--"} tone={toneForStatus(status?.status)} />
+          <RuntimeMetric label="Build SHA" value={`${status?.build?.sha?.slice(0, 10) ?? "--"}${status?.build?.dirty ? " DIRTY" : ""}`} tone={status?.build?.dirty ? "warn" : "normal"} />
           <RuntimeMetric label="Mode" value={status?.mode ?? "--"} />
           <RuntimeMetric label="Server Sample" value={serverAge === "--" ? "--" : `${serverAge} ago`} tone={status?.serverTime && now - status.serverTime > 90_000 ? "warn" : "normal"} />
           <RuntimeMetric label="Server Time" value={formatTimestamp(status?.serverTime)} />
         </div>
       </RuntimeDetailSection>
+
+      {status?.databasePool && (
+        <RuntimeDetailSection title="PostgreSQL Pool">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            <RuntimeMetric label="Acquired" value={formatCount(status.databasePool.acquiredConnections)} />
+            <RuntimeMetric label="Idle" value={formatCount(status.databasePool.idleConnections)} />
+            <RuntimeMetric label="Total / Max" value={`${status.databasePool.totalConnections} / ${status.databasePool.maxConnections}`} />
+            <RuntimeMetric label="Waits / Cancel" value={`${status.databasePool.emptyAcquireCount} / ${status.databasePool.canceledAcquireCount}`} tone={status.databasePool.canceledAcquireCount > 0 ? "warn" : "normal"} />
+          </div>
+        </RuntimeDetailSection>
+      )}
 
       {dependencies.length > 0 && (
         <RuntimeDetailSection title="Dependencies">
@@ -134,6 +146,9 @@ function RuntimeDiagnosticsDetails({
         </RuntimeDetailSection>
       )}
 
+      {(cacheMetrics.length > 0 || backgroundTasks.length > 0 || rateLimits.length > 0) && (
+        <details className="border-t border-border-subtle pt-3">
+          <summary className="min-h-11 cursor-pointer py-3 font-mono text-[10px] font-semibold uppercase tracking-wider text-text-muted">Raw diagnostics</summary>
       {cacheMetrics.length > 0 && (
         <RuntimeDetailSection title="Cache">
           <div className="grid gap-1.5 md:grid-cols-2">
@@ -147,12 +162,14 @@ function RuntimeDiagnosticsDetails({
                     <div className="truncate text-[11px] font-semibold uppercase text-text-normal">{category}</div>
                     <span className={errors > 0 ? "text-danger" : "text-text-dim"}>{errors > 0 ? `${errors} ERR` : `${metric.ttlSeconds ?? 0}s TTL`}</span>
                   </div>
-                  <div className="mt-1 grid grid-cols-4 gap-1 text-[10px] text-text-muted">
+                  <div className="mt-1 grid grid-cols-5 gap-1 text-[10px] text-text-muted">
                     <span>H {formatCount(metric.hits)}</span>
                     <span>M {formatCount(metric.misses)}</span>
                     <span>HR {hitRate}</span>
                     <span>INV {formatCount(metric.invalidations)}</span>
+                    <span className={(metric.staleServed ?? 0) > 0 ? "text-warn" : ""}>ST {formatCount(metric.staleServed)}</span>
                   </div>
+                  {metric.lastRefreshError && <div className="mt-1 truncate text-[10px] text-danger">REFRESH {metric.lastRefreshError}</div>}
                 </div>
               );
             })}
@@ -175,7 +192,7 @@ function RuntimeDiagnosticsDetails({
                   <span>FAIL {formatCount(task.failures)}</span>
                 </div>
                 <div className="mt-1 truncate text-[10px] text-text-dim">
-                  {task.lastError ? task.lastError : `${formatCount(task.lastDurationMs)} ms at ${formatTimestamp(task.lastFinishedAt)}`}
+                  {task.lastError ? task.lastError : `${formatCount(task.lastDurationMs)} ms / ${formatCount(task.lastAffectedRows)} rows / next ${formatTimestamp(task.nextRunAt)}`}
                 </div>
               </div>
             ))}
@@ -202,6 +219,8 @@ function RuntimeDiagnosticsDetails({
             ))}
           </div>
         </RuntimeDetailSection>
+      )}
+        </details>
       )}
     </div>
   );
@@ -250,6 +269,12 @@ export function RuntimeStatusPanel({ wsManager, variant = "dropdown" }: { wsMana
   const brokerTone = brokerRows.length === 0 ? "warn" : connectedBrokers === brokerRows.length ? "good" : "danger";
   const apiTone = health.data?.status === "ok" ? "good" : health.data?.status === "degraded" ? "warn" : health.isError ? "danger" : "normal";
   const readyTone = readiness.data?.ready ? "good" : readiness.isError ? "danger" : readiness.data ? "warn" : "normal";
+  const serviceLevel = readiness.data?.serviceLevel ?? health.data?.serviceLevel;
+  const overallState = readiness.data?.ready && health.data?.status === "ok" && serviceLevel?.status !== "degraded" ? "HEALTHY" : "DEGRADED";
+  const overallTone = overallState === "HEALTHY" ? "good" : "warn";
+  const build = health.data?.build ?? readiness.data?.build;
+  const backup = health.data?.backup ?? readiness.data?.backup;
+  const maintenance = Object.entries(health.data?.backgroundTasks ?? {}).sort(([, a], [, b]) => (b.lastFinishedAt ?? 0) - (a.lastFinishedAt ?? 0))[0];
   const scopeLabel = iatas ? (iatas.length <= 3 ? iatas.join(", ") : `${iatas.length} IATA`) : "ALL";
   const gapLabel =
     diagnostics.laggedNoticeCount === 0
@@ -269,7 +294,7 @@ export function RuntimeStatusPanel({ wsManager, variant = "dropdown" }: { wsMana
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[10px] uppercase tracking-wider text-text-dim">System</div>
-          <div className={`${variant === "page" ? "text-xl" : "text-sm"} font-semibold text-text-bright`}>{socketLabel}</div>
+          <div className={`${variant === "page" ? "text-xl" : "text-sm"} font-semibold ${variant === "page" ? toneClass(overallTone) : "text-text-bright"}`}>{variant === "page" ? overallState : socketLabel}</div>
         </div>
         <div className="rounded border border-border-subtle bg-bg-base/60 px-2 py-1 text-right text-[10px] text-text-muted">
           <div className="text-text-dim">SCOPE</div>
@@ -286,6 +311,10 @@ export function RuntimeStatusPanel({ wsManager, variant = "dropdown" }: { wsMana
         <RuntimeMetric label="Brokers" value={`${connectedBrokers}/${brokerRows.length || "?"}`} tone={brokerTone} />
         <RuntimeMetric label="Live Packets" value={live.data?.packetCount ?? "..."} tone={live.isError ? "danger" : "normal"} />
         <RuntimeMetric label="Gap Heal" value={gapDetail ? `${gapLabel} ${gapDetail}` : gapLabel} tone={diagnostics.laggedNoticeCount > 0 ? "warn" : "normal"} />
+        {variant === "page" && <RuntimeMetric label="Worst SLO" value={serviceLevel?.worstRoute ? `${serviceLevel.worstP95Ms ?? "--"} / ${serviceLevel.targetMs ?? "--"} ms` : serviceLevel?.status ?? "UNKNOWN"} tone={toneForStatus(serviceLevel?.status)} />}
+        {variant === "page" && <RuntimeMetric label="Build" value={`${build?.sha?.slice(0, 10) ?? "--"}${build?.dirty ? " DIRTY" : ""}`} tone={build?.dirty ? "warn" : "normal"} />}
+        {variant === "page" && <RuntimeMetric label="Backup" value={backup?.ageMs !== undefined ? `${formatDuration(backup.ageMs)} ago` : backup?.status ?? "MISSING"} tone={toneForStatus(backup?.status)} />}
+        {variant === "page" && <RuntimeMetric label="Maintenance" value={maintenance ? `${maintenance[0]} ${maintenance[1].lastStatus ?? "--"}` : "--"} tone={toneForStatus(maintenance?.[1].lastStatus)} />}
       </div>
 
       {diagnostics.activeSubscriptionId && (

@@ -22,16 +22,26 @@ interface ChannelListProps {
 export function ChannelList({ wsManager, onAnalyze }: ChannelListProps) {
   const { iatas, regionKey } = useRegion();
   const isMobile = useIsMobile();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [heardCounts, setHeardCounts] = useState<Record<string, number>>({});
-  const [search, setSearch] = useState("");
-  const [searchField, setSearchField] = useState("name");
-  const [keyFilter, setKeyFilter] = useState<ChannelKeyFilter>("");
-  const [hashtagFilter, setHashtagFilter] = useState<ChannelHashtagFilter>("");
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [search, setSearch] = useState(() => searchParams.get("cq") ?? "");
+  const [searchField, setSearchField] = useState(() => searchParams.get("csf") ?? "name");
+  const [keyFilter, setKeyFilter] = useState<ChannelKeyFilter>(() => searchParams.get("channelKey") as ChannelKeyFilter ?? "");
+  const [hashtagFilter, setHashtagFilter] = useState<ChannelHashtagFilter>(() => searchParams.get("channelHashtag") as ChannelHashtagFilter ?? "");
   const queryClient = useQueryClient();
   const channelIdParam = searchParams.get("channelId");
   const requestedChannelId = channelIdParam && /^\d+$/.test(channelIdParam) ? Number(channelIdParam) : null;
+
+  useEffect(() => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      for (const [key, value] of [["cq", search], ["csf", searchField], ["channelKey", keyFilter], ["channelHashtag", hashtagFilter]] as const) {
+        if (value) next.set(key, value); else next.delete(key);
+      }
+      return next;
+    }, { replace: true });
+  }, [hashtagFilter, keyFilter, search, searchField, setSearchParams]);
 
   const prevRegion = useRef(regionKey);
   useEffect(() => {

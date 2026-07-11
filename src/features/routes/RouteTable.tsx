@@ -224,7 +224,7 @@ export function RouteTable() {
   const [searchParams, setSearchParams] = useSearchParams();
   const range = rangeFromParam(searchParams.get("range"));
 
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(() => searchParams.get("routeId"));
 
   // drop the selection when the region changes — the selected route may not be in the new region
   const prevRegion = useRef(regionKey);
@@ -237,11 +237,27 @@ export function RouteTable() {
 
   // path search form: source→dest hashes, scoped to a multi-select of IATAs. One IATA → within-IATA
   // /routes/search; two+ → /routes/cross across the directed pairs. Hashes + ≥1 IATA required.
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [searchIatas, setSearchIatas] = useState<string[]>([]);
-  const [search, setSearch] = useState<SearchParams | null>(null);
+  const [from, setFrom] = useState(() => searchParams.get("routeFrom") ?? "");
+  const [to, setTo] = useState(() => searchParams.get("routeTo") ?? "");
+  const [searchIatas, setSearchIatas] = useState<string[]>(() => (searchParams.get("routeIatas") ?? "").split(",").filter(Boolean));
+  const [search, setSearch] = useState<SearchParams | null>(() => {
+    const initialFrom = searchParams.get("routeFrom") ?? "";
+    const initialTo = searchParams.get("routeTo") ?? "";
+    const initialIatas = (searchParams.get("routeIatas") ?? "").split(",").filter(Boolean);
+    return initialFrom && initialTo && initialIatas.length > 0 ? { from: initialFrom, to: initialTo, iatas: initialIatas } : null;
+  });
   const isCross = search != null && search.iatas.length >= 2;
+
+  useEffect(() => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      for (const [key, value] of [["routeFrom", from], ["routeTo", to], ["routeIatas", searchIatas.join(",")]] as const) {
+        if (value) next.set(key, value); else next.delete(key);
+      }
+      if (selectedKey) next.set("routeId", selectedKey); else if (next.get("tab") === "Routes") next.delete("routeId");
+      return next;
+    }, { replace: true });
+  }, [from, searchIatas, selectedKey, setSearchParams, to]);
 
   // /routes filters by a single IATA only, so when the region resolves to exactly one IATA push the
   // filter to the server for true server-side paging; otherwise page unfiltered and filter the region

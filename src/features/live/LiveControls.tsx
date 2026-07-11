@@ -1,7 +1,7 @@
 import { memo, type CSSProperties } from "react";
 import { formatCount } from "../../lib/formatters";
 
-export type LiveIconName = "audio" | "bytes" | "clear" | "color" | "crt" | "feed" | "heat" | "pace" | "pause" | "play" | "settings" | "trail";
+export type LiveIconName = "audio" | "bytes" | "clear" | "color" | "crt" | "feed" | "focus" | "heat" | "pace" | "pause" | "play" | "settings" | "trail";
 
 type LiveControlQuality = "high" | "balanced" | "constrained";
 
@@ -34,7 +34,7 @@ export function LiveControlButton({
     <button
       type="button"
       className={`live-control-button inline-flex shrink-0 items-center justify-center gap-1.5 rounded-sm border font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors md:text-[11px] ${
-        compact ? "h-8 w-8 px-0" : "h-9 px-2 md:px-2.5"
+        compact ? "h-11 w-11 px-0" : "h-9 px-2 md:px-2.5"
       } ${activeClass} ${className}`}
       onClick={onClick}
       aria-pressed={active}
@@ -76,6 +76,8 @@ function LiveIcon({ name }: { name: LiveIconName }) {
       return <svg {...common}><path d="M4 7h10M4 17h10" /><circle cx="17" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></svg>;
     case "feed":
       return <svg {...common}><path d="M5 6h14M5 12h14M5 18h9" /></svg>;
+    case "focus":
+      return <svg {...common}><circle cx="12" cy="12" r="4" /><path d="M12 3v3M12 18v3M3 12h3M18 12h3" /></svg>;
     case "clear":
       return <svg {...common}><path d="M5 6h14M9 6v12m6-12v12M8 6l1-2h6l1 2M6 6l1 14h10l1-14" /></svg>;
     case "crt":
@@ -97,6 +99,7 @@ export const LiveControlDock = memo(function LiveControlDock({
   onToggleColorByHash,
   onToggleConsole,
   onToggleHeat,
+  onFocus,
   onTogglePaused,
   onTogglePropagation,
   onToggleSettings,
@@ -122,6 +125,7 @@ export const LiveControlDock = memo(function LiveControlDock({
   onToggleColorByHash: () => void;
   onToggleConsole: () => void;
   onToggleHeat: () => void;
+  onFocus: () => void;
   onTogglePaused: () => void;
   onTogglePropagation: () => void;
   onToggleSettings: () => void;
@@ -142,18 +146,7 @@ export const LiveControlDock = memo(function LiveControlDock({
     return (
       <div className="crt-float-panel live-command-dock live-command-dock--compact absolute z-30 flex items-center rounded-sm border border-border" style={style}>
         <LiveControlButton compact icon={paused ? "play" : "pause"} label={paused ? "Resume" : "Pause"} active={paused} onClick={onTogglePaused} />
-        <div
-          className={`live-dock-status flex h-8 shrink-0 items-center gap-1.5 rounded border px-2 font-mono text-[10px] font-semibold tracking-wider ${
-            paused ? "border-warn/25 bg-warn/8 text-warn" : "border-green/20 bg-green/8 text-green"
-          }`}
-        >
-          <span className={`crt-glow-dot h-1.5 w-1.5 rounded-full ${paused ? "bg-warn text-warn" : "bg-green text-green animate-pulse"}`} />
-          {paused ? "PAUSE" : "RUN"}
-        </div>
-        <LiveControlButton compact icon="trail" label="Trails" active={trails} onClick={onToggleTrails} title="Toggle persistent map trails" />
-        <LiveControlButton compact icon="pace" label="Pace" active={realisticPropagation} onClick={onTogglePropagation} title="Pace repeated observations before rendering" />
-        <LiveControlButton compact icon="heat" label="Heat" active={heatVisible} onClick={onToggleHeat} title="Toggle live activity heat overlay" />
-        <LiveControlButton compact icon="color" label="Color" active={colorByHash} onClick={onToggleColorByHash} title="Color packet paths by hash" />
+        <LiveControlButton compact icon="focus" label="Focus" onClick={onFocus} title="Focus the selected node or loaded network" />
         <LiveControlButton compact icon="feed" label="Console" active={consoleOpen} onClick={onToggleConsole} title="Open event console" />
         <LiveControlButton compact icon="settings" label="Settings" active={settingsOpen} onClick={onToggleSettings} title="Open view settings" />
       </div>

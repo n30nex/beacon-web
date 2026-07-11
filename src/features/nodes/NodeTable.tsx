@@ -1,5 +1,6 @@
 import { memo, useState, useCallback, useEffect, useMemo, useRef, type CSSProperties, type RefObject } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import "../shared/responsive-panels.css";
 import { getNodesPage } from "../../api/client";
 import { useRegion } from "../../hooks/useRegion";
@@ -17,6 +18,7 @@ import { patchNodeSummary } from "./node-updates";
 import { pathChunks } from "../live/live-model";
 import type { NodeSummary } from "./types";
 import type { WsManager } from "../../api/ws-manager";
+import { useWatchlist } from "../investigations/useLocalInvestigations";
 import type { WsNodeUpdate, WsPacketObservation } from "../../types/ws";
 
 const NODE_GRID_PAGE_SIZE = 500;
@@ -321,12 +323,14 @@ const NodeGridCard = memo(function NodeGridCard({
   onSelect,
   onRegister,
   selected,
+  watched,
 }: {
   activity?: NodeLiveActivity;
   node: NodeSummary;
   onSelect: (id: string) => void;
   onRegister: (id: string, element: HTMLButtonElement | null) => void;
   selected: boolean;
+  watched: boolean;
 }) {
   const label = sanitizeDisplayLabel(node.name, formatHex(node.id));
   const hasName = Boolean(node.name && label !== formatHex(node.id));
@@ -351,7 +355,7 @@ const NodeGridCard = memo(function NodeGridCard({
       className={`node-grid-card group min-w-0 rounded-sm border bg-bg-surface/80 p-1.5 text-left font-mono transition-colors hover:bg-primary/8 ${
         activity ? "node-grid-card-live" : ""
       } ${
-        selected ? "border-primary text-text-bright" : "border-border-subtle text-text-normal"
+        selected ? "border-primary text-text-bright" : watched ? "border-primary/55 bg-primary/7 text-text-bright" : "border-border-subtle text-text-normal"
       }`}
       data-node-id={node.id}
       data-live-role={activity?.role}
@@ -369,6 +373,7 @@ const NodeGridCard = memo(function NodeGridCard({
             {activity.role.toUpperCase()}
           </span>
         )}
+        {watched && <span className="shrink-0 text-primary" aria-label="My Node" title="My Node">★</span>}
         {node.isObserver && (
           <Tooltip label="Observer">
             <span className="shrink-0 text-primary"><ObserverIcon /></span>
@@ -386,19 +391,23 @@ const NodeGridCard = memo(function NodeGridCard({
   prev.node === next.node &&
   prev.activity === next.activity &&
   prev.selected === next.selected &&
+  prev.watched === next.watched &&
   prev.onSelect === next.onSelect &&
   prev.onRegister === next.onRegister
 );
 
 export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTableProps) {
   const { iatas, regionKey } = useRegion();
+  const [urlParams, setUrlParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const [typeFilter, setTypeFilter] = useState("");
-  const [pathsFilter, setPathsFilter] = useState<MultibyteFilter>("");
-  const [tracesFilter, setTracesFilter] = useState<MultibyteFilter>("");
-  const [scopeFilter, setScopeFilter] = useState("");
-  const [search, setSearch] = useState("");
-  const [searchField, setSearchField] = useState("name");
+  const [watchlist] = useWatchlist();
+  const watchedKeys = useMemo(() => new Set(watchlist.map((item) => item.publicKey)), [watchlist]);
+  const [typeFilter, setTypeFilter] = useState(() => urlParams.get("nodeType") ?? "");
+  const [pathsFilter, setPathsFilter] = useState<MultibyteFilter>(() => urlParams.get("paths") === "true" || urlParams.get("paths") === "false" ? urlParams.get("paths") as MultibyteFilter : "");
+  const [tracesFilter, setTracesFilter] = useState<MultibyteFilter>(() => urlParams.get("traces") === "true" || urlParams.get("traces") === "false" ? urlParams.get("traces") as MultibyteFilter : "");
+  const [scopeFilter, setScopeFilter] = useState(() => urlParams.get("scope") ?? "");
+  const [search, setSearch] = useState(() => urlParams.get("q") ?? "");
+  const [searchField, setSearchField] = useState(() => urlParams.get("sf") ?? "name");
   const [liveActivity, setLiveActivity] = useState<Record<string, NodeLiveActivity>>({});
   const [routeComets, setRouteComets] = useState<NodeRouteComet[]>([]);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -407,6 +416,16 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
   const trafficLookupRef = useRef<NodeTrafficLookup>({ byId: new Map(), byObserver: new Map(), byPathPrefix: new Map() });
   const pendingPacketsRef = useRef<WsPacketObservation["data"][]>([]);
   const packetFlushRafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    setUrlParams((current) => {
+      const next = new URLSearchParams(current);
+      for (const [key, value] of [["nodeType", typeFilter], ["paths", pathsFilter], ["traces", tracesFilter], ["scope", scopeFilter], ["q", search], ["sf", searchField]] as const) {
+        if (value) next.set(key, value); else next.delete(key);
+      }
+      return next;
+    }, { replace: true });
+  }, [pathsFilter, scopeFilter, search, searchField, setUrlParams, tracesFilter, typeFilter]);
 
   const queryKey = useMemo(
     () => ["nodes", regionKey, typeFilter, pathsFilter, tracesFilter, search, searchField],
@@ -617,6 +636,7 @@ export function NodeTable({ wsManager, selectedNodeId, onSelectNode }: NodeTable
                     activity={liveActivity[node.id]}
                     node={node}
                     selected={selectedNodeId === node.id}
+                    watched={watchedKeys.has(node.publicKey.toLowerCase())}
                     onRegister={registerCard}
                     onSelect={handleSelectNode}
                   />

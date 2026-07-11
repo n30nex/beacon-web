@@ -92,6 +92,8 @@ const SPIDER_LEAVES_LAYOUT: SymbolLayerSpecification["layout"] = {
 
 const NODE_ICON_OPACITY: ExpressionSpecification = [
   "case",
+  ["to-boolean", ["get", "watched"]],
+  1,
   ["boolean", ["feature-state", "active"], false],
   0.96,
   0.42,

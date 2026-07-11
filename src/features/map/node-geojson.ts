@@ -14,6 +14,7 @@ export interface NodeFeatureProps {
   name: string | null;
   nodeTypeName: string;
   isObserver: boolean; // role flag; selects the observer-pip marker variant (default false)
+  watched: boolean;
 }
 
 function mapDisplayLabel(value: string | null | undefined): string | null {
@@ -27,6 +28,7 @@ function mapDisplayLabel(value: string | null | undefined): string | null {
 
 export function nodesToFeatureCollection(
   nodes: NodeSummary[],
+  watchedPublicKeys: ReadonlySet<string> = new Set(),
 ): FeatureCollection<Point, NodeFeatureProps> {
   const features: Feature<Point, NodeFeatureProps>[] = [];
   for (const n of nodes) {
@@ -42,6 +44,7 @@ export function nodesToFeatureCollection(
         name: mapDisplayLabel(n.name),
         nodeTypeName: n.nodeTypeName,
         isObserver: !!n.isObserver,
+        watched: watchedPublicKeys.has(n.publicKey.toLowerCase()),
       },
     });
   }

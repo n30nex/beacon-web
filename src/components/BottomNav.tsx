@@ -13,6 +13,7 @@ const TAB_ICON: Record<PageTab, NavIconName> = {
   Channels: "channels",
   Nodes: "nodes",
   Observers: "observers",
+  Investigations: "search",
   Routes: "routes",
   Netgraph: "netgraph",
   Traces: "traces",

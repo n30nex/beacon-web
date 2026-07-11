@@ -191,12 +191,22 @@ export function ObserverTable({ wsManager, selectedObserverId, onSelectObserver,
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const range = rangeFromParam(searchParams.get("range"));
-  const [search, setSearch] = useState("");
-  const [searchField, setSearchField] = useState("name");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
-  const [brokerFilter, setBrokerFilter] = useState("");
-  const [scopeFilter, setScopeFilter] = useState(""); // "" = Any; applied client-side over the loaded set
+  const [search, setSearch] = useState(() => searchParams.get("oq") ?? "");
+  const [searchField, setSearchField] = useState(() => searchParams.get("osf") ?? "name");
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("observerStatus") ?? "");
+  const [typeFilter, setTypeFilter] = useState(() => searchParams.get("observerType") ?? "");
+  const [brokerFilter, setBrokerFilter] = useState(() => searchParams.get("observerBroker") ?? "");
+  const [scopeFilter, setScopeFilter] = useState(() => searchParams.get("observerScope") ?? ""); // "" = Any; applied client-side over the loaded set
+
+  useEffect(() => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      for (const [key, value] of [["oq", search], ["osf", searchField], ["observerStatus", statusFilter], ["observerType", typeFilter], ["observerBroker", brokerFilter], ["observerScope", scopeFilter]] as const) {
+        if (value) next.set(key, value); else next.delete(key);
+      }
+      return next;
+    }, { replace: true });
+  }, [brokerFilter, scopeFilter, search, searchField, setSearchParams, statusFilter, typeFilter]);
 
   const { data: brokers } = useQuery({
     queryKey: ["brokers"],

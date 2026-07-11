@@ -62,7 +62,7 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
+async function request<T>(path: string, params?: Record<string, string | number | undefined>, signal?: AbortSignal): Promise<T> {
   const url = new URL(`${API_BASE}${path}`, window.location.origin);
   if (params) {
     for (const [key, value] of Object.entries(params)) {
@@ -72,7 +72,7 @@ async function request<T>(path: string, params?: Record<string, string | number 
     }
   }
 
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), { signal });
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: { code: "unknown", message: res.statusText } }));
@@ -189,13 +189,14 @@ export async function getReadiness(): Promise<HealthStatus> {
 export function getGlobalSearch(
   iatas: string[] | undefined,
   params: { q: string; limit?: number; types?: string },
+  signal?: AbortSignal,
 ): Promise<GlobalSearchResponse> {
   return request("/search", {
     q: params.q,
     iatas: iatasParam(iatas),
     limit: params.limit ?? 24,
     types: params.types,
-  });
+  }, signal);
 }
 
 export function getAtlasRegion(

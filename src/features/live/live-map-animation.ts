@@ -42,6 +42,16 @@ type LiveNodeMarkerRole = "tx" | "relay" | "rx";
 const liveNodeActivityTimers = new WeakMap<MapLibreMap, Map<string, number>>();
 const liveNodeActivityState = new WeakMap<MapLibreMap, Map<string, { role: LiveNodeMarkerRole; updatedAt: number }>>();
 
+function hasNodeSource(map: MapLibreMap): boolean {
+  try {
+    return Boolean(map.getSource(NODES_SOURCE_ID));
+  } catch {
+    // MapLibre clears its style before all pending node-activity timers have
+    // necessarily fired. Treat a removed map exactly like a missing source.
+    return false;
+  }
+}
+
 function key(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -124,7 +134,7 @@ export function flashMapNodeActivity(
   role: LiveNodeMarkerRole,
   durationMs = LIVE_NODE_ACTIVITY_MS,
 ): void {
-  if (!nodeId || nodeId.includes(":") || !map.getSource(NODES_SOURCE_ID)) return;
+  if (!nodeId || nodeId.includes(":") || !hasNodeSource(map)) return;
   let timers = liveNodeActivityTimers.get(map);
   if (!timers) {
     timers = new Map();
@@ -152,7 +162,7 @@ export function flashMapNodeActivity(
   const timer = window.setTimeout(() => {
     timers?.delete(nodeId);
     states?.delete(nodeId);
-    if (!map.getSource(NODES_SOURCE_ID)) return;
+    if (!hasNodeSource(map)) return;
     try {
       map.setFeatureState({ source: NODES_SOURCE_ID, id: nodeId }, { active: false, activityRole: "" });
     } catch {

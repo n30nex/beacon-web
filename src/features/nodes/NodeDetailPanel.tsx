@@ -11,6 +11,7 @@ import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { Timestamp } from "../../components/Timestamp";
 import { useRegion } from "../../hooks/useRegion";
 import type { NodeActivityPoint, NodeAdvertObservation, NodeAnalyticsCount, NodeAnalyticsPeer, NodeObservation, NodeNeighbor, NodeReachNode } from "./types";
+import { WatchNodeButton } from "../investigations/WatchNodeButton";
 import type { Node, NodeAnalytics, NodeReach } from "./types";
 import type { CursorPage } from "../../types/api";
 import { buildNodeJsonExport, nodeJsonFilename } from "./node-export";
@@ -494,16 +495,19 @@ export function NodeDetailPanel({ nodeId, onClose, onViewObserver, onViewNode, o
       notFoundLabel="Node not found"
       actions={
         node ? (
-          <NodeJsonActions
-            node={node}
-            regionKey={regionKey}
-            iatas={iatas}
-            analytics={analytics}
-            reach={reach}
-            neighbors={neighbors}
-            observations={observations}
-            adverts={adverts}
-          />
+          <>
+            <WatchNodeButton publicKey={node.publicKey} nodeId={node.id} label={nodeLabel} />
+            <NodeJsonActions
+              node={node}
+              regionKey={regionKey}
+              iatas={iatas}
+              analytics={analytics}
+              reach={reach}
+              neighbors={neighbors}
+              observations={observations}
+              adverts={adverts}
+            />
+          </>
         ) : undefined
       }
       notFoundIcon={

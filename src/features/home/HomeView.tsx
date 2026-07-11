@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { NavIcon } from "../../components/NavIcon";
 import { TerminalLoadingState } from "../../components/TerminalLoader";
 import { QueryStatePanel } from "../../components/QueryStatePanel";
@@ -10,12 +10,13 @@ import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { queryStateForError } from "../../lib/query-state";
 import type { PageTab } from "../../lib/navigation";
 import type { WsManager } from "../../api/ws-manager";
+import { useWatchlist } from "../investigations/useLocalInvestigations";
 
 const COMMAND_GROUPS: { label: string; tabs: readonly PageTab[] }[] = [
   { label: "Monitor", tabs: ["Live", "Map", "Netgraph"] },
   { label: "Explore", tabs: ["Packets", "Nodes", "Observers"] },
   { label: "Network", tabs: ["Routes", "Traces", "Channels"] },
-  { label: "System", tabs: ["Analytics", "System"] },
+  { label: "System", tabs: ["Analytics", "System", "Investigations"] },
 ];
 
 const ICON_FOR_TAB: Record<PageTab, Parameters<typeof NavIcon>[0]["name"]> = {
@@ -26,6 +27,7 @@ const ICON_FOR_TAB: Record<PageTab, Parameters<typeof NavIcon>[0]["name"]> = {
   Channels: "channels",
   Nodes: "nodes",
   Observers: "observers",
+  Investigations: "search",
   Routes: "routes",
   Netgraph: "netgraph",
   Traces: "traces",
@@ -184,11 +186,36 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+function MyNodes({ onNavigate }: { onNavigate: (tab: PageTab) => void }) {
+  const [watchlist] = useWatchlist();
+  return (
+    <section aria-label="My Nodes" className="rounded-sm border border-border bg-bg-surface p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h2 className="font-mono text-[11px] font-semibold uppercase tracking-wider text-text-normal">My Nodes</h2>
+        <span className="font-mono text-[10px] uppercase tracking-wider text-primary">{watchlist.length} watched</span>
+      </div>
+      {watchlist.length === 0 ? (
+        <button type="button" className="min-h-11 w-full rounded-sm border border-dashed border-border px-3 text-left font-mono text-[10px] uppercase text-text-dim hover:border-primary/45" onClick={() => onNavigate("Nodes")}>Watch nodes from Search or Node Detail</button>
+      ) : (
+        <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
+          {watchlist.slice(0, 8).map((item) => (
+            <button key={item.publicKey} type="button" className="min-h-11 min-w-0 rounded-sm border border-primary/25 bg-primary/7 px-2.5 text-left" onClick={() => onNavigate("Nodes")}>
+              <span className="block truncate font-mono text-[11px] font-semibold text-text-bright">{item.label ?? item.publicKey.slice(0, 12).toUpperCase()}</span>
+              <span className="block truncate font-mono text-[9px] uppercase text-text-dim">{item.lastKnownUuid ?? item.publicKey}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNavigate: (tab: PageTab) => void }) {
   useLiveOverview(wsManager);
   const { iatas } = useRegion();
   const home = useStatsHome("24h");
   const data = home.data;
+  const [mobileRanking, setMobileRanking] = useState<"nodes" | "observers" | "iatas">("nodes");
   const overview = data?.overview;
   const live = data?.live;
 
@@ -262,11 +289,11 @@ export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNa
           </div>
         ) : (
           <>
-            <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+            <section aria-label="Home KPIs" className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
               {metrics.map((metric) => (
                 <MetricCard key={metric.label} {...metric} />
               ))}
-            </div>
+            </section>
 
             <div className="grid gap-3 xl:grid-cols-[1fr_0.95fr]">
               <CommandBar onNavigate={onNavigate} />
@@ -279,7 +306,23 @@ export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNa
               />
             </div>
 
-            <div className="grid gap-3 xl:grid-cols-[1fr_1fr_0.8fr]">
+            <MyNodes onNavigate={onNavigate} />
+
+            <section aria-label="Mobile rankings" className="rounded-sm border border-border bg-bg-surface p-3 md:hidden">
+              <div className="mb-2 grid grid-cols-3 gap-1">
+                {(["nodes", "observers", "iatas"] as const).map((tab) => (
+                  <button key={tab} type="button" aria-pressed={mobileRanking === tab} className={`min-h-11 border px-2 font-mono text-[10px] font-semibold uppercase ${mobileRanking === tab ? "border-primary bg-primary/10 text-primary" : "border-border text-text-muted"}`} onClick={() => setMobileRanking(tab)}>{tab}</button>
+                ))}
+              </div>
+              <div className="space-y-1.5">
+                {mobileRanking === "nodes" && topNodes.map((node) => <EntityRow key={node.nodeId} label={sanitizeDisplayLabel(node.nodeName, node.nodeId.slice(0, 8))} value={formatCount(node.observationCount)} meta={`${node.nodeTypeName} / ${node.iata}`} onClick={() => onNavigate("Nodes")} />)}
+                {mobileRanking === "observers" && topObservers.map((observer) => <EntityRow key={observer.observerId} label={sanitizeDisplayLabel(observer.displayName, observer.observerId.slice(0, 8))} value={formatCount(observer.observationCount)} meta={`${observer.observerType ?? "observer"} / ${observer.iata}`} onClick={() => onNavigate("Observers")} />)}
+                {mobileRanking === "iatas" && topIatas.map((iata) => <EntityRow key={iata.iata} label={iata.iata} value={formatCount(iata.count)} meta="observations" onClick={() => onNavigate("Analytics")} />)}
+                {((mobileRanking === "nodes" && topNodes.length === 0) || (mobileRanking === "observers" && topObservers.length === 0) || (mobileRanking === "iatas" && topIatas.length === 0)) && <div className="p-3 font-mono text-[11px] text-text-dim">No activity in this window</div>}
+              </div>
+            </section>
+
+            <div className="hidden gap-3 md:grid xl:grid-cols-[1fr_1fr_0.8fr]">
               <Panel title="Nodes">
                 <div className="space-y-1.5">
                   {topNodes.length === 0 ? (

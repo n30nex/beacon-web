@@ -36,6 +36,7 @@ import { queryStateForError } from "../../lib/query-state";
 import type { WsManager } from "../../api/ws-manager";
 import type { KnownRoute } from "../../types/api";
 import type { WsNodeUpdate } from "../../types/ws";
+import { useWatchlist } from "../investigations/useLocalInvestigations";
 
 interface MapViewProps {
   wsManager: WsManager;
@@ -324,7 +325,9 @@ export function MapView({ wsManager, selectedNodeId, onSelectNode }: MapViewProp
 
   // split memos: rebuild the FeatureCollection only when nodes change; a type-filter change just
   // re-filters the already-built collection instead of re-running the full transform over all nodes
-  const baseFc = useMemo(() => nodesToFeatureCollection(nodes), [nodes]);
+  const [watchlist] = useWatchlist();
+  const watchedPublicKeys = useMemo(() => new Set(watchlist.map((item) => item.publicKey)), [watchlist]);
+  const baseFc = useMemo(() => nodesToFeatureCollection(nodes, watchedPublicKeys), [nodes, watchedPublicKeys]);
   const geojson = useMemo(() => filterByNodeType(baseFc, typeFilter), [baseFc, typeFilter]);
 
   // IATA coords to frame: the selection's airports, or every airport for "All". Regions carry no
