@@ -22,7 +22,8 @@ type SwaggerSpec = {
   definitions: Record<string, SwaggerSchema>;
 };
 
-const spec = JSON.parse(readFileSync(resolve(process.cwd(), "../beacon-server/docs/swagger.json"), "utf8")) as SwaggerSpec;
+const serverRoot = process.env.BEACON_SERVER_DIR ?? resolve(process.cwd(), "../beacon-server");
+const spec = JSON.parse(readFileSync(resolve(serverRoot, "docs/swagger.json"), "utf8")) as SwaggerSpec;
 
 function get(path: string): SwaggerOperation {
   const operation = spec.paths[path]?.get;
