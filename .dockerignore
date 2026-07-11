@@ -1,20 +1,37 @@
 node_modules
 .git
+.github
 dist
 build
 coverage
+test-results
+playwright-report
 docs
 tests
 colour-palettes
 
-.env
-.env.*
-!.env.example
+# Never allow local/runtime credentials or database material into a build
+# context, even when a file is added outside the repository root later.
+**/.env
+**/.env.*
+!**/.env.example
+**/config.yaml
+**/*.pem
+**/*.key
+**/*.dump
+**/*.backup
+**/.local-backups
+**/.remote-backups
 
 .DS_Store
 .claude
-.github
 .gitignore
 .vscode
 .idea
+*.log
+# Developer screenshots at the repository root are not runtime assets. Keep
+# public/** image assets (logos, map/netgraph textures, and fallbacks) in scope.
+/debug-netgraph-load.png
+/desktop-*.png
+/mobile-*.png
 *.md

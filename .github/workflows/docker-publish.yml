@@ -1,6 +1,7 @@
 name: Build and Publish Docker Image
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     tags: ["v*"]
@@ -16,13 +17,29 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Validate production image contract
+        run: node scripts/validate-production-image.mjs
+
+      - name: Set reproducible build metadata
+        id: build-info
+        shell: bash
+        run: |
+          created="$(git show -s --format=%cI "$GITHUB_SHA")"
+          version="$(node -p "require('./package.json').version")"
+          printf 'created=%s\n' "$created" >> "$GITHUB_OUTPUT"
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -30,20 +47,64 @@ jobs:
 
       - name: Extract metadata (tags, labels)
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha
+            type=sha,format=long,prefix=sha-
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: .build/Dockerfile
           push: true
+          platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BUILD_SHA=${{ github.sha }}
+            BUILD_TIME=${{ steps.build-info.outputs.created }}
+            BUILD_VERSION=${{ steps.build-info.outputs.version }}
+            VITE_API_BASE=/api/v1
+            VITE_WS_URL=/ws
+            VITE_MAP_CENTER=52.5,-96.8
+            VITE_MAP_ZOOM=3.2
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
+      - name: Scan the published digest
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+
+      - name: Upload vulnerability results
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@641a925cfafe92d0fdf8b239ba4053e3f8d99d6d # v3
+        with:
+          sarif_file: trivy-results.sarif
+
+      - name: Record immutable image reference
+        if: success()
+        shell: bash
+        run: |
+          ref="${REGISTRY}/${IMAGE_NAME}@${{ steps.build.outputs.digest }}"
+          printf '%s\n' "$ref" | tee beacon-web-image.txt
+          printf '### Beacon web image\n\n`%s`\n' "$ref" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload image reference
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: beacon-web-image-${{ github.sha }}
+          path: beacon-web-image.txt
+          if-no-files-found: error

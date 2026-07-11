@@ -10,44 +10,20 @@ Built with React 19, TypeScript, Tailwind CSS 4, TanStack Query, and TanStack Vi
 
 ## Deployment
 
-### 1. Copy the `docker/` folder to your server
+Production uses the image published by `.github/workflows/docker-publish.yml`.
+The image compiles the Vite application and serves it with an unprivileged
+Caddy process on port 8080; it does not run the Vite development server.
 
-```bash
-scp -r docker/ user@your-server:/opt/docker/beacon-web
-```
+The production Compose stack must name the backend service `api`, keep its port
+8080 private, publish web port 8080 as the origin HTTP port, and deploy the
+`ghcr.io/n30nex/beacon-web@sha256:...` reference emitted by CI. Run the web
+container with a read-only filesystem and a small `/tmp` tmpfs. Caddy serves SPA
+history fallbacks and proxies `/api`, `/healthz`, `/readyz`, and `/ws` to the API;
+Cloudflare remains the TLS edge.
 
-### 2. Create a `.env` file
-
-```bash
-cd /opt/docker/beacon-web
-cat > .env << 'EOF'
-DOMAIN=dev.meshcore.ca
-VITE_API_BASE=https://dev.meshcore.ca/api/v1
-VITE_WS_URL=wss://dev.meshcore.ca/ws
-EOF
-```
-
-| Variable | Description |
-|---|---|
-| `DOMAIN` | Domain for HTTPS (Caddy auto-provisions Let's Encrypt certs) |
-| `VITE_API_BASE` | Backend REST API base URL |
-| `VITE_WS_URL` | Backend WebSocket URL |
-
-### 3. Authenticate with GitHub Container Registry
-
-```bash
-docker login ghcr.io -u YOUR_GITHUB_USERNAME
-```
-
-Use a Personal Access Token (classic) with `read:packages` scope as the password. You only need to do this once.
-
-### 4. Start the services
-
-```bash
-docker compose up -d
-```
-
-Caddy will automatically obtain a TLS certificate for your domain. Ensure DNS is pointed at your server before starting.
+Runtime `VITE_*` variables are intentionally unsupported because production
+assets are immutable. Override `VITE_API_BASE`, `VITE_WS_URL`,
+`VITE_MAP_CENTER`, or `VITE_MAP_ZOOM` only as Docker build arguments.
 
 ## Local Development
 
@@ -84,11 +60,10 @@ See `docs/project-status.md` for the web-focused validation checklist.
 
 ```
 docker/
-  docker-compose.yml      # production deployment compose file
-  Caddyfile               # internal Caddy config (static file serving)
-  Caddyfile.proxy         # reverse proxy config (HTTPS termination)
-  docker-entrypoint.sh    # runtime env var injection
-Dockerfile                # multi-stage build (Node + Caddy)
+  docker-compose.yml      # legacy/local host-proxy deployment
+.build/
+  Dockerfile              # production multi-stage build (Node + Caddy)
+  Caddyfile               # SPA static edge and private API proxy
 src/
   api/
     client.ts             # typed REST client (fetch wrapper)
