@@ -34,11 +34,11 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           repository: n30nex/beacon-server
-          ref: 1b77687e3a1bf2cd810d00f9b6e0d3118cb61467
+          ref: dev
           path: .contracts/beacon-server
           sparse-checkout: docs
 
       - name: Test
         env:
-          BEACON_SERVER_DIR: ${{ github.workspace }}/.contracts/beacon-server
+          BEACON_SERVER_ROOT: ${{ github.workspace }}/.contracts/beacon-server
         run: npm test

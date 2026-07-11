@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { WS_EVENT_TYPES } from "../../src/types/ws";
 
-const serverRoot = process.env.BEACON_SERVER_DIR ?? resolve(process.cwd(), "../beacon-server");
+const serverRoot = process.env.BEACON_SERVER_ROOT ?? resolve(process.cwd(), "../beacon-server");
 const protocolDoc = readFileSync(resolve(serverRoot, "docs/ws-protocol.md"), "utf8");
 
 describe("backend WebSocket contract", () => {
