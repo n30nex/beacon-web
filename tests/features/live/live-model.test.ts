@@ -186,6 +186,27 @@ describe("live packet model", () => {
     expect(path?.map((point) => point.nodeId)).toEqual(["alpha", "bravo", "observer"]);
   });
 
+  it("drops server-resolved live path hops with impossible coordinates", () => {
+    const observer = routeNode("observer", "DD0000", 45.3, -75.3);
+    const liveEvent = toLivePacketEvent(
+      wsPacket("abc123", {
+        observation: {
+          ...wsPacket("abc123").observation,
+          resolvedPath: [
+            { confidence: "high", nodes: [{ id: "bad", publicKey: "BAD1", name: "Bad", latitude: 1188.916984, longitude: -122.23938 }] },
+            { confidence: "high", nodes: [{ id: "bravo", publicKey: "BB01", name: "Bravo", latitude: 45.2, longitude: -75.2 }] },
+          ],
+        },
+      }),
+      1,
+      2000,
+    );
+
+    const path = buildTrueRoutePath(liveEvent, observer, new Map(), 6);
+
+    expect(path?.map((point) => point.nodeId)).toEqual(["bravo", "observer"]);
+  });
+
   it("does not draw across unresolved path chunks", () => {
     const alpha = routeNode("alpha", "AA0000", 45.1, -75.1);
     const charlie = routeNode("charlie", "CC0000", 45.4, -75.4);

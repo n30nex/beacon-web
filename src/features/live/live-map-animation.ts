@@ -1,5 +1,6 @@
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { nullableDisplayLabel } from "../../lib/display-label";
+import { toValidGeoCoord } from "../../lib/geo";
 import { NODES_SOURCE_ID } from "../map/types";
 import type { NodeSummary } from "../nodes/types";
 import type { IataCode } from "../../types/api";
@@ -50,13 +51,14 @@ export function buildNodeCoordMaps(nodes: NodeSummary[]) {
   const byPathPrefix = new Map<string, LiveRouteNode[]>();
 
   for (const node of nodes) {
-    if (node.lat == null || node.lng == null) continue;
+    const nodeCoord = toValidGeoCoord(node.lat, node.lng);
+    if (!nodeCoord) continue;
     const coord: LiveRouteNode = {
       id: node.id,
       name: nullableDisplayLabel(node.name),
       publicKey: node.publicKey,
-      lng: node.lng,
-      lat: node.lat,
+      lng: nodeCoord.lng,
+      lat: nodeCoord.lat,
       iatas: node.iatas.map((i) => i.iata.toUpperCase()),
     };
     byKey.set(key(node.id), coord);
@@ -77,8 +79,9 @@ export function buildNodeCoordMaps(nodes: NodeSummary[]) {
 export function buildIataCoordMap(iatas: IataCode[] | undefined): Map<string, Coord> {
   const map = new Map<string, Coord>();
   for (const iata of iatas ?? []) {
-    if (iata.lat == null || iata.lon == null) continue;
-    map.set(iata.iata.toUpperCase(), { lat: iata.lat, lng: iata.lon });
+    const coord = toValidGeoCoord(iata.lat, iata.lon);
+    if (!coord) continue;
+    map.set(iata.iata.toUpperCase(), coord);
   }
   return map;
 }
@@ -103,6 +106,7 @@ export function resolveObserverTarget(
 }
 
 export function coordInMapViewport(map: MapLibreMap, coord: Coord, paddingPx = LIVE_VIEWPORT_PADDING_PX): boolean {
+  if (!toValidGeoCoord(coord.lat, coord.lng)) return false;
   const container = map.getContainer();
   const width = container.clientWidth || container.getBoundingClientRect().width || 1;
   const height = container.clientHeight || container.getBoundingClientRect().height || 1;

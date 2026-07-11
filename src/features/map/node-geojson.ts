@@ -1,6 +1,7 @@
 import type { Feature, FeatureCollection, Point } from "geojson";
 import type { NodeSummary } from "../nodes/types";
 import { nullableDisplayLabel } from "../../lib/display-label";
+import { toValidGeoCoord } from "../../lib/geo";
 
 // Build the maplibre GeoJSON source from the nodes API response. Properties stay primitive because
 // clustering serializes them, and there's no maplibre import, so this stays unit-testable.
@@ -29,13 +30,13 @@ export function nodesToFeatureCollection(
 ): FeatureCollection<Point, NodeFeatureProps> {
   const features: Feature<Point, NodeFeatureProps>[] = [];
   for (const n of nodes) {
-    // != null keeps 0 (a valid coordinate) while dropping null/undefined
-    if (n.lat == null || n.lng == null) continue;
+    const coord = toValidGeoCoord(n.lat, n.lng);
+    if (!coord) continue;
     features.push({
       type: "Feature",
       id: n.id,
       // GeoJSON/maplibre order is [lng, lat]; the API sends decimal degrees as-is
-      geometry: { type: "Point", coordinates: [n.lng, n.lat] },
+      geometry: { type: "Point", coordinates: [coord.lng, coord.lat] },
       properties: {
         id: n.id,
         name: mapDisplayLabel(n.name),

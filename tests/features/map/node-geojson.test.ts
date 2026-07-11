@@ -69,6 +69,15 @@ describe("nodesToFeatureCollection", () => {
     expect(fc.features.map((f) => f.properties.id)).toEqual(["c"]);
   });
 
+  it("drops nodes with out-of-range coordinates before MapLibre can wrap them", () => {
+    const fc = nodesToFeatureCollection([
+      node({ id: "bad-lat", lat: 1188.916984, lng: -122.23938 }),
+      node({ id: "bad-lng", lat: 46.078366, lng: 959.583218 }),
+      node({ id: "good", lat: 49.28, lng: -123.12 }),
+    ]);
+    expect(fc.features.map((f) => f.properties.id)).toEqual(["good"]);
+  });
+
   it("keeps nodes at the 0/0 coordinate (0 is a valid coordinate)", () => {
     const fc = nodesToFeatureCollection([node({ id: "z", lat: 0, lng: 0 })]);
     expect(fc.features).toHaveLength(1);

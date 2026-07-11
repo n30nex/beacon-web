@@ -81,6 +81,24 @@ describe("live-map-animation", () => {
     expect(maps.byPathPrefix.get("AABB")?.[0]?.id).toBe("node-a");
   });
 
+  it("drops invalid node and IATA coordinates before live projection", () => {
+    const maps = buildNodeCoordMaps([
+      node({ id: "bad-lat", lat: 1188.916984, lng: -122.23938 }),
+      node({ id: "bad-lng", lat: 46.078366, lng: 959.583218 }),
+      node({ id: "node-a", lat: 49.28, lng: -123.12 }),
+    ]);
+    const iatas = buildIataCoordMap([
+      { iata: "BAD", lat: 49.28, lon: 858.800132, regionId: 1, regionName: "Bad" },
+      { iata: "YVR", lat: 49.19, lon: -123.18, regionId: 2, regionName: "Vancouver" },
+    ]);
+
+    expect(maps.byKey.has("bad-lat")).toBe(false);
+    expect(maps.byKey.has("bad-lng")).toBe(false);
+    expect(maps.byKey.get("node-a")?.lng).toBe(-123.12);
+    expect(iatas.has("BAD")).toBe(false);
+    expect(iatas.get("YVR")).toEqual({ lat: 49.19, lng: -123.18 });
+  });
+
   it("resolves observer targets from nodes before falling back to IATA coordinates", () => {
     const maps = buildNodeCoordMaps([
       node({ id: "node-a", name: "Ridge", observerId: "observer-1" }),

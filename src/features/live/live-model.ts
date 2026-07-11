@@ -1,6 +1,7 @@
 import type { WsPacketObservation } from "../../types/ws";
 import type { ResolvedHop } from "../../types/api";
 import { sanitizeDisplayLabel } from "../../lib/display-label";
+import { toValidGeoCoord } from "../../lib/geo";
 
 export const LIVE_FEED_CAP = 80;
 export const LIVE_TIMELINE_BINS = 48;
@@ -133,9 +134,11 @@ export function uniquePathNode(candidates: LiveRouteNode[] | undefined, iata: st
   return scoped.length === 1 ? scoped[0]! : null;
 }
 
-function routePointFromNode(node: LiveRouteNode): LiveRoutePathPoint {
+function routePointFromNode(node: LiveRouteNode): LiveRoutePathPoint | null {
+  const coord = toValidGeoCoord(node.lat, node.lng);
+  if (!coord) return null;
   return {
-    coord: { lat: node.lat, lng: node.lng },
+    coord,
     label: sanitizeDisplayLabel(node.name, node.publicKey.slice(0, 8)),
     nodeId: node.id,
   };
@@ -144,9 +147,10 @@ function routePointFromNode(node: LiveRouteNode): LiveRoutePathPoint {
 function routePointFromResolvedHop(hop: ResolvedHop): LiveRoutePathPoint | null {
   if (hop.confidence !== "high" || hop.nodes.length !== 1) return null;
   const node = hop.nodes[0]!;
-  if (node.latitude == null || node.longitude == null) return null;
+  const coord = toValidGeoCoord(node.latitude, node.longitude);
+  if (!coord) return null;
   return {
-    coord: { lat: node.latitude, lng: node.longitude },
+    coord,
     label: sanitizeDisplayLabel(node.name, node.publicKey.slice(0, 8)),
     nodeId: node.id,
   };
