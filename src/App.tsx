@@ -256,7 +256,7 @@ function AppInner() {
       else next.delete("observerId");
       return next;
     }, { replace: true });
-  }, [setSearchParams]);
+  }, [setSearchParams, setSelectedObserverId]);
 
   const navigateToState = useCallback((navigation: NavigationState, replace = false) => {
     setOverlayNodeId(null);

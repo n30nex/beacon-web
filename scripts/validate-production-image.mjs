@@ -6,7 +6,7 @@ const caddyfile = readFileSync(new URL("../.build/Caddyfile", import.meta.url), 
 const dockerignore = readFileSync(new URL("../.dockerignore", import.meta.url), "utf8");
 
 const pinnedImages = [...dockerfile.matchAll(/^ARG\s+\w+_IMAGE=(\S+)$/gm)].map((match) => match[1]);
-assert.equal(pinnedImages.length, 2, "the build and runtime base images must be explicit build arguments");
+assert.equal(pinnedImages.length, 3, "the Node, Go, and runtime base images must be explicit build arguments");
 for (const image of pinnedImages) {
   assert.match(image, /@sha256:[a-f0-9]{64}$/, `base image is not digest pinned: ${image}`);
 }
@@ -15,6 +15,10 @@ assert.match(dockerfile, /^USER\s+(?!0(?:\D|$))\d+:\d+$/m, "runtime must use a n
 assert.match(dockerfile, /^EXPOSE\s+8080$/m, "runtime must expose the unprivileged edge port");
 assert.doesNotMatch(dockerfile, /docker-entrypoint\.sh|sed\s+-i/, "runtime assets must remain immutable");
 assert.match(dockerfile, /org\.opencontainers\.image\.revision/, "image must carry source revision metadata");
+assert.match(dockerfile, /ARG GO_IMAGE=.*golang:1\.26-alpine@sha256:/, "Caddy needs the pinned fixed Go toolchain");
+assert.match(dockerfile, /go1\.26\.5/, "Caddy must be compiled with Go 1.26.5 or newer");
+assert.match(dockerfile, /CGO_ENABLED=0[\s\S]*caddy@\$\{CADDY_VERSION\}/, "Caddy must be compiled as a static binary");
+assert.doesNotMatch(dockerfile, /^ARG CADDY_IMAGE=/m, "do not inherit the vulnerable official Caddy runtime image");
 
 assert.match(caddyfile, /^:8080\s*\{/m, "Caddy must listen on port 8080");
 assert.match(caddyfile, /trusted_proxies\s+static/, "Cloudflare proxy trust must be explicit");

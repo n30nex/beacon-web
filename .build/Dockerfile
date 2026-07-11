@@ -3,7 +3,8 @@
 # Production is Linux/amd64. Pin the platform manifests so CI and the droplet
 # build from the exact same inputs instead of following mutable Alpine tags.
 ARG NODE_IMAGE=docker.io/library/node:24-alpine@sha256:4ba75f835bb8802193e4c114572113d4b26f95f6f094f4b5229d2a77773e0afc
-ARG CADDY_IMAGE=docker.io/library/caddy:2.11.4-alpine@sha256:98eb57d882ccd5213d1688764db10c1ca2c58a1ca3a6717a3411ad798f7a423a
+ARG GO_IMAGE=docker.io/library/golang:1.26-alpine@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2
+ARG RUNTIME_IMAGE=docker.io/library/alpine:3.23@sha256:fd791d74b68913cbb027c6546007b3f0d3bc45125f797758156952bc2d6daf40
 
 FROM ${NODE_IMAGE} AS build
 WORKDIR /app
@@ -23,7 +24,19 @@ ENV VITE_API_BASE=${VITE_API_BASE} \
     VITE_MAP_ZOOM=${VITE_MAP_ZOOM}
 RUN npm run build && test -s dist/index.html
 
-FROM ${CADDY_IMAGE} AS runtime
+FROM ${GO_IMAGE} AS caddy-builder
+ARG CADDY_VERSION=v2.11.4
+
+# The official Caddy 2.11.4 image was built with a vulnerable Go 1.26.3
+# toolchain. Rebuild the same release as a static binary with the server's
+# pinned Go 1.26.5 image, which contains the upstream standard-library fixes.
+RUN test "$(go env GOVERSION)" = "go1.26.5" \
+    && GOTOOLCHAIN=local CGO_ENABLED=0 GOBIN=/out go install \
+      -trimpath -ldflags="-s -w" \
+      github.com/caddyserver/caddy/v2/cmd/caddy@${CADDY_VERSION} \
+    && /out/caddy version
+
+FROM ${RUNTIME_IMAGE} AS runtime
 
 ARG BUILD_SHA=unknown
 ARG BUILD_TIME=unknown
@@ -36,6 +49,12 @@ LABEL org.opencontainers.image.title="Beacon Web" \
       org.opencontainers.image.created="${BUILD_TIME}" \
       org.opencontainers.image.version="${BUILD_VERSION}"
 
+RUN apk add --no-cache ca-certificates tzdata \
+    && addgroup -S -g 10001 beacon \
+    && adduser -S -D -H -u 10001 -G beacon beacon \
+    && command -v wget >/dev/null
+
+COPY --from=caddy-builder /out/caddy /usr/local/bin/caddy
 COPY .build/Caddyfile /etc/caddy/Caddyfile
 RUN caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 COPY --from=build --chown=10001:10001 /app/dist /srv
