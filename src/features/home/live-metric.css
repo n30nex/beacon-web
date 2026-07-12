@@ -1,0 +1,49 @@
+.home-live-metric-value {
+  display: inline-block;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  font-size: min(1em, 5.2vw);
+  font-variant-numeric: tabular-nums;
+  line-height: inherit;
+  white-space: nowrap;
+}
+
+@keyframes home-live-metric-pulse-a {
+  0%, 100% {
+    filter: brightness(1) saturate(1);
+    text-shadow: 0 0 0 transparent;
+  }
+  42% {
+    filter: brightness(1.45) saturate(1.3);
+    text-shadow:
+      0 0 5px color-mix(in srgb, var(--color-green) 88%, transparent),
+      0 0 12px color-mix(in srgb, var(--color-primary) 55%, transparent);
+  }
+}
+
+@keyframes home-live-metric-pulse-b {
+  0%, 100% {
+    filter: brightness(1) saturate(1);
+    text-shadow: 0 0 0 transparent;
+  }
+  42% {
+    filter: brightness(1.45) saturate(1.3);
+    text-shadow:
+      0 0 5px color-mix(in srgb, var(--color-green) 88%, transparent),
+      0 0 12px color-mix(in srgb, var(--color-primary) 55%, transparent);
+  }
+}
+
+.home-live-metric-value[data-pulse-phase="a"] {
+  animation: home-live-metric-pulse-a 280ms ease-out;
+}
+
+.home-live-metric-value[data-pulse-phase="b"] {
+  animation: home-live-metric-pulse-b 280ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-live-metric-value[data-pulse-phase] {
+    animation: none;
+  }
+}

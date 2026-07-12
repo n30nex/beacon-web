@@ -68,6 +68,18 @@ export function formatCount(n: number | null | undefined): string {
   return fmt(1_000_000_000, "B");
 }
 
+const exactCountFormatter = new Intl.NumberFormat("en-CA", {
+  maximumFractionDigits: 0,
+  useGrouping: true,
+});
+
+// Exact, locale-stable count formatting for fast-moving values. Unlike formatCount, this keeps
+// every digit visible so a viewer can see each live increment.
+export function formatExactCount(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return "—";
+  return exactCountFormatter.format(Object.is(n, -0) ? 0 : n);
+}
+
 // clamp negative values from clock skew
 export function timeAgoMs(epochMs: number): string {
   const seconds = Math.max(0, Math.floor((Date.now() - epochMs) / 1000));

@@ -67,6 +67,7 @@ export function useStatsHome(range: StatsRange = "24h") {
     queryFn: () => getStatsHome(iatas, { range }),
     staleTime: 45_000,
     placeholderData: keepPreviousData,
+    refetchOnMount: "always",
     refetchOnWindowFocus: false,
     refetchInterval: 60_000,
     notifyOnChangeProps: ["data", "error", "isError", "isLoading"],

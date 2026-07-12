@@ -4,13 +4,15 @@ import { TerminalLoadingState } from "../../components/TerminalLoader";
 import { QueryStatePanel } from "../../components/QueryStatePanel";
 import { useRegion } from "../../hooks/useRegion";
 import { useStatsHome } from "../stats/useStats";
-import { useLiveOverview } from "../stats/useLiveStats";
-import { formatCount, timeAgoMs } from "../../lib/formatters";
+import { formatCount, formatExactCount, timeAgoMs } from "../../lib/formatters";
 import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { queryStateForError } from "../../lib/query-state";
 import type { PageTab } from "../../lib/navigation";
 import type { WsManager } from "../../api/ws-manager";
 import { useWatchlist } from "../investigations/useLocalInvestigations";
+import { useLiveSummary } from "../live/useLiveSummary";
+import { LiveMetricValue } from "./LiveMetricValue";
+import { useHomeLiveActivity } from "./useHomeLiveActivity";
 
 const COMMAND_GROUPS: { label: string; tabs: readonly PageTab[] }[] = [
   { label: "Monitor", tabs: ["Live", "Map", "Netgraph"] },
@@ -50,7 +52,7 @@ function HeaderChip({ label, value, tone = "text-text-bright" }: { label: string
   );
 }
 
-function MetricCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
+function MetricCard({ label, value, detail }: { label: string; value: ReactNode; detail?: string }) {
   return (
     <div className="min-h-[72px] rounded-sm border border-border bg-bg-surface px-3 py-2">
       <div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-text-muted">{label}</div>
@@ -107,7 +109,7 @@ function ActivityButton({
   onNavigate,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   detail: string;
   tab: PageTab;
   icon: Parameters<typeof NavIcon>[0]["name"];
@@ -134,12 +136,14 @@ function ActivityButton({
 
 function ActivityNow({
   livePackets,
+  liveDetail,
   topNode,
   topObserver,
   topIata,
   onNavigate,
 }: {
-  livePackets: string;
+  livePackets: ReactNode;
+  liveDetail: string;
   topNode: { label: string; detail: string } | null;
   topObserver: { label: string; detail: string } | null;
   topIata: { label: string; detail: string } | null;
@@ -152,7 +156,7 @@ function ActivityNow({
         <span className="font-mono text-[10px] uppercase tracking-wider text-green">Live window</span>
       </div>
       <div className="grid gap-1.5 sm:grid-cols-2">
-        <ActivityButton label="Live packets" value={livePackets} detail="last 15m" tab="Live" icon="live" tone="text-green" onNavigate={onNavigate} />
+        <ActivityButton label="Live packets" value={livePackets} detail={liveDetail} tab="Live" icon="live" tone="text-green" onNavigate={onNavigate} />
         <ActivityButton label="Top node" value={topNode?.label ?? "No node"} detail={topNode?.detail ?? "no recent observations"} tab="Nodes" icon="nodes" tone="text-primary" onNavigate={onNavigate} />
         <ActivityButton label="Top observer" value={topObserver?.label ?? "No observer"} detail={topObserver?.detail ?? "no recent observations"} tab="Observers" icon="observers" tone="text-secondary" onNavigate={onNavigate} />
         <ActivityButton label="Busiest IATA" value={topIata?.label ?? "No IATA"} detail={topIata?.detail ?? "no recent observations"} tab="Analytics" icon="analytics" tone="text-warn" onNavigate={onNavigate} />
@@ -211,13 +215,22 @@ function MyNodes({ onNavigate }: { onNavigate: (tab: PageTab) => void }) {
 }
 
 export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNavigate: (tab: PageTab) => void }) {
-  useLiveOverview(wsManager);
-  const { iatas } = useRegion();
-  const home = useStatsHome("24h");
-  const data = home.data;
+  const { iatas, regionKey } = useRegion();
+  const homeQuery = useStatsHome("24h");
+  const liveQuery = useLiveSummary();
+  const activity = useHomeLiveActivity({
+    wsManager,
+    regionKey,
+    iatas,
+    homeSnapshot: homeQuery.data,
+    liveSnapshot: liveQuery.data,
+    refetchHome: () => homeQuery.refetch(),
+    refetchLive: () => liveQuery.refetch(),
+  });
+  const data = activity.home ?? homeQuery.data;
   const [mobileRanking, setMobileRanking] = useState<"nodes" | "observers" | "iatas">("nodes");
   const overview = data?.overview;
-  const live = data?.live;
+  const live = activity.live ?? liveQuery.data ?? data?.live;
 
   const topNodes = data?.topNodes.slice(0, 5) ?? [];
   const topObservers = data?.topObservers.slice(0, 5) ?? [];
@@ -227,16 +240,18 @@ export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNa
   const topIata = topIatas[0];
   const routeObservationCount = live?.routeMix.reduce((sum, row) => sum + row.count, 0);
   const windowLabel = overview?.windowHours ? `${overview.windowHours}h` : "24h";
-  const updateLabel = home.dataUpdatedAt ? `${timeAgoMs(home.dataUpdatedAt)} ago` : "pending";
-  const liveState = (live?.observationCount ?? 0) > 0 ? "ACTIVE" : "QUIET";
-  const liveTone = liveState === "ACTIVE" ? "text-green" : "text-warn";
+  const updateLabel = data?.serverTime ? `${timeAgoMs(data.serverTime)} ago` : "pending";
+  const liveState = activity.state;
+  const liveTone = liveState === "ACTIVE" ? "text-green" : liveState === "OFFLINE" ? "text-danger" : liveState === "SYNCING" ? "text-secondary" : "text-warn";
+  const pulseEnabled = liveState !== "SYNCING";
+  const paceLabel = activity.pacePerMinute == null ? "FLOW WARMING" : `${formatExactCount(activity.pacePerMinute)} / MIN`;
   const metrics = [
-    { label: "Packets", value: formatCount(overview?.totalPackets), detail: windowLabel },
-    { label: "Observations", value: formatCount(overview?.totalObservations), detail: windowLabel },
+    { label: "Packets", value: <LiveMetricValue metric="packets" value={overview?.totalPackets} pulseRevision={activity.pulseRevision} pulseEnabled={pulseEnabled} />, detail: windowLabel },
+    { label: "Observations", value: <LiveMetricValue metric="observations" value={overview?.totalObservations} pulseRevision={activity.pulseRevision} pulseEnabled={pulseEnabled} />, detail: `${windowLabel} · ${paceLabel}` },
     { label: "IATAs", value: formatCount(overview?.activeIatas), detail: "active" },
     { label: "Observers", value: formatCount(overview?.activeObservers ?? live?.activeObservers), detail: "active" },
-    { label: "Live", value: formatCount(live?.observationCount), detail: "last 15m" },
-    { label: "Routes", value: formatCount(routeObservationCount), detail: "observed" },
+    { label: "Live", value: <LiveMetricValue metric="live" value={live?.observationCount} pulseRevision={activity.pulseRevision} pulseEnabled={pulseEnabled} tone="text-green" />, detail: "last 15m" },
+    { label: "Routes", value: <LiveMetricValue metric="routes" value={routeObservationCount} pulseRevision={activity.pulseRevision} pulseEnabled={pulseEnabled} tone="text-secondary" />, detail: "observed · 15m" },
   ];
   const topNodeActivity = topNode
     ? {
@@ -275,16 +290,16 @@ export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNa
           </div>
         </header>
 
-        {home.isLoading && !data ? (
+        {homeQuery.isLoading && !data ? (
           <div className="min-h-[360px] rounded-sm border border-border bg-bg-surface">
             <TerminalLoadingState label="QUERYING HOME DATA" detail="PLEASE WAIT" className="h-full" />
           </div>
-        ) : home.isError ? (
+        ) : homeQuery.isError ? (
           <div className="rounded-sm border border-border bg-bg-surface">
             <QueryStatePanel
-              {...queryStateForError(home.error, "home dashboard")}
+              {...queryStateForError(homeQuery.error, "home dashboard")}
               className="min-h-[320px]"
-              onAction={() => void home.refetch()}
+              onAction={() => void homeQuery.refetch()}
             />
           </div>
         ) : (
@@ -298,7 +313,8 @@ export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNa
             <div className="grid gap-3 xl:grid-cols-[1fr_0.95fr]">
               <CommandBar onNavigate={onNavigate} />
               <ActivityNow
-                livePackets={formatCount(live?.packetCount)}
+                livePackets={<LiveMetricValue metric="live-packets" value={live?.packetCount} pulseRevision={activity.pulseRevision} pulseEnabled={pulseEnabled} tone="text-green" />}
+                liveDetail={activity.pacePerMinute == null ? "10s pace warming" : `${formatExactCount(activity.pacePerMinute)} obs/min · 10s pace`}
                 topNode={topNodeActivity}
                 topObserver={topObserverActivity}
                 topIata={topIataActivity}

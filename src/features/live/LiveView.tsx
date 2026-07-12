@@ -19,7 +19,7 @@ import {
 import { useRegion } from "../../hooks/useRegion";
 import { useTheme } from "../../hooks/useTheme";
 import { useWsLaggedHandler, useWsNodeUpdateHandler, useWsPacketHandler } from "../../hooks/useWsHandlers";
-import { getIatas, getLiveBackfill, getLiveSummary } from "../../api/client";
+import { getIatas, getLiveBackfill } from "../../api/client";
 import { useCoalescedNodeUpdates } from "../map/useNodeUpdates";
 import type { WsManager } from "../../api/ws-manager";
 import type { WsLagged, WsPacketObservation } from "../../types/ws";
@@ -65,6 +65,7 @@ import { useLiveAudio } from "./useLiveAudio";
 import { useLivePanelLayout } from "./useLivePanelLayout";
 import { useWsSubscriptionReady } from "./useWsSubscriptionReady";
 import { useWatchlist } from "../investigations/useLocalInvestigations";
+import { useLiveSummary } from "./useLiveSummary";
 
 interface LiveViewProps {
   wsManager: WsManager;
@@ -247,12 +248,7 @@ export function LiveView({ wsManager, onAnalyze, selectedNodeId, onSelectNode, n
   }, []);
 
   const { data: iataCodes } = useQuery({ queryKey: ["iatas"], queryFn: getIatas, staleTime: 60_000 });
-  const { data: liveSummary } = useQuery({
-    queryKey: ["live-summary", regionKey],
-    queryFn: () => getLiveSummary(selectedIatas),
-    refetchInterval: 5_000,
-    staleTime: 3_000,
-  });
+  const { data: liveSummary } = useLiveSummary();
   const nodesKey = useMemo(() => ["map-nodes", regionKey], [regionKey]);
   const { nodes, loadedCount, isPaging, isError: nodesError, updatedAt: nodesUpdatedAt } = useMapNodesData(selectedIatas, regionKey, { auto: socketSubscribed });
   const { byKey: nodeCoords, byPathPrefix } = useMemo(() => buildNodeCoordMaps(nodes), [nodes]);

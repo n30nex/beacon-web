@@ -306,24 +306,32 @@ async function mockBeaconRuntime(page: Page) {
       static CLOSED = 3;
 
       readonly url: string;
+      readonly isBeaconSocket: boolean;
+      hasBeaconSubscription = false;
       readyState = FakeBeaconWebSocket.CONNECTING;
       onopen: ((event: Event) => void) | null = null;
       onmessage: ((event: MessageEvent) => void) | null = null;
       onclose: ((event: CloseEvent) => void) | null = null;
       onerror: ((event: Event) => void) | null = null;
 
-      constructor(url: string) {
+      constructor(url: string, protocols?: string | string[]) {
         this.url = url;
+        const protocolList = Array.isArray(protocols) ? protocols : protocols ? [protocols] : [];
+        this.isBeaconSocket = !protocolList.includes("vite-hmr") && new URL(url, window.location.href).pathname === "/ws";
+        if (this.isBeaconSocket) beaconSockets.push(this);
         window.setTimeout(() => {
           this.readyState = FakeBeaconWebSocket.OPEN;
           this.onopen?.(new Event("open"));
-          this.emit({ v: 1, type: "hello", serverTime: Date.now() });
+          if (this.isBeaconSocket) {
+            this.emit({ v: 1, type: "hello", serverTime: Date.now(), connectionId: "e2e-connection" });
+          }
         }, 0);
       }
 
       send(data: string) {
         const message = JSON.parse(data) as { type?: string; id?: string };
         if (message.type === "subscribe") {
+          this.hasBeaconSubscription = true;
           window.setTimeout(() => {
             this.emit({ v: 1, type: "subscribed", id: message.id, subscriptionId: "e2e-subscription" });
           }, 0);
@@ -340,10 +348,28 @@ async function mockBeaconRuntime(page: Page) {
         this.onclose?.(new CloseEvent("close"));
       }
 
-      private emit(payload: unknown) {
+      emit(payload: unknown) {
         this.onmessage?.(new MessageEvent("message", { data: JSON.stringify(payload) }));
       }
     }
+
+    const beaconSockets: FakeBeaconWebSocket[] = [];
+    const beaconWindow = window as typeof window & {
+      __beaconE2E: {
+        emitWebSocket: (payload: unknown) => void;
+        webSocketInstanceCount: () => number;
+      };
+    };
+    beaconWindow.__beaconE2E = {
+      emitWebSocket(payload: unknown) {
+        for (const socket of beaconSockets) {
+          if (socket.hasBeaconSubscription && socket.readyState === FakeBeaconWebSocket.OPEN) socket.emit(payload);
+        }
+      },
+      webSocketInstanceCount() {
+        return beaconSockets.filter((socket) => socket.hasBeaconSubscription && socket.readyState !== FakeBeaconWebSocket.CLOSED).length;
+      },
+    };
 
     Object.defineProperty(window, "WebSocket", {
       configurable: true,
@@ -398,6 +424,53 @@ async function mockBeaconRuntime(page: Page) {
     }
 
     return route.fulfill({ json: emptyPage });
+  });
+}
+
+function livePacketObservation(id: number, isFirstObservation = true) {
+  return {
+    v: 1,
+    type: "event",
+    event: "packetObservation",
+    data: {
+      packetHash: `e2e-packet-${id}`,
+      packet: {
+        payloadType: 1,
+        payloadTypeName: "Position",
+        routeType: 1,
+        routeTypeName: "Direct",
+        isFirstObservation,
+        observationCount: 1,
+      },
+      observation: {
+        id,
+        observerId: "observer-alpha",
+        observerName: "Observer Alpha",
+        iata: "YVR",
+        heardAt: Date.now(),
+        rssi: -81,
+        snr: 5.5,
+        sourceBroker: "e2e-broker",
+      },
+    },
+  };
+}
+
+async function emitBeaconWebSocket(page: Page, payload: unknown) {
+  await page.evaluate((message) => {
+    const beaconWindow = window as typeof window & {
+      __beaconE2E: { emitWebSocket: (value: unknown) => void };
+    };
+    beaconWindow.__beaconE2E.emitWebSocket(message);
+  }, payload);
+}
+
+async function beaconWebSocketInstanceCount(page: Page) {
+  return page.evaluate(() => {
+    const beaconWindow = window as typeof window & {
+      __beaconE2E: { webSocketInstanceCount: () => number };
+    };
+    return beaconWindow.__beaconE2E.webSocketInstanceCount();
   });
 }
 
@@ -515,6 +588,65 @@ test("mobile Home keeps KPI density and rankings ordered without overflow", asyn
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
   expect(overflow).toBe(false);
+});
+
+test("Home live counters update from one WebSocket without refetching the Home snapshot", async ({ page }) => {
+  let homeRequests = 0;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname.endsWith("/api/v1/stats/home")) homeRequests += 1;
+  });
+
+  await page.goto("/?tab=Home&boot=0", { waitUntil: "domcontentloaded" });
+
+  const packets = page.locator("[data-live-metric='packets']");
+  const observations = page.locator("[data-live-metric='observations']");
+  const live = page.locator("[data-live-metric='live']");
+  const routes = page.locator("[data-live-metric='routes']");
+  const livePackets = page.locator("[data-live-metric='live-packets']");
+
+  await expect(packets).toHaveText("128");
+  await expect(observations).toHaveText("256");
+  await expect(live).toHaveText("48");
+  await expect(routes).toHaveText("18");
+  await expect(livePackets).toHaveText("24");
+  await expect.poll(() => beaconWebSocketInstanceCount(page)).toBe(1);
+  await page.waitForTimeout(500);
+  const authoritativeRequests = homeRequests;
+
+  await emitBeaconWebSocket(page, livePacketObservation(43));
+
+  await expect(packets).toHaveText("129");
+  await expect(observations).toHaveText("257");
+  await expect(live).toHaveText("49");
+  await expect(routes).toHaveText("19");
+  await expect(livePackets).toHaveText("25");
+  await expect(packets).toHaveClass(/home-live-metric-value/);
+  await expect(packets).toHaveAttribute("data-pulse-phase", /^(a|b)$/);
+  await page.waitForTimeout(350);
+
+  expect(homeRequests).toBe(authoritativeRequests);
+  expect(await beaconWebSocketInstanceCount(page)).toBe(1);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+  expect(overflow).toBe(false);
+});
+
+test("mobile Home live pulse honors reduced motion and remains accessible @a11y", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile", "390px reduced-motion coverage runs in the mobile project");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/?tab=Home&boot=0", { waitUntil: "domcontentloaded" });
+
+  const packets = page.locator("[data-live-metric='packets']");
+  await expect(packets).toHaveText("128");
+  await expect.poll(() => beaconWebSocketInstanceCount(page)).toBe(1);
+  await emitBeaconWebSocket(page, livePacketObservation(43));
+  await expect(packets).toHaveText("129");
+  await expect(packets).toHaveAttribute("data-pulse-phase", /^(a|b)$/);
+  expect(await packets.evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+  expect(overflow).toBe(false);
+  await expectNoBlockingAxeViolations(page, "mobile Home after a live update");
 });
 
 test("System leads with degraded state and keeps raw counters expandable", async ({ page }) => {

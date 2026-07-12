@@ -7,6 +7,7 @@ import {
   snrLevel,
   formatPropagation,
   formatCount,
+  formatExactCount,
 } from "../../src/lib/formatters";
 
 describe("formatHex", () => {
@@ -91,6 +92,21 @@ describe("formatCount", () => {
     expect(formatCount(999_999)).toBe("1M");
     expect(formatCount(999_999_999)).toBe("1B");
     expect(formatCount(-999_999)).toBe("-1M");
+  });
+});
+
+describe("formatExactCount", () => {
+  it("keeps every digit and uses en-CA grouping", () => {
+    expect(formatExactCount(0)).toBe("0");
+    expect(formatExactCount(1234)).toBe("1,234");
+    expect(formatExactCount(5_891_234)).toBe("5,891,234");
+  });
+
+  it("uses a dash for absent or non-finite values", () => {
+    expect(formatExactCount(null)).toBe("—");
+    expect(formatExactCount(undefined)).toBe("—");
+    expect(formatExactCount(Number.NaN)).toBe("—");
+    expect(formatExactCount(Number.POSITIVE_INFINITY)).toBe("—");
   });
 });
 

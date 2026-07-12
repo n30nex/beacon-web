@@ -19,6 +19,7 @@ const budgets = {
     { label: "stats route JS", pattern: /^StatsOverview-.*\.js$/, max: 130 * 1024 },
     { label: "stats cards JS", pattern: /^cards-.*\.js$/, max: 650 * 1024 },
     { label: "live route JS", pattern: /^LiveView-.*\.js$/, max: 90 * 1024 },
+    { label: "home route JS", pattern: /^HomeView-.*\.js$/, max: 25 * 1024 },
   ],
 };
 

@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RegionProvider } from "../../../src/hooks/useRegion";
 import { ALL_REGIONS } from "../../../src/hooks/region-selection";
 import { HomeView } from "../../../src/features/home/HomeView";
-import { getRegion, getRegions, getStatsHome } from "../../../src/api/client";
+import { getLiveSummary, getRegion, getRegions, getStatsHome } from "../../../src/api/client";
 import type { PageTab } from "../../../src/lib/navigation";
 import type { WsManager } from "../../../src/api/ws-manager";
 
@@ -12,10 +12,16 @@ vi.mock("../../../src/api/client", () => ({
   getRegion: vi.fn(),
   getRegions: vi.fn(),
   getStatsHome: vi.fn(),
+  getLiveSummary: vi.fn(),
 }));
 
 const wsManager = {
   onPacketObservation: () => () => {},
+  onLagged: () => () => {},
+  onStatusChange: () => () => {},
+  onDiagnosticsChange: () => () => {},
+  getStatus: () => "connected",
+  getDiagnostics: () => ({ status: "connected", activeSubscriptionId: "home-test" }),
 } as unknown as WsManager;
 
 function renderHome(onNavigate: (tab: PageTab) => void = () => {}) {
@@ -32,6 +38,19 @@ function renderHome(onNavigate: (tab: PageTab) => void = () => {}) {
 beforeEach(() => {
   vi.mocked(getRegions).mockReset().mockResolvedValue([]);
   vi.mocked(getRegion).mockReset();
+  vi.mocked(getLiveSummary).mockReset().mockResolvedValue({
+    serverTime: 1,
+    since: 0,
+    until: 1,
+    latestObservationId: 99,
+    packetCount: 12,
+    observationCount: 34,
+    activeObservers: 3,
+    payloadMix: [],
+    routeMix: [],
+    topIatas: [{ iata: "YVR", count: 20 }],
+    topObservers: [],
+  });
   vi.mocked(getStatsHome).mockReset().mockResolvedValue({
     serverTime: 1,
     window: { since: 0, until: 1, bucket: "1h" },
@@ -59,8 +78,8 @@ describe("HomeView", () => {
   it("renders real overview data without Atlas briefing language", async () => {
     renderHome();
 
-    expect(await screen.findByText("1.2k")).toBeInTheDocument();
-    expect(screen.getByText("5.7k")).toBeInTheDocument();
+    expect(await screen.findByText("1,234")).toBeInTheDocument();
+    expect(screen.getByText("5,678")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Home commands" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Activity now" })).toBeInTheDocument();
     expect(screen.getAllByText("Node One")).toHaveLength(3);
