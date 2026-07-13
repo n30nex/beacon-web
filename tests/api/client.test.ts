@@ -123,6 +123,27 @@ describe("getHealth", () => {
     expect(url.pathname).toBe("/readyz");
     expect(readiness.ready).toBe(true);
   });
+
+  it("returns a structured degraded readiness snapshot from HTTP 503", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: false,
+        status: 503,
+        statusText: "Service Unavailable",
+        json: async () => ({
+          status: "degraded",
+          ready: false,
+          version: "test",
+          serverTime: 2,
+          dependencies: { database: { status: "down" } },
+          brokers: [],
+        }),
+      }) as unknown as typeof fetch),
+    );
+
+    await expect(getReadiness()).resolves.toMatchObject({ status: "degraded", ready: false });
+  });
 });
 
 describe("getKnownRoutesPage", () => {

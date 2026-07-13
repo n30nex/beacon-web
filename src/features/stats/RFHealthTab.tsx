@@ -5,7 +5,7 @@ import { TerminalLoadingState } from "../../components/TerminalLoader";
 import { useChartColors } from "./chartTheme";
 import { useStatsRFHealth } from "./useStats";
 import { leaderboardOption, rfMetricOption } from "./chartOptions";
-import { Card, ChartCard, StatCard } from "./cards";
+import { Card, ChartCard, StatCard, StatsQueryNotice } from "./cards";
 import type { StatsObserverHealth, StatsRange } from "./types";
 
 function FlagPill({ label, active }: { label: string; active?: boolean }) {
@@ -80,6 +80,7 @@ export function RFHealthTab({ range, onSelectObserver }: { range: StatsRange; on
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5 px-3 py-3 sm:px-4 sm:py-4">
+      <StatsQueryNotice queries={[rf]} />
       <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
         <StatCard label="Observers" sublabel={range} accent="var(--color-primary)" value={rf.isLoading ? "--" : formatCount(summary?.totalObservers)} />
         <StatCard label="Stale" sublabel="offline/freshness" accent="var(--color-warn)" value={rf.isLoading ? "--" : formatCount(summary?.staleObservers)} />
@@ -101,7 +102,7 @@ export function RFHealthTab({ range, onSelectObserver }: { range: StatsRange; on
         <Card title="Top offenders">
           {rf.isLoading ? (
             <TerminalLoadingState label="QUERYING RF HEALTH" detail="PLEASE WAIT" />
-          ) : rf.isError ? (
+          ) : rf.isError && !rf.data ? (
             <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div>
           ) : (rf.data?.topOffenders ?? []).length === 0 ? (
             <div className="py-6 text-center font-mono text-[11px] text-text-dim">No degraded observers</div>

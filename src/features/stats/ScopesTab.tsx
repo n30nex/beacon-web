@@ -4,7 +4,7 @@ import { TerminalLoadingState } from "../../components/TerminalLoader";
 import { useChartColors } from "./chartTheme";
 import { useStatsSummary } from "./useStats";
 import { leaderboardOption, typeBarOption } from "./chartOptions";
-import { Card, ChartCard, StatCard } from "./cards";
+import { Card, ChartCard, StatCard, StatsQueryNotice } from "./cards";
 import { aggregatePresets, formatPreset } from "./transforms";
 import type { StatsRange } from "./types";
 
@@ -44,6 +44,7 @@ export function ScopesTab({ range }: { range: StatsRange }) {
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5 px-3 py-3 sm:px-4 sm:py-4">
+      <StatsQueryNotice queries={[summary]} />
       <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
         <StatCard label="Scopes" sublabel="configured" accent="var(--color-primary)" value={summary.isLoading ? "--" : formatCount(scopeRows.length)} />
         <StatCard label="Scope packets" sublabel="all time" accent="var(--color-green)" value={summary.isLoading ? "--" : formatCount(scopeTotals.packets)} />
@@ -59,7 +60,7 @@ export function ScopesTab({ range }: { range: StatsRange }) {
         <Card title="Scope table">
           {summary.isLoading ? (
             <TerminalLoadingState label="QUERYING SCOPES" detail="PLEASE WAIT" />
-          ) : summary.isError ? (
+          ) : summary.isError && !summary.data ? (
             <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div>
           ) : scopeRows.length === 0 ? (
             <div className="py-6 text-center font-mono text-[11px] text-text-dim">No scope activity</div>

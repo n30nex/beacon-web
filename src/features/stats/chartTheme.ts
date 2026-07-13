@@ -103,6 +103,9 @@ export function useChartColors(): ChartColors {
 // A reusable ECharts tooltip style block bound to the active palette.
 export function tooltipStyle(c: ChartColors) {
   return {
+    // Canvas-backed rich text never interprets node/observer/channel labels as HTML. This keeps
+    // server-provided labels safe even when a chart uses ECharts' default tooltip formatter.
+    renderMode: "richText" as const,
     backgroundColor: c.bgRaised,
     borderColor: c.border,
     borderWidth: 1,

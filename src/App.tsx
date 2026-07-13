@@ -15,6 +15,7 @@ import { ThemeProvider } from "./hooks/useTheme";
 import { useIsMobile } from "./hooks/useMediaQuery";
 import { AppShell } from "./components/AppShell";
 import { RuntimeStatusPanel } from "./components/RuntimeStatusPanel";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { SplashScreen } from "./components/SplashScreen";
 import { TerminalLoadingState } from "./components/TerminalLoader";
 import { GlobalSearchPalette } from "./components/GlobalSearchPalette";
@@ -30,6 +31,7 @@ import {
   type NavigationState,
   type PageTab,
 } from "./lib/navigation";
+import { safeLocalStorageGet } from "./lib/safe-storage";
 import type { GlobalSearchResult } from "./types/api";
 import { WS_EVENT_TYPES } from "./types/ws";
 
@@ -82,9 +84,9 @@ const wsManager = new WsManager(WS_URL);
 function computeInitialSelection(params: URLSearchParams): RegionSelection {
   const fromUrl = parseSelection(params);
   if (!isAllRegions(fromUrl)) return fromUrl;
-  const stored = deserializeSelection(localStorage.getItem("beacon-region-selection"));
+  const stored = deserializeSelection(safeLocalStorageGet("beacon-region-selection"));
   if (!isAllRegions(stored)) return stored;
-  const legacy = localStorage.getItem("beacon-region");
+  const legacy = safeLocalStorageGet("beacon-region");
   if (legacy && legacy !== "*") return { regions: [], iatas: [legacy.toUpperCase()] };
   return ALL_REGIONS;
 }
@@ -502,13 +504,15 @@ function AppInner() {
 
 export function App() {
   return (
-    <BrowserRouter>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <SplashScreen />
-          <AppInner />
-        </ThemeProvider>
-      </QueryClientProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider>
+            <SplashScreen />
+            <AppInner />
+          </ThemeProvider>
+        </QueryClientProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }

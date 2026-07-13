@@ -1,15 +1,14 @@
 import { useMemo } from "react";
 import { formatCount } from "../../lib/formatters";
 import { useChartColors } from "./chartTheme";
-import { useStatsPayloads, useStatsSummary } from "./useStats";
+import { useStatsPayloads } from "./useStats";
 import { bucketTimelineOption, typeBarOption } from "./chartOptions";
-import { ChartCard, StatCard } from "./cards";
+import { ChartCard, StatCard, StatsQueryNotice } from "./cards";
 import type { StatsRange } from "./types";
 
 export function PayloadsTab({ range }: { range: StatsRange }) {
   const colors = useChartColors();
   const payloads = useStatsPayloads(range);
-  const summary = useStatsSummary(range);
 
   const payloadTotals = useMemo(
     () => (payloads.data?.totals ?? []).map((p, i) => ({ name: p.payloadTypeName.toLowerCase(), value: p.count, color: colors.series[i % colors.series.length] ?? colors.primary })),
@@ -36,16 +35,17 @@ export function PayloadsTab({ range }: { range: StatsRange }) {
   const payloadTimelineOption = useMemo(() => bucketTimelineOption(payloadTimeline, colors, { stacked: true, maxSeries: 6 }), [payloadTimeline, colors]);
   const routeTimelineOption = useMemo(() => bucketTimelineOption(routeTimeline, colors, { stacked: true, maxSeries: 5 }), [routeTimeline, colors]);
 
-  const livePayload = summary.data?.live.payloadMix?.[0];
-  const liveRoute = summary.data?.live.routeMix?.[0];
+  const leadingPayload = payloads.data?.totals?.[0];
+  const leadingRoute = payloads.data?.routeTotals?.[0];
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5 px-3 py-3 sm:px-4 sm:py-4">
+      <StatsQueryNotice queries={[payloads]} />
       <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
         <StatCard label="Payload obs" sublabel={range} accent="var(--color-primary)" value={payloads.isLoading ? "--" : formatCount(payloadTotalCount)} />
         <StatCard label="Route obs" sublabel={range} accent="var(--color-secondary)" value={payloads.isLoading ? "--" : formatCount(routeTotalCount)} />
-        <StatCard label="Live payload" sublabel="15m leader" accent="var(--color-green)" value={summary.isLoading ? "--" : (livePayload?.payloadTypeName ?? "--")} />
-        <StatCard label="Live route" sublabel="15m leader" accent="var(--color-warn)" value={summary.isLoading ? "--" : (liveRoute?.routeTypeName ?? "--")} />
+        <StatCard label="Top payload" sublabel={`${range} leader`} accent="var(--color-green)" value={payloads.isLoading ? "--" : (leadingPayload?.payloadTypeName ?? "--")} />
+        <StatCard label="Top route" sublabel={`${range} leader`} accent="var(--color-warn)" value={payloads.isLoading ? "--" : (leadingRoute?.routeTypeName ?? "--")} />
       </div>
 
       <div className="stats-chart-rail grid grid-cols-1 gap-3.5 lg:grid-cols-2">

@@ -5,7 +5,7 @@ import { formatAbsolute, formatCount } from "../../lib/formatters";
 import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { useChartColors } from "./chartTheme";
 import { bucketTimelineOption, leaderboardOption, typeBarOption } from "./chartOptions";
-import { Card, ChartCard, StatCard } from "./cards";
+import { Card, ChartCard, StatCard, StatsQueryNotice } from "./cards";
 import { useStatsSubpaths } from "./useStats";
 import type { StatsRange, StatsSubpathEndpointPair, StatsSubpathRow, StatsSubpaths } from "./types";
 
@@ -176,6 +176,7 @@ export function PathsTab({ range }: { range: StatsRange }) {
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5 px-3 py-3 sm:px-4 sm:py-4">
+      <StatsQueryNotice queries={[subpaths]} />
       <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
         <StatCard label="Routes" sublabel={range} accent="var(--color-primary)" value={subpaths.isLoading ? "--" : formatCount(data?.routeCount)} />
         <StatCard label="Subpaths" sublabel="verified segments" accent="var(--color-secondary)" value={subpaths.isLoading ? "--" : formatCount(data?.subpathCount)} />
@@ -190,11 +191,11 @@ export function PathsTab({ range }: { range: StatsRange }) {
       </div>
 
       <Card title="Top repeated subpaths" right={<span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">verified known routes only</span>}>
-        {subpaths.isError ? <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div> : <TopSubpathsTable data={subpaths.isLoading ? undefined : data} />}
+        {subpaths.isError && !data ? <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div> : <TopSubpathsTable data={subpaths.isLoading ? undefined : data} />}
       </Card>
 
       <Card title="Top endpoint pairs" right={<span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">source to destination pressure</span>}>
-        {subpaths.isError ? <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div> : <EndpointPairsTable data={subpaths.isLoading ? undefined : data} />}
+        {subpaths.isError && !data ? <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div> : <EndpointPairsTable data={subpaths.isLoading ? undefined : data} />}
       </Card>
     </div>
   );

@@ -5,7 +5,7 @@ import { formatAbsolute, formatCount } from "../../lib/formatters";
 import { TerminalLoadingState } from "../../components/TerminalLoader";
 import { useChartColors } from "./chartTheme";
 import { bucketTimelineOption, typeBarOption } from "./chartOptions";
-import { Card, ChartCard, StatCard } from "./cards";
+import { Card, ChartCard, StatCard, StatsQueryNotice } from "./cards";
 import { useStatsHashAnalytics, useStatsHashPrefixLookup } from "./useStats";
 import type { StatsHashAnalytics, StatsHashPrefixLookup, StatsRange } from "./types";
 
@@ -429,6 +429,7 @@ export function HashTab({ range }: { range: StatsRange }) {
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5 px-3 py-3 sm:px-4 sm:py-4">
+      <StatsQueryNotice queries={[hashes, prefixLookup]} />
       <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
         <StatCard label="Hash obs" sublabel={range} accent="var(--color-primary)" value={hashes.isLoading ? "--" : formatCount(data?.totalObservations)} />
         <StatCard label="Multibyte" sublabel={hashes.isLoading ? "observations" : pct(data?.multibyteObservations ?? 0, data?.totalObservations ?? 0)} accent="var(--color-green)" value={hashes.isLoading ? "--" : formatCount(data?.multibyteObservations)} />
@@ -445,15 +446,15 @@ export function HashTab({ range }: { range: StatsRange }) {
         title="Short-ID collision matrix"
         right={<span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">IATA x hash size</span>}
       >
-        {hashes.isError ? <div className="py-7 text-center font-mono text-[11px] text-danger">Failed to load</div> : <CollisionMatrix data={hashes.isLoading ? undefined : data} onLookup={handleRiskLookup} />}
+        {hashes.isError && !data ? <div className="py-7 text-center font-mono text-[11px] text-danger">Failed to load</div> : <CollisionMatrix data={hashes.isLoading ? undefined : data} onLookup={handleRiskLookup} />}
       </Card>
 
       <div className="grid grid-cols-1 gap-3.5 xl:grid-cols-2">
         <Card title="Risky prefixes" right={<span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">active short IDs</span>}>
-          {hashes.isError ? <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div> : <RiskTable data={hashes.isLoading ? undefined : data} onLookup={handleRiskLookup} />}
+          {hashes.isError && !data ? <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div> : <RiskTable data={hashes.isLoading ? undefined : data} onLookup={handleRiskLookup} />}
         </Card>
         <Card title="Inconsistent packet hash sizes" right={<span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">top 25</span>}>
-          {hashes.isError ? <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div> : <InconsistentTable data={hashes.isLoading ? undefined : data} />}
+          {hashes.isError && !data ? <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div> : <InconsistentTable data={hashes.isLoading ? undefined : data} />}
         </Card>
       </div>
 
@@ -509,7 +510,7 @@ export function HashTab({ range }: { range: StatsRange }) {
         )}
         <PrefixLookupPanel
           data={prefixLookup.data}
-          isError={prefixLookup.isError}
+          isError={prefixLookup.isError && !prefixLookup.data}
           isLoading={prefixLookup.isLoading}
           onOpenPacket={handleOpenPacket}
           prefix={lookupPrefix}

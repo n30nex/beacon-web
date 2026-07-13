@@ -6,7 +6,7 @@ import { formatAbsolute, formatCount } from "../../lib/formatters";
 import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { useChartColors } from "./chartTheme";
 import { bucketTimelineOption, leaderboardOption, typeBarOption } from "./chartOptions";
-import { Card, ChartCard, StatCard } from "./cards";
+import { Card, ChartCard, StatCard, StatsQueryNotice } from "./cards";
 import { useStatsChannels } from "./useStats";
 import type { StatsChannelRow, StatsChannels, StatsRange } from "./types";
 
@@ -210,6 +210,7 @@ export function ChannelsTab({ range }: { range: StatsRange }) {
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5 px-3 py-3 sm:px-4 sm:py-4">
+      <StatsQueryNotice queries={[channels]} />
       <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
         <StatCard label="Channels" sublabel={range} accent="var(--color-primary)" value={channels.isLoading ? "--" : formatCount(data?.totalChannels)} />
         <StatCard label="Decoded msgs" sublabel="known keys" accent="var(--color-green)" value={channels.isLoading ? "--" : formatCount(data?.messageCount)} />
@@ -223,7 +224,7 @@ export function ChannelsTab({ range }: { range: StatsRange }) {
         <Card title="Channel key state" right={<span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">active hashes</span>}>
           {channels.isLoading ? (
             <TerminalLoadingState label="QUERYING KEY STATES" detail="PLEASE WAIT" />
-          ) : channels.isError ? (
+          ) : channels.isError && !data ? (
             <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div>
           ) : (
             <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
@@ -240,10 +241,10 @@ export function ChannelsTab({ range }: { range: StatsRange }) {
 
       <div className="grid grid-cols-1 gap-3.5 xl:grid-cols-2">
         <Card title="Top channels" right={<span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">packets + messages</span>}>
-          {channels.isError ? <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div> : <TopChannelsTable data={channels.isLoading ? undefined : data} />}
+          {channels.isError && !data ? <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div> : <TopChannelsTable data={channels.isLoading ? undefined : data} />}
         </Card>
         <Card title="Top decoded senders" right={<span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">known-key channels</span>}>
-          {channels.isError ? <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div> : <TopSendersTable data={channels.isLoading ? undefined : data} />}
+          {channels.isError && !data ? <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div> : <TopSendersTable data={channels.isLoading ? undefined : data} />}
         </Card>
       </div>
     </div>

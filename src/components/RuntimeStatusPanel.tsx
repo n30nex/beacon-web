@@ -230,10 +230,14 @@ export function RuntimeStatusPanel({ wsManager, variant = "dropdown" }: { wsMana
   const diagnostics = useWsDiagnostics(wsManager);
   const { iatas, regionKey } = useRegion();
   const now = useNow();
-  const lastEventAgeMs = now - diagnostics.lastEventTimestamp;
-  const lastEventAge = formatDuration(lastEventAgeMs);
+  const lastTransportTimestamp = diagnostics.lastTransportTimestamp ?? diagnostics.lastEventTimestamp;
+  const lastDataTimestamp = diagnostics.lastDataTimestamp ?? null;
+  const lastTransportAgeMs = now - lastTransportTimestamp;
+  const lastDataAgeMs = lastDataTimestamp == null ? null : now - lastDataTimestamp;
+  const lastTransportAge = formatDuration(lastTransportAgeMs);
+  const lastDataAge = lastDataAgeMs == null ? "NONE" : formatDuration(lastDataAgeMs);
   const hasSubscription = Boolean(diagnostics.activeSubscriptionId);
-  const quiet = diagnostics.status === "connected" && hasSubscription && lastEventAgeMs > 90_000;
+  const quiet = diagnostics.status === "connected" && hasSubscription && (lastDataAgeMs == null || lastDataAgeMs > 90_000);
   const socketLabel =
     diagnostics.status === "connected"
       ? hasSubscription
@@ -303,8 +307,10 @@ export function RuntimeStatusPanel({ wsManager, variant = "dropdown" }: { wsMana
       </div>
 
       <div className={metricGridClass}>
-        <RuntimeMetric label="Last Event" value={lastEventAge} tone={diagnostics.status === "connected" && !quiet ? "good" : "warn"} />
-        <RuntimeMetric label="Reconnects" value={diagnostics.reconnectAttempt} tone={diagnostics.reconnectAttempt > 0 ? "warn" : "normal"} />
+        <RuntimeMetric label="Transport" value={lastTransportAge} tone={diagnostics.status === "connected" && lastTransportAgeMs < 90_000 ? "good" : "warn"} />
+        <RuntimeMetric label="Mesh Data" value={lastDataAge} tone={diagnostics.status === "connected" && !quiet ? "good" : "warn"} />
+        <RuntimeMetric label="Retry" value={diagnostics.reconnectAttempt} tone={diagnostics.reconnectAttempt > 0 ? "warn" : "normal"} />
+        <RuntimeMetric label="Reconnects" value={diagnostics.reconnectCount ?? 0} tone={(diagnostics.reconnectCount ?? 0) > 0 ? "warn" : "normal"} />
         <RuntimeMetric label="Parse Errors" value={diagnostics.parseFailureCount} tone={diagnostics.parseFailureCount > 0 ? "danger" : "normal"} />
         <RuntimeMetric label="API" value={health.data?.status ?? (health.isError ? "DOWN" : "...")} tone={apiTone} />
         <RuntimeMetric label="Ready" value={readiness.data?.ready === undefined ? (readiness.isError ? "NO" : "...") : readiness.data.ready ? "YES" : "NO"} tone={readyTone} />

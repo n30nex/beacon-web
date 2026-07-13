@@ -4,7 +4,7 @@ import { TerminalLoadingState } from "../../components/TerminalLoader";
 import { useChartColors } from "./chartTheme";
 import { useStatsRegions } from "./useStats";
 import { bucketTimelineOption, leaderboardOption } from "./chartOptions";
-import { Card, ChartCard } from "./cards";
+import { Card, ChartCard, StatsQueryNotice } from "./cards";
 import type { StatsRange, StatsRegionRow } from "./types";
 
 type SortKey = "observationCount" | "packetCount" | "activeObservers" | "activeNodes" | "lastHeard";
@@ -69,6 +69,7 @@ export function RegionsTab({ range, onDrill }: RegionsTabProps) {
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5 px-3 py-3 sm:px-4 sm:py-4">
+      <StatsQueryNotice queries={[regions]} />
       <div className="stats-chart-rail grid grid-cols-1 gap-3.5 lg:grid-cols-2">
         <ChartCard title={<>Regional observations · {range}</>} height={230} option={timelineOption} isLoading={regions.isLoading} isError={regions.isError} isEmpty={timelineRows.length === 0} />
         <ChartCard title="Top IATAs" height={230} option={topIataOption} isLoading={regions.isLoading} isError={regions.isError} isEmpty={topIataRows.length === 0} />
@@ -95,7 +96,7 @@ export function RegionsTab({ range, onDrill }: RegionsTabProps) {
       >
         {regions.isLoading ? (
           <TerminalLoadingState label="QUERYING REGIONS" detail="PLEASE WAIT" />
-        ) : regions.isError ? (
+        ) : regions.isError && !regions.data ? (
           <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div>
         ) : rows.length === 0 ? (
           <div className="py-6 text-center font-mono text-[11px] text-text-dim">No regional activity in this window</div>

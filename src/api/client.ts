@@ -166,24 +166,35 @@ export function getBrokers(): Promise<BrokerStatus[]> {
   return request("/brokers");
 }
 
-export async function getHealth(): Promise<HealthStatus> {
-  const url = new URL("/healthz", window.location.origin);
-  const res = await fetch(url.toString());
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: { code: "unknown", message: res.statusText } }));
-    throw new ApiError(res.status, body.error?.code ?? "unknown", body.error?.message ?? res.statusText);
-  }
-  return res.json();
+function isHealthStatus(value: unknown): value is HealthStatus {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<HealthStatus>;
+  return typeof candidate.status === "string" && typeof candidate.serverTime === "number";
 }
 
-export async function getReadiness(): Promise<HealthStatus> {
-  const url = new URL("/readyz", window.location.origin);
+async function getHealthStatus(path: "/healthz" | "/readyz"): Promise<HealthStatus> {
+  const url = new URL(path, window.location.origin);
   const res = await fetch(url.toString());
+  const body: unknown = await res.json().catch(() => null);
+
+  // Readiness intentionally uses HTTP 503 while dependencies are unavailable. Its JSON is still
+  // the authoritative degraded snapshot and must remain visible in the System UI.
+  if (isHealthStatus(body)) return body;
+
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: { code: "unknown", message: res.statusText } }));
-    throw new ApiError(res.status, body.error?.code ?? "unknown", body.error?.message ?? res.statusText);
+    const error = body as { error?: { code?: string; message?: string } } | null;
+    throw new ApiError(res.status, error?.error?.code ?? "unknown", error?.error?.message ?? res.statusText);
   }
-  return res.json();
+
+  throw new ApiError(res.status, "invalid_health_response", "Health endpoint returned an invalid response");
+}
+
+export function getHealth(): Promise<HealthStatus> {
+  return getHealthStatus("/healthz");
+}
+
+export function getReadiness(): Promise<HealthStatus> {
+  return getHealthStatus("/readyz");
 }
 
 export function getGlobalSearch(

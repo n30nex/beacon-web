@@ -6,7 +6,7 @@ import { formatAbsolute, formatCount } from "../../lib/formatters";
 import { sanitizeDisplayLabel } from "../../lib/display-label";
 import { useChartColors } from "./chartTheme";
 import { leaderboardOption, typeBarOption } from "./chartOptions";
-import { Card, ChartCard, StatCard } from "./cards";
+import { Card, ChartCard, StatCard, StatsQueryNotice } from "./cards";
 import { useStatsTopology } from "./useStats";
 import type { StatsRange, StatsTopologyPath } from "./types";
 
@@ -60,6 +60,7 @@ export function TopologyTab({ range }: { range: StatsRange }) {
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5 px-3 py-3 sm:px-4 sm:py-4">
+      <StatsQueryNotice queries={[topology]} />
       <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
         <StatCard label="Routes" sublabel={range} accent="var(--color-primary)" value={topology.isLoading ? "--" : formatCount(data?.routeCount)} />
         <StatCard label="Route obs" sublabel="verified" accent="var(--color-secondary)" value={topology.isLoading ? "--" : formatCount(data?.observationCount)} />
@@ -75,7 +76,7 @@ export function TopologyTab({ range }: { range: StatsRange }) {
       <Card title="Top adjacent pairs" right={<span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">verified only</span>}>
         {topology.isLoading ? (
           <TerminalLoadingState label="QUERYING TOPOLOGY PAIRS" detail="PLEASE WAIT" />
-        ) : topology.isError ? (
+        ) : topology.isError && !topology.data ? (
           <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div>
         ) : (data?.topPairs ?? []).length === 0 ? (
           <div className="py-6 text-center font-mono text-[11px] text-text-dim">No verified route pairs in this window</div>
@@ -131,7 +132,7 @@ export function TopologyTab({ range }: { range: StatsRange }) {
       <Card title="Best verified paths" right={<span className="font-mono text-[10px] uppercase tracking-wider text-text-dim">route replay links</span>}>
         {topology.isLoading ? (
           <TerminalLoadingState label="QUERYING VERIFIED PATHS" detail="PLEASE WAIT" />
-        ) : topology.isError ? (
+        ) : topology.isError && !topology.data ? (
           <div className="py-6 text-center font-mono text-[11px] text-danger">Failed to load</div>
         ) : (data?.bestPaths ?? []).length === 0 ? (
           <div className="py-6 text-center font-mono text-[11px] text-text-dim">No verified paths in this window</div>

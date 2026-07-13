@@ -212,6 +212,25 @@ describe("WsManager", () => {
     expect(mgr.getLastEventTimestamp()).toBeGreaterThan(afterLagged);
   });
 
+  it("separates transport activity from real mesh-data activity", () => {
+    const mgr = new WsManager("ws://test/ws");
+    mgr.connect({ iatas: ["YOW"] });
+    const ws = MockWebSocket.instances[0]!;
+    ws.simulateOpen();
+    ws.simulateMessage({ v: 1, type: "hello", serverTime: 1, connectionId: "c1" });
+
+    expect(mgr.getDiagnostics().lastDataTimestamp).toBeNull();
+    const transportAtHello = mgr.getDiagnostics().lastTransportTimestamp!;
+    vi.advanceTimersByTime(1000);
+    ws.simulateMessage({ v: 1, type: "pong", id: "p-1" });
+    expect(mgr.getDiagnostics().lastTransportTimestamp).toBeGreaterThan(transportAtHello);
+    expect(mgr.getDiagnostics().lastDataTimestamp).toBeNull();
+
+    vi.advanceTimersByTime(1000);
+    ws.simulateMessage({ v: 1, type: "event", event: "nodeUpdate", data: { nodeId: "n1" } });
+    expect(mgr.getDiagnostics().lastDataTimestamp).toBe(mgr.getDiagnostics().lastTransportTimestamp);
+  });
+
   it("tracks parse failures without dispatching malformed messages", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const handler = vi.fn();
@@ -242,10 +261,26 @@ describe("WsManager", () => {
     const sub = JSON.parse(ws.sent[0]!);
     ws.simulateMessage({ v: 1, type: "subscribed", id: sub.id, subscriptionId: "sub-live" });
     ws.simulateRawMessage("{oops");
+    vi.advanceTimersByTime(250);
 
     expect(warn).toHaveBeenCalledOnce();
     expect(listener).toHaveBeenCalledWith(expect.objectContaining({ activeSubscriptionId: "sub-live" }));
     expect(listener).toHaveBeenCalledWith(expect.objectContaining({ parseFailureCount: 1 }));
+  });
+
+  it("coalesces diagnostic notifications to at most four per second", () => {
+    const listener = vi.fn();
+    const mgr = new WsManager("ws://test/ws");
+    mgr.onDiagnosticsChange(listener);
+    mgr.connect({ iatas: ["YOW"] });
+    const ws = MockWebSocket.instances[0]!;
+    ws.simulateOpen();
+    ws.simulateMessage({ v: 1, type: "hello", serverTime: 1, connectionId: "c1" });
+
+    for (let i = 0; i < 20; i++) ws.simulateMessage({ v: 1, type: "pong", id: `p-${i}` });
+    expect(listener).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(250);
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 
   it("dispatches channelMessage events to handlers", () => {
@@ -353,6 +388,7 @@ describe("WsManager", () => {
     ws1.simulateMessage({ v: 1, type: "subscribed", id: sub1.id, subscriptionId: "s-old" });
 
     ws1.simulateClose(1006);
+    expect(mgr.getDiagnostics()).toMatchObject({ reconnectAttempt: 1, reconnectCount: 1 });
     vi.advanceTimersByTime(1500);
     const ws2 = MockWebSocket.instances[1]!;
     ws2.simulateOpen();

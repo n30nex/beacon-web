@@ -12,9 +12,13 @@ export type WsStatus = "connected" | "connecting" | "disconnected" | "error";
 
 export interface WsDiagnostics {
   status: WsStatus;
+  /** @deprecated Use lastTransportTimestamp for link activity or lastDataTimestamp for mesh data. */
   lastEventTimestamp: number;
+  lastTransportTimestamp?: number;
+  lastDataTimestamp?: number | null;
   connectedAt: number | null;
   reconnectAttempt: number;
+  reconnectCount?: number;
   parseFailureCount: number;
   lastParseFailureAt: number | null;
   laggedNoticeCount: number;
@@ -38,6 +42,8 @@ type NodeUpdateHandler = (data: WsNodeUpdate["data"]) => void;
 type StatusHandler = (status: WsStatus) => void;
 type DiagnosticsHandler = (diagnostics: WsDiagnostics) => void;
 
+const DIAGNOSTICS_EMIT_INTERVAL_MS = 250;
+
 export class WsManager {
   private ws: WebSocket | null = null;
   private url: string;
@@ -47,12 +53,14 @@ export class WsManager {
   private everConnected = false;
   private status: WsStatus = "disconnected";
   private reconnectAttempt = 0;
+  private reconnectCount = 0;
   private connectedAt: number | null = null;
   private intentionalClose = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   private msgCounter = 0;
-  private lastEventTimestamp: number = Date.now();
+  private lastTransportTimestamp: number = Date.now();
+  private lastDataTimestamp: number | null = null;
   private parseFailureCount = 0;
   private lastParseFailureAt: number | null = null;
   private laggedNoticeCount = 0;
@@ -60,6 +68,8 @@ export class WsManager {
   private lastLaggedDroppedCount: number | null = null;
   private lastLaggedSince: number | null = null;
   private diagnosticsSnapshot: WsDiagnostics | null = null;
+  private diagnosticsTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastDiagnosticsEmitAt = Number.NEGATIVE_INFINITY;
 
   private packetHandlers: PacketHandler[] = [];
   private laggedHandlers: LaggedHandler[] = [];
@@ -78,16 +88,19 @@ export class WsManager {
   }
 
   getLastEventTimestamp(): number {
-    return this.lastEventTimestamp;
+    return this.lastTransportTimestamp;
   }
 
   getDiagnostics(): WsDiagnostics {
     if (this.diagnosticsSnapshot) return this.diagnosticsSnapshot;
     this.diagnosticsSnapshot = {
       status: this.status,
-      lastEventTimestamp: this.lastEventTimestamp,
+      lastEventTimestamp: this.lastTransportTimestamp,
+      lastTransportTimestamp: this.lastTransportTimestamp,
+      lastDataTimestamp: this.lastDataTimestamp,
       connectedAt: this.connectedAt,
       reconnectAttempt: this.reconnectAttempt,
+      reconnectCount: this.reconnectCount,
       parseFailureCount: this.parseFailureCount,
       lastParseFailureAt: this.lastParseFailureAt,
       laggedNoticeCount: this.laggedNoticeCount,
@@ -196,7 +209,7 @@ export class WsManager {
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
-      this.lastEventTimestamp = Date.now();
+      this.lastTransportTimestamp = Date.now();
       this.emitDiagnostics();
     };
 
@@ -235,19 +248,19 @@ export class WsManager {
   }
 
   private handleMessage(msg: WsServerMessage): void {
+    this.lastTransportTimestamp = Date.now();
     switch (msg.type) {
       case "hello": {
         const isReconnect = this.everConnected;
         this.everConnected = true;
         this.connectedAt = Date.now();
-        this.lastEventTimestamp = this.connectedAt;
         this.reconnectAttempt = 0;
         this.setStatus("connected");
         this.startPing();
         if (!this.lastSubscribeId) this.sendSubscribe();
         if (isReconnect) {
           // we were dark during the outage — synthesize a lag notice so live views heal the gap
-          const notice: WsLagged = { v: 1, type: "lagged", droppedCount: 0, since: this.lastEventTimestamp };
+          const notice: WsLagged = { v: 1, type: "lagged", droppedCount: 0, since: this.lastDataTimestamp ?? this.lastTransportTimestamp };
           this.recordLaggedNotice(notice);
           this.emitDiagnostics();
           for (const handler of this.laggedHandlers) {
@@ -268,13 +281,12 @@ export class WsManager {
         break;
 
       case "pong":
-        // a pong proves the link is alive, so it counts as recent activity
-        this.lastEventTimestamp = Date.now();
+        // A pong proves only transport activity; it must not make a quiet mesh look active.
         this.emitDiagnostics();
         break;
 
       case "event":
-        this.lastEventTimestamp = Date.now();
+        this.lastDataTimestamp = this.lastTransportTimestamp;
         this.emitDiagnostics();
         if (msg.event === "packetObservation") {
           for (const handler of this.packetHandlers) {
@@ -296,8 +308,7 @@ export class WsManager {
         break;
 
       case "lagged":
-        // a lag notice is still server traffic, so it counts as recent activity
-        this.lastEventTimestamp = Date.now();
+        // A lag notice is transport metadata, not a mesh-data event.
         this.recordLaggedNotice(msg);
         this.emitDiagnostics();
         for (const handler of this.laggedHandlers) {
@@ -325,7 +336,7 @@ export class WsManager {
   private startPing(): void {
     if (this.pingTimer) clearInterval(this.pingTimer); // a second hello must not double the interval
     this.pingTimer = setInterval(() => {
-      if (Date.now() - this.lastEventTimestamp > WS_PING_INTERVAL_MS * 2 + 5_000) {
+      if (Date.now() - this.lastTransportTimestamp > WS_PING_INTERVAL_MS * 2 + 5_000) {
         // pongs stopped coming back — the link is half-open, rebuild it
         this.forceReconnect();
         return;
@@ -348,6 +359,7 @@ export class WsManager {
     const jitter = base * WS_RECONNECT_JITTER * (Math.random() * 2 - 1);
     const delay = Math.max(base + jitter, 100);
     this.reconnectAttempt++;
+    this.reconnectCount++;
     this.emitDiagnostics();
 
     this.reconnectTimer = setTimeout(() => {
@@ -385,6 +397,22 @@ export class WsManager {
 
   private emitDiagnostics(): void {
     this.diagnosticsSnapshot = null;
+    if (this.diagnosticsTimer) return;
+
+    const elapsed = Date.now() - this.lastDiagnosticsEmitAt;
+    if (elapsed >= DIAGNOSTICS_EMIT_INTERVAL_MS) {
+      this.publishDiagnostics();
+      return;
+    }
+
+    this.diagnosticsTimer = setTimeout(() => {
+      this.diagnosticsTimer = null;
+      this.publishDiagnostics();
+    }, DIAGNOSTICS_EMIT_INTERVAL_MS - elapsed);
+  }
+
+  private publishDiagnostics(): void {
+    this.lastDiagnosticsEmitAt = Date.now();
     const diagnostics = this.getDiagnostics();
     if (typeof window !== "undefined") {
       window.__beaconWsDiagnostics = diagnostics;

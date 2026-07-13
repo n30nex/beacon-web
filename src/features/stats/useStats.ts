@@ -32,7 +32,9 @@ const common = {
 } as const;
 
 // `since` is computed inside queryFn so refetches use a fresh window without churning the query key.
-const sinceFor = (range: StatsRange) => Date.now() - RANGE_MS[range];
+const LEGACY_WINDOW_QUANTUM_MS = 5 * 60_000;
+export const sinceFor = (range: StatsRange, now = Date.now()) =>
+  Math.floor((now - RANGE_MS[range]) / LEGACY_WINDOW_QUANTUM_MS) * LEGACY_WINDOW_QUANTUM_MS;
 
 function useStatsIatas(): { iatas: string[] | undefined; regionKey: string } {
   const { iatas, regionKey } = useRegion();

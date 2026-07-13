@@ -4,6 +4,44 @@ import { useIsMobile } from "../../hooks/useMediaQuery";
 import { EChart } from "./EChart";
 import type { EChartsOption } from "./echarts-setup";
 
+export interface StatsQueryState {
+  data: unknown;
+  dataUpdatedAt: number;
+  error: unknown;
+  isError: boolean;
+  refetch: () => Promise<unknown>;
+}
+
+function formatSyncTime(timestamp: number): string {
+  return timestamp > 0
+    ? new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    : "unknown";
+}
+
+// Background failures must not erase a useful cached snapshot. Tabs place this once above their
+// content; charts and tables continue to render the query's retained data underneath it.
+export function StatsQueryNotice({ queries }: { queries: StatsQueryState[] }) {
+  const failed = queries.filter((query) => query.isError && query.data !== undefined);
+  if (failed.length === 0) return null;
+  const lastSuccess = Math.max(...failed.map((query) => query.dataUpdatedAt));
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-warn/45 bg-warn/8 px-3 py-2 font-mono" role="status">
+      <div className="min-w-0">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-warn">Cached analytics shown</div>
+        <div className="text-[10px] text-text-muted">Refresh failed · last good sync {formatSyncTime(lastSuccess)}</div>
+      </div>
+      <button
+        type="button"
+        className="min-h-9 rounded-sm border border-warn/45 px-3 text-[10px] font-semibold uppercase tracking-wider text-warn hover:bg-warn/10"
+        onClick={() => void Promise.allSettled(failed.map((query) => query.refetch()))}
+      >
+        Retry
+      </button>
+    </div>
+  );
+}
+
 // Titled surface card matching the app's panel language.
 export function Card({
   title,
@@ -111,10 +149,11 @@ export function ChartCard({
 }) {
   const isMobile = useIsMobile();
   const resolvedHeight = isMobile ? Math.min(220, Math.max(180, height)) : height;
+  const showError = Boolean(isError && isEmpty !== false);
   return (
     <Card title={title} right={right} className={className}>
       <div style={{ height: resolvedHeight }}>
-        {isError ? (
+        {showError ? (
           <ChartState
             title="Chart data unavailable"
             subtitle="The stats endpoint did not respond. Try refreshing or changing the window."

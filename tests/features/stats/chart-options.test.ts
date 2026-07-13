@@ -32,6 +32,7 @@ describe("typeBarOption", () => {
     expect(opt.xAxis.data).toEqual(["type_0", "type_1", "type_2"]);
     expect(opt.series[0].type).toBe("bar");
     expect(opt.series[0].data.map((d: { value: number }) => d.value)).toEqual([30, 20, 10]);
+    expect(opt.tooltip.renderMode).toBe("richText");
   });
 
   it("keeps explicit item colors and cycles the palette for the rest", () => {
