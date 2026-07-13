@@ -139,113 +139,28 @@ export interface BrokerStatus {
   status?: string;
 }
 
-export interface HealthDependency {
+export interface LivenessStatus {
   status: string;
-  detail?: string;
-}
-
-export interface RateLimitSnapshot {
-  requestsPerMinute: number;
-  burst: number;
-  activeBuckets: number;
-  allowed: number;
-  rejected: number;
-}
-
-export interface CacheCategorySnapshot {
-  hits: number;
-  misses: number;
-  invalidations: number;
-  ttlSeconds?: number;
-  errors?: Record<string, number>;
-  staleServed?: number;
-  refreshes?: number;
-  refreshFailures?: number;
-  coalesced?: number;
-  lastGeneratedAt?: number;
-  lastRefreshAt?: number;
-  lastRefreshError?: string;
-}
-
-export interface BackgroundTaskSnapshot {
-  runs: number;
-  successes: number;
-  failures: number;
-  lastStatus?: string;
-  lastError?: string;
-  lastStartedAt?: number;
-  lastFinishedAt?: number;
-  lastDurationMs?: number;
-  nextRunAt?: number;
-  timeoutMs?: number;
-  skippedRuns?: number;
-  lastAffectedRows?: number;
-}
-
-export interface ServiceLevelSnapshot {
-  status: "ok" | "degraded" | "unknown" | string;
-  worstRoute?: string;
-  worstP95Ms?: number;
-  targetMs?: number;
-  windowSeconds?: number;
-  lastUpdated?: number;
-}
-
-export interface RouteRequestSnapshot {
-  count: number;
-  errors: number;
-  slowRequests: number;
-  hardDeadlineBreaches: number;
-  p95DurationMs: number;
-  lastDurationMs: number;
-  lastStatus: number;
-  targetMs: number;
-  hardDeadlineMs: number;
-  latencyBuckets: Record<string, number>;
-}
-
-export interface BuildProvenance {
-  version: string;
-  sha: string;
-  buildTime?: string;
-  dirty: boolean;
-}
-
-export interface DatabasePoolSnapshot {
-  acquiredConnections: number;
-  idleConnections: number;
-  totalConnections: number;
-  maxConnections: number;
-  acquireCount: number;
-  emptyAcquireCount: number;
-  canceledAcquireCount: number;
-  cumulativeAcquireWaitMs: number;
-}
-
-export interface BackupSnapshot {
-  status: string;
-  lastBackupAt?: number;
-  ageMs?: number;
-  listVerified: boolean;
-  restoreVerified: boolean;
-}
-
-export interface HealthStatus {
-  status: string;
-  ready?: boolean;
   version: string;
   serverTime: number;
-  mode?: string;
-  dependencies: Record<string, HealthDependency>;
-  brokers: BrokerStatus[];
-  rateLimits?: Record<string, RateLimitSnapshot>;
-  cacheMetrics?: Record<string, CacheCategorySnapshot>;
-  backgroundTasks?: Record<string, BackgroundTaskSnapshot>;
-  serviceLevel?: ServiceLevelSnapshot;
-  requestMetrics?: Record<string, RouteRequestSnapshot>;
-  build?: BuildProvenance;
-  databasePool?: DatabasePoolSnapshot;
-  backup?: BackupSnapshot;
+}
+
+export interface ReadinessStatus {
+  status: string;
+  ready: boolean;
+  serverTime: number;
+}
+
+export interface PublicComponentStatus {
+  status: "ok" | "degraded" | "unavailable" | string;
+}
+
+export interface PublicSystemStatus {
+  status: "ok" | "degraded" | "unavailable" | string;
+  serverTime: number;
+  ingest: PublicComponentStatus;
+  liveTraffic: PublicComponentStatus;
+  analytics: PublicComponentStatus;
 }
 
 export type GlobalSearchResultType = "page" | "packet" | "node" | "observer" | "channel" | "route" | "trace";

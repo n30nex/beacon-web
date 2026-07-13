@@ -6,7 +6,7 @@ import { RuntimeStatusPanel } from "../../src/components/RuntimeStatusPanel";
 import { RegionProvider } from "../../src/hooks/useRegion";
 import { ThemeProvider } from "../../src/hooks/useTheme";
 import { ALL_REGIONS } from "../../src/hooks/region-selection";
-import { getBrokers, getHealth, getIatas, getLiveSummary, getReadiness, getRegions } from "../../src/api/client";
+import { getBrokers, getHealth, getIatas, getLiveSummary, getReadiness, getRegions, getSystemStatus } from "../../src/api/client";
 import type { WsManager } from "../../src/api/ws-manager";
 
 vi.mock("../../src/api/client", () => ({
@@ -15,6 +15,7 @@ vi.mock("../../src/api/client", () => ({
   getRegion: vi.fn(),
   getHealth: vi.fn(),
   getReadiness: vi.fn(),
+  getSystemStatus: vi.fn(),
   getBrokers: vi.fn(),
   getLiveSummary: vi.fn(),
 }));
@@ -22,6 +23,8 @@ vi.mock("../../src/api/client", () => ({
 const wsDiagnostics = {
   status: "connected",
   lastEventTimestamp: Date.now(),
+  lastTransportTimestamp: Date.now(),
+  lastDataTimestamp: Date.now(),
   reconnectAttempt: 0,
   parseFailureCount: 0,
   lastParseFailureAt: null,
@@ -151,45 +154,20 @@ beforeEach(() => {
   vi.mocked(getRegions).mockReset().mockResolvedValue([]);
   vi.mocked(getHealth).mockReset().mockResolvedValue({
     status: "ok",
-    ready: true,
     version: "dev",
     serverTime: Date.now(),
-    mode: "health",
-      dependencies: {
-        database: { status: "ok" },
-        cache: { status: "ok", detail: "redis" },
-      },
-      brokers: [{ name: "broker-a", connected: true }],
-      rateLimits: {
-        publicRest: { requestsPerMinute: 600, burst: 60, activeBuckets: 2, allowed: 120, rejected: 0 },
-      },
-      cacheMetrics: {
-        stats: { hits: 6, misses: 2, invalidations: 1, ttlSeconds: 3600 },
-      },
-      backgroundTasks: {
-        view_refresh: {
-          runs: 3,
-          successes: 3,
-          failures: 0,
-          lastStatus: "success",
-          lastFinishedAt: Date.now(),
-          lastDurationMs: 42,
-        },
-      },
-    });
+  });
   vi.mocked(getReadiness).mockReset().mockResolvedValue({
     status: "ok",
     ready: true,
-    version: "dev",
     serverTime: Date.now(),
-    mode: "readiness",
-      dependencies: {
-        database: { status: "ok" },
-        cache: { status: "ok", detail: "redis" },
-        ingestWorkers: { status: "ok", detail: "brokers connected" },
-        websocket: { status: "ok", detail: "endpoint available at /ws" },
-    },
-    brokers: [{ name: "broker-a", connected: true }],
+  });
+  vi.mocked(getSystemStatus).mockReset().mockResolvedValue({
+    status: "degraded",
+    serverTime: Date.now(),
+    ingest: { status: "ok" },
+    liveTraffic: { status: "ok" },
+    analytics: { status: "degraded" },
   });
   vi.mocked(getBrokers).mockReset().mockResolvedValue([
     { name: "broker-a", connected: true },
@@ -284,25 +262,22 @@ describe("AppShell", () => {
     expect(screen.getByText("42")).toBeInTheDocument();
     expect(getHealth).toHaveBeenCalled();
     expect(getReadiness).toHaveBeenCalled();
+    expect(getSystemStatus).toHaveBeenCalled();
     expect(getBrokers).toHaveBeenCalled();
     expect(getLiveSummary).toHaveBeenCalled();
   });
 
-  it("renders page diagnostics for dependencies, cache, background jobs, and rate limits", async () => {
+  it("renders only coarse public component states on the System page", async () => {
     vi.mocked(getIatas).mockResolvedValue([]);
     renderRuntimePanel();
 
-    expect(await screen.findByText("Runtime")).toBeInTheDocument();
-    expect(await screen.findByText("Dependencies")).toBeInTheDocument();
-    expect(screen.getByText("database")).toBeInTheDocument();
-    expect(screen.getByText("Cache")).toBeInTheDocument();
-    expect(screen.getByText("stats")).toBeInTheDocument();
-    expect(screen.getByText("HR 75%")).toBeInTheDocument();
-    expect(screen.getByText("Background")).toBeInTheDocument();
-    expect(screen.getByText("view_refresh")).toBeInTheDocument();
-    expect(screen.getByText("Rate Limits")).toBeInTheDocument();
-    expect(screen.getByText("publicRest")).toBeInTheDocument();
-    expect(screen.getByText("0 rejected")).toBeInTheDocument();
+    expect(await screen.findByText("DEGRADED")).toBeInTheDocument();
+    expect(screen.getByText("Ingest")).toBeInTheDocument();
+    expect(screen.getByText("Live Traffic")).toBeInTheDocument();
+    expect(screen.getByText("Analytics")).toBeInTheDocument();
+    expect(screen.getAllByText("degraded", { exact: false }).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Raw diagnostics")).not.toBeInTheDocument();
+    expect(screen.queryByText("Dependencies")).not.toBeInTheDocument();
   });
 
   it("uses modern glass as the default design mode", async () => {

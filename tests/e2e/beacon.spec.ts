@@ -18,89 +18,17 @@ const now = Date.now();
 const emptyPage = { items: [], nextCursor: null, hasMore: false };
 const healthStatus = {
   status: "ok",
-  ready: true,
-  serviceLevel: {
-    status: "ok",
-    worstRoute: "GET /api/v1/stats/home",
-    worstP95Ms: 82,
-    targetMs: 250,
-  },
-  build: {
-    sha: "e2e0123456789",
-    builtAt: "2026-07-10T00:00:00Z",
-    dirty: false,
-  },
-  backup: {
-    status: "ok",
-    ageMs: 30 * 60_000,
-  },
   version: "e2e",
   serverTime: now,
-  mode: "playwright",
-  dependencies: {
-    database: { status: "ok" },
-    cache: { status: "ok" },
-    websocket: { status: "ok" },
-  },
-  brokers: [{ name: "e2e-broker", connected: true, status: "connected" }],
-  rateLimits: {
-    publicRest: { requestsPerMinute: 600, burst: 60, activeBuckets: 1, allowed: 12, rejected: 0 },
-  },
-  cacheMetrics: {
-    stats: { hits: 2, misses: 1, invalidations: 0, ttlSeconds: 3600, staleServed: 0 },
-  },
-  databasePool: {
-    acquiredConnections: 1,
-    idleConnections: 2,
-    totalConnections: 3,
-    maxConnections: 12,
-    emptyAcquireCount: 0,
-    canceledAcquireCount: 0,
-  },
-  backgroundTasks: {
-    view_refresh: {
-      runs: 1,
-      successes: 1,
-      failures: 0,
-      lastStatus: "success",
-      lastFinishedAt: now,
-      lastDurationMs: 12,
-      lastAffectedRows: 4,
-      nextRunAt: now + 60 * 60_000,
-    },
-  },
 };
-
-const degradedHealthStatus = {
-  ...healthStatus,
-  status: "degraded",
-  serviceLevel: {
-    status: "degraded",
-    worstRoute: "GET /api/v1/atlas",
-    worstP95Ms: 6200,
-    targetMs: 750,
-  },
-  build: { ...healthStatus.build, dirty: true },
-  backup: { status: "degraded", ageMs: 30 * 60 * 60_000 },
-  cacheMetrics: {
-    atlas: {
-      hits: 2,
-      misses: 4,
-      invalidations: 0,
-      ttlSeconds: 30,
-      staleServed: 3,
-      lastRefreshError: "refresh deadline exceeded",
-      errors: { refresh: 1 },
-    },
-  },
-  backgroundTasks: {
-    view_refresh: {
-      ...healthStatus.backgroundTasks.view_refresh,
-      failures: 1,
-      lastStatus: "failed",
-      lastError: "lock timeout",
-    },
-  },
+const readinessStatus = { status: "ok", ready: true, serverTime: now };
+const brokerStatus = [{ name: "e2e-broker", connected: true, status: "connected" }];
+const systemStatus = {
+  status: "ok",
+  serverTime: now,
+  ingest: { status: "ok" },
+  liveTraffic: { status: "ok" },
+  analytics: { status: "ok" },
 };
 
 const liveSummary = {
@@ -378,7 +306,7 @@ async function mockBeaconRuntime(page: Page) {
   });
 
   await page.route("**/healthz", (route) => route.fulfill({ json: healthStatus }));
-  await page.route("**/readyz", (route) => route.fulfill({ json: healthStatus }));
+  await page.route("**/readyz", (route) => route.fulfill({ json: readinessStatus }));
   await page.route("**/api/v1/**", (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/^.*\/api\/v1/, "");
@@ -391,6 +319,9 @@ async function mockBeaconRuntime(page: Page) {
     }
     if (path === "/stats/home") {
       return route.fulfill({ json: statsHome });
+    }
+    if (path === "/system/status") {
+      return route.fulfill({ json: systemStatus });
     }
     if (path === "/stats/summary") {
       return route.fulfill({ json: statsSummary });
@@ -405,7 +336,7 @@ async function mockBeaconRuntime(page: Page) {
       return route.fulfill({ json: emptyPage });
     }
     if (path === "/brokers") {
-      return route.fulfill({ json: healthStatus.brokers });
+      return route.fulfill({ json: brokerStatus });
     }
     if (path === "/nodes") {
       return route.fulfill({ json: nodePage });
@@ -649,21 +580,22 @@ test("mobile Home live pulse honors reduced motion and remains accessible @a11y"
   await expectNoBlockingAxeViolations(page, "mobile Home after a live update");
 });
 
-test("System leads with degraded state and keeps raw counters expandable", async ({ page }) => {
-  await page.route("**/healthz", (route) => route.fulfill({ json: degradedHealthStatus }));
-  await page.route("**/readyz", (route) => route.fulfill({ json: degradedHealthStatus }));
+test("System leads with coarse degraded state and exposes no raw diagnostics", async ({ page }) => {
+  await page.route("**/api/v1/system/status", (route) => route.fulfill({ json: {
+    status: "degraded",
+    serverTime: now,
+    ingest: { status: "ok" },
+    liveTraffic: { status: "ok" },
+    analytics: { status: "degraded" },
+  } }));
   await page.goto("/?tab=System&boot=0", { waitUntil: "domcontentloaded" });
 
   const panel = page.locator(".runtime-status-panel");
   await expect(page.getByRole("heading", { name: "System" })).toBeVisible();
   await expect(panel.getByText("DEGRADED", { exact: true }).first()).toBeVisible();
-  await expect(panel.getByText("6200 / 750 ms")).toBeVisible();
-  await expect(panel.getByText(/DIRTY/).first()).toBeVisible();
-  const raw = panel.getByText("Raw diagnostics");
-  await expect(panel.getByText("refresh deadline exceeded")).toBeHidden();
-  await raw.click();
-  await expect(panel.getByText("REFRESH refresh deadline exceeded")).toBeVisible();
-  await expect(panel.getByText("lock timeout")).toBeVisible();
+  await expect(panel.getByText("Analytics")).toBeVisible();
+  await expect(panel.getByText("Raw diagnostics")).toHaveCount(0);
+  await expect(panel.getByText("Dependencies")).toHaveCount(0);
 });
 
 test("mobile Live exposes four primary controls and reduced-motion defaults", async ({ page }) => {

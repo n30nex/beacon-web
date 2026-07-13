@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getNodesPage, getObserversPage, getScopes, getKnownRoutesPage, getNetgraphSnapshot, searchKnownRoutes, getChannels, getChannelMessagesPage, getTraces, getTraceDetail, getHealth, getReadiness } from "../../src/api/client";
+import { getNodesPage, getObserversPage, getScopes, getKnownRoutesPage, getNetgraphSnapshot, searchKnownRoutes, getChannels, getChannelMessagesPage, getTraces, getTraceDetail, getHealth, getReadiness, getSystemStatus } from "../../src/api/client";
 import type { NodeSummary } from "../../src/features/nodes/types";
 import type { ObserverSummary } from "../../src/features/observers/types";
 import type { ChannelMessage, ChannelSummary } from "../../src/features/channels/types";
@@ -143,6 +143,21 @@ describe("getHealth", () => {
     );
 
     await expect(getReadiness()).resolves.toMatchObject({ status: "degraded", ready: false });
+  });
+
+  it("loads the coarse public system status endpoint", async () => {
+    const getUrl = mockFetchOnce({
+      status: "degraded",
+      serverTime: 3,
+      ingest: { status: "ok" },
+      liveTraffic: { status: "ok" },
+      analytics: { status: "degraded" },
+    });
+
+    const status = await getSystemStatus();
+
+    expect(new URL(getUrl()).pathname).toBe("/api/v1/system/status");
+    expect(status.analytics.status).toBe("degraded");
   });
 });
 

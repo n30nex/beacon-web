@@ -16,7 +16,9 @@ import type {
   AtlasBriefing,
   RegionAtlasSummary,
   AtlasReplayPacket,
-  HealthStatus,
+  LivenessStatus,
+  ReadinessStatus,
+  PublicSystemStatus,
   LiveSummary,
   GlobalSearchResponse,
 } from "../types/api";
@@ -166,20 +168,20 @@ export function getBrokers(): Promise<BrokerStatus[]> {
   return request("/brokers");
 }
 
-function isHealthStatus(value: unknown): value is HealthStatus {
+function isStatusResponse(value: unknown): value is { status: string; serverTime: number } {
   if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<HealthStatus>;
+  const candidate = value as { status?: unknown; serverTime?: unknown };
   return typeof candidate.status === "string" && typeof candidate.serverTime === "number";
 }
 
-async function getHealthStatus(path: "/healthz" | "/readyz"): Promise<HealthStatus> {
+async function getHealthStatus<T extends { status: string; serverTime: number }>(path: "/healthz" | "/readyz"): Promise<T> {
   const url = new URL(path, window.location.origin);
   const res = await fetch(url.toString());
   const body: unknown = await res.json().catch(() => null);
 
   // Readiness intentionally uses HTTP 503 while dependencies are unavailable. Its JSON is still
   // the authoritative degraded snapshot and must remain visible in the System UI.
-  if (isHealthStatus(body)) return body;
+  if (isStatusResponse(body)) return body as T;
 
   if (!res.ok) {
     const error = body as { error?: { code?: string; message?: string } } | null;
@@ -189,12 +191,16 @@ async function getHealthStatus(path: "/healthz" | "/readyz"): Promise<HealthStat
   throw new ApiError(res.status, "invalid_health_response", "Health endpoint returned an invalid response");
 }
 
-export function getHealth(): Promise<HealthStatus> {
-  return getHealthStatus("/healthz");
+export function getHealth(): Promise<LivenessStatus> {
+  return getHealthStatus<LivenessStatus>("/healthz");
 }
 
-export function getReadiness(): Promise<HealthStatus> {
-  return getHealthStatus("/readyz");
+export function getReadiness(): Promise<ReadinessStatus> {
+  return getHealthStatus<ReadinessStatus>("/readyz");
+}
+
+export function getSystemStatus(): Promise<PublicSystemStatus> {
+  return request("/system/status");
 }
 
 export function getGlobalSearch(
