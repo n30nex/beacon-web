@@ -205,7 +205,7 @@ function enforceMinimumDistance3D(
         const dx = finite(b.x, b.seedX) - finite(a.x, a.seedX);
         const dy = finite(b.y, b.seedY) - finite(a.y, a.seedY);
         const dz = finite(b.z, b.seedZ) - finite(a.z, a.seedZ);
-        let distanceSq = dx * dx + dy * dy + dz * dz;
+        const distanceSq = dx * dx + dy * dy + dz * dz;
         if (distanceSq >= minDistance * minDistance) continue;
         if (distanceSq < 0.0001) {
           const fallback = fallbackSeparationDirection(a.id, b.id);
