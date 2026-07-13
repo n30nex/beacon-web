@@ -59,22 +59,25 @@ describe("backend OpenAPI contract", () => {
     expect(get("/readyz")).toBeTruthy();
   });
 
-  it("documents health and readiness fields consumed by the runtime panel", () => {
-    for (const path of ["/healthz", "/readyz"]) {
-      const props = resolvedProperties(responseSchema(path));
-      expect(props.status?.type).toBe("string");
-      expect(props.ready?.type).toBe("boolean");
-      expect(props.mode?.type).toBe("string");
-      expect(props.serverTime?.type).toBe("integer");
-      expect(props.dependencies?.type).toBe("object");
-      expect(props.brokers?.type).toBe("array");
+  it("documents the minimal health boundary and coarse public system status", () => {
+    const health = resolvedProperties(responseSchema("/healthz"));
+    expect(health.status?.type).toBe("string");
+    expect(health.serverTime?.type).toBe("integer");
+    expect(health.version?.type).toBe("string");
 
-      const brokerProps = resolvedProperties(props.brokers.items!);
-      expect(brokerProps.name?.type).toBe("string");
-      expect(brokerProps.connected?.type).toBe("boolean");
-      expect(brokerProps.status?.type).toBe("string");
-    }
+    const readiness = resolvedProperties(responseSchema("/readyz"));
+    expect(readiness.status?.type).toBe("string");
+    expect(readiness.ready?.type).toBe("boolean");
+    expect(readiness.serverTime?.type).toBe("integer");
     expect(responseSchema("/readyz", "503").$ref).toBe(responseSchema("/readyz").$ref);
+
+    const system = resolvedProperties(responseSchema("/system/status"));
+    expect(system.status?.type).toBe("string");
+    expect(system.serverTime?.type).toBe("integer");
+    for (const component of ["ingest", "liveTraffic", "analytics"]) {
+      const componentProps = resolvedProperties(system[component]!);
+      expect(componentProps.status?.type).toBe("string");
+    }
   });
 
   it("documents the major operator endpoints used by the web client", () => {
