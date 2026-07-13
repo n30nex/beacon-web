@@ -435,7 +435,7 @@ async function expectNoBlockingAxeViolations(page: Page, context: string) {
 
 const routes = [
   { label: "Home", url: "/?tab=Home&boot=0", ready: (page: Page) => expect(page.getByRole("heading", { name: "Home" })).toBeVisible({ timeout: 15_000 }) },
-  { label: "Live", url: "/?tab=Live&boot=0", ready: (page: Page) => expect(page.getByText("Packet Inspector")).toBeVisible({ timeout: 15_000 }) },
+  { label: "Live", url: "/?tab=Live&boot=0", ready: (page: Page) => expect(page.getByLabel("Node loading progress")).toBeVisible({ timeout: 15_000 }) },
   { label: "Map", url: "/?tab=Map&boot=0", ready: (page: Page) => expect(page.getByRole("button", { name: "Map Settings" })).toBeVisible({ timeout: 15_000 }) },
   { label: "Analytics", url: "/?tab=Analytics&boot=0", ready: (page: Page) => expect(page.getByRole("heading", { name: "Analytics" })).toBeVisible({ timeout: 15_000 }) },
   { label: "Observers", url: "/?tab=Observers&boot=0", ready: (page: Page) => expect(page.getByRole("toolbar", { name: "Observer filters" })).toBeVisible({ timeout: 15_000 }) },
@@ -487,7 +487,7 @@ test("keyboard can reach primary navigation and search", async ({ page }) => {
   await page.goto("/?tab=Home&boot=0", { waitUntil: "domcontentloaded" });
   await page.keyboard.press("Tab");
   await expect(page.locator(":focus")).toBeVisible();
-  await page.getByRole("button", { name: "Search" }).focus();
+  await page.getByRole("button", { name: "Search", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("dialog")).toBeVisible();
 });
@@ -650,6 +650,7 @@ test("saved investigation lifecycle survives export, import, and history navigat
   await page.goBack();
   await expect(page.getByRole("heading", { name: "Investigations" })).toBeVisible();
 
+  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Delete" }).click();
   await expect(page.getByText(/No saved investigations/)).toBeVisible();
   await page.locator('input[type="file"]').setInputFiles(exportPath!);
@@ -691,7 +692,7 @@ test("Netgraph node focus stays in the 3D topology workspace", async ({ page }) 
   await page.getByRole("button", { name: "Focus selected netgraph item" }).click();
   await page.getByRole("button", { name: "Focus selected node neighborhood" }).click();
   await page.getByRole("button", { name: "Switch to top netgraph view" }).click();
-  await page.getByRole("button", { name: "Pause netgraph orbit" }).click();
+  await page.getByRole("button", { name: "Resume netgraph orbit" }).click();
   await page.getByRole("button", { name: "Close selected node focus" }).click();
   await expect(page).not.toHaveURL(/nodeId=node-alpha/);
 });
@@ -716,8 +717,8 @@ for (const viewport of [
     await page.getByRole("button", { name: "Zoom out of netgraph" }).click();
     await page.getByRole("button", { name: "Focus selected netgraph item" }).click();
     await page.getByRole("button", { name: "Switch to top netgraph view" }).click();
-    await page.getByRole("button", { name: "Pause netgraph orbit" }).click();
     await page.getByRole("button", { name: "Resume netgraph orbit" }).click();
+    await page.getByRole("button", { name: "Pause netgraph orbit" }).click();
     await page.getByRole("button", { name: "Reset netgraph camera" }).click();
     await page.waitForTimeout(500);
 

@@ -95,7 +95,7 @@ export function OverviewTab({ range, onSelectObserver, wsManager }: OverviewTabP
     <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5 px-3 py-3 sm:px-4 sm:py-4">
       <StatsQueryNotice queries={[home]} />
 
-      <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
+      <div className="stats-kpi-grid grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3" role="region" aria-label="Analytics key performance indicators" tabIndex={0}>
         <StatCard label="Packets" sublabel={range} accent="var(--color-primary)" value={home.isLoading ? "--" : formatCount(overview?.totalPackets)} />
         <StatCard label="Observations" sublabel={range} accent="var(--color-green)" value={home.isLoading ? "--" : formatCount(overview?.totalObservations)} />
         <StatCard label="Observers" sublabel={range} accent="var(--color-secondary)" value={home.isLoading ? "--" : formatCount(overview?.activeObservers)} />
@@ -106,7 +106,7 @@ export function OverviewTab({ range, onSelectObserver, wsManager }: OverviewTabP
         <StatCard label="Window" sublabel="server aggregate" accent="var(--color-primary)" value={overview?.windowHours ? `${overview.windowHours}h` : range} />
       </div>
 
-      <div className="stats-chart-rail grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+      <div className="stats-chart-rail grid grid-cols-1 gap-3.5 lg:grid-cols-2" role="region" aria-label="Analytics charts" tabIndex={0}>
         <ChartCard title="Top IATAs" height={210} option={iataOption} isLoading={home.isLoading} isError={home.isError} isEmpty={topIatas.length === 0} />
         <ChartCard title="Top observers" height={210} option={observersOption} isLoading={home.isLoading} isError={home.isError} isEmpty={observers.length === 0} onEvents={observerEvents} />
         <ChartCard title="Top nodes" height={210} option={nodesOption} isLoading={home.isLoading} isError={home.isError} isEmpty={nodeRows.length === 0} />
