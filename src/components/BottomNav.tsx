@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { BottomSheet } from "./BottomSheet";
 import { NavIcon } from "./NavIcon";
-import { DATA_TABS, SYSTEM_TABS, TOOL_TABS, isDataTab, isSystemTab, type PageTab } from "../lib/navigation";
+import { DATA_TABS, MONITOR_TABS, SYSTEM_TABS, TOOL_TABS, isDataTab, isMonitorTab, isSystemTab, isToolTab, type PageTab } from "../lib/navigation";
 
 type NavIconName = Parameters<typeof NavIcon>[0]["name"];
 
@@ -44,11 +44,12 @@ function NavButton({
       aria-haspopup={ariaHasPopup}
       aria-expanded={ariaExpanded}
       onClick={onClick}
-      className={`flex h-14 flex-1 items-center justify-center transition-colors crt-icon ${
+      className={`crt-icon flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 transition-colors ${
         active ? "text-primary" : "text-text-muted hover:text-text-normal"
       }`}
     >
       {icon}
+      <span className="max-w-full truncate font-mono text-[10px] font-semibold uppercase leading-none tracking-tight">{label}</span>
     </button>
   );
 }
@@ -103,9 +104,11 @@ function GroupSheet({
 }
 
 export function BottomNav({ activeTab, onOpenSearch, onTabChange }: { activeTab: string; onOpenSearch?: () => void; onTabChange: (tab: string) => void }) {
-  const [openGroup, setOpenGroup] = useState<"Data" | "System" | null>(null);
+  const [openGroup, setOpenGroup] = useState<"Monitor" | "Data" | "System" | null>(null);
+  const monitorActive = isMonitorTab(activeTab) && activeTab !== "Map";
   const dataActive = isDataTab(activeTab);
-  const systemActive = isSystemTab(activeTab);
+  const systemActive = isSystemTab(activeTab) || isToolTab(activeTab);
+  const mobileSystemTabs = [...SYSTEM_TABS, ...TOOL_TABS] as const;
 
   const pick = (tab: PageTab) => {
     onTabChange(tab);
@@ -116,8 +119,15 @@ export function BottomNav({ activeTab, onOpenSearch, onTabChange }: { activeTab:
     <>
       <nav className="crt-panel flex md:hidden shrink-0 bg-bg-surface border-t border-border pb-[env(safe-area-inset-bottom)]" aria-label="Mobile navigation">
         <NavButton label="Home" icon={<NavIcon name="home" />} active={activeTab === "Home"} onClick={() => pick("Home")} />
-        <NavButton label="Live" icon={<NavIcon name="live" />} active={activeTab === "Live"} onClick={() => pick("Live")} />
-        <NavButton label="Netgraph" icon={<NavIcon name="netgraph" />} active={activeTab === "Netgraph"} onClick={() => pick("Netgraph")} />
+        <NavButton label="Map" icon={<NavIcon name="map" />} active={activeTab === "Map"} onClick={() => pick("Map")} />
+        <NavButton
+          label="Monitor"
+          icon={<NavIcon name="live" />}
+          active={monitorActive || openGroup === "Monitor"}
+          onClick={() => setOpenGroup((group) => (group === "Monitor" ? null : "Monitor"))}
+          ariaHasPopup="menu"
+          ariaExpanded={openGroup === "Monitor"}
+        />
         {onOpenSearch && <NavButton label="Search" icon={<NavIcon name="search" />} active={false} onClick={onOpenSearch} />}
         <NavButton
           label="Data"
@@ -137,11 +147,14 @@ export function BottomNav({ activeTab, onOpenSearch, onTabChange }: { activeTab:
         />
       </nav>
 
+      {openGroup === "Monitor" && (
+        <GroupSheet label="Monitor" tabs={MONITOR_TABS} onPick={pick} onClose={() => setOpenGroup(null)} />
+      )}
       {openGroup === "Data" && (
         <GroupSheet label="Data" tabs={DATA_TABS} onPick={pick} onClose={() => setOpenGroup(null)} />
       )}
       {openGroup === "System" && (
-        <GroupSheet label="System" tabs={SYSTEM_TABS} onPick={pick} onClose={() => setOpenGroup(null)} />
+        <GroupSheet label="System" tabs={mobileSystemTabs} onPick={pick} onClose={() => setOpenGroup(null)} />
       )}
     </>
   );

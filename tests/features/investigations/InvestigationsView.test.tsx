@@ -8,6 +8,7 @@ beforeEach(() => {
   localStorage.clear();
   window.history.replaceState({}, "", "/?tab=Investigations");
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: vi.fn().mockResolvedValue(undefined) } });
+  Object.defineProperty(window, "confirm", { configurable: true, value: vi.fn(() => true) });
 });
 
 describe("InvestigationsView", () => {
@@ -27,9 +28,20 @@ describe("InvestigationsView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
     await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining("statsTab=rf")));
+    expect(screen.getByRole("status")).toHaveTextContent("Investigation link copied");
 
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(await screen.findByText(/No saved investigations/)).toBeInTheDocument();
+  });
+
+  it("keeps an investigation when deletion is cancelled", () => {
+    createSavedInvestigation("Node case", "/?tab=Nodes&nodeId=n1");
+    vi.mocked(window.confirm).mockReturnValue(false);
+    render(<BrowserRouter><InvestigationsView /></BrowserRouter>);
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(readSavedInvestigations()).toHaveLength(1);
   });
 
   it("copies an existing workspace as a new investigation", () => {

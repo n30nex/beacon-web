@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter } from "react-router-dom";
 import { RegionProvider } from "../../../src/hooks/useRegion";
 import { ALL_REGIONS } from "../../../src/hooks/region-selection";
 import { HomeView } from "../../../src/features/home/HomeView";
@@ -27,15 +28,18 @@ const wsManager = {
 function renderHome(onNavigate: (tab: PageTab) => void = () => {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
-    <QueryClientProvider client={client}>
-      <RegionProvider defaultSelection={ALL_REGIONS}>
-        <HomeView wsManager={wsManager} onNavigate={onNavigate} />
-      </RegionProvider>
-    </QueryClientProvider>,
+    <BrowserRouter>
+      <QueryClientProvider client={client}>
+        <RegionProvider defaultSelection={ALL_REGIONS}>
+          <HomeView wsManager={wsManager} onNavigate={onNavigate} />
+        </RegionProvider>
+      </QueryClientProvider>
+    </BrowserRouter>,
   );
 }
 
 beforeEach(() => {
+  window.history.replaceState({}, "", "/?tab=Home");
   vi.mocked(getRegions).mockReset().mockResolvedValue([]);
   vi.mocked(getRegion).mockReset();
   vi.mocked(getLiveSummary).mockReset().mockResolvedValue({
@@ -103,5 +107,16 @@ describe("HomeView", () => {
     expect(mapCommand).not.toHaveClass("aspect-square");
     fireEvent.click(mapCommand);
     expect(onNavigate).toHaveBeenCalledWith("Map");
+  });
+
+  it("deep-links ranked entities by their stable IDs", async () => {
+    renderHome();
+    const topNode = (await screen.findAllByText("Node One"))[0]?.closest("button");
+    expect(topNode).toBeTruthy();
+
+    fireEvent.click(topNode!);
+
+    expect(new URLSearchParams(window.location.search).get("tab")).toBe("Nodes");
+    expect(new URLSearchParams(window.location.search).get("nodeId")).toBe("node1");
   });
 });

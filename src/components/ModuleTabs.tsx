@@ -1,3 +1,4 @@
+import { useId, useRef, type KeyboardEvent } from "react";
 import "../features/shared/responsive-panels.css";
 
 interface ModuleTabOption<T extends string> {
@@ -11,9 +12,24 @@ interface ModuleTabsProps<T extends string> {
   options: readonly ModuleTabOption<T>[];
   value: T;
   onChange: (value: T) => void;
+  panelId?: string;
 }
 
-export function ModuleTabs<T extends string>({ label, options, value, onChange }: ModuleTabsProps<T>) {
+export function ModuleTabs<T extends string>({ label, options, value, onChange, panelId }: ModuleTabsProps<T>) {
+  const baseId = useId();
+  const tablistRef = useRef<HTMLDivElement>(null);
+
+  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const last = options.length - 1;
+    const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? last : event.key === "ArrowRight" ? (index + 1) % options.length : (index - 1 + options.length) % options.length;
+    const next = options[nextIndex];
+    if (!next) return;
+    onChange(next.id);
+    tablistRef.current?.querySelectorAll<HTMLElement>('[role="tab"]')[nextIndex]?.focus();
+  }
+
   return (
     <div className="module-tabs crt-panel flex shrink-0 flex-col gap-2 border-b border-border bg-bg-surface/95 px-3 py-2 md:flex-row md:items-center md:justify-between md:px-4">
       <div className="min-w-0">
@@ -23,15 +39,19 @@ export function ModuleTabs<T extends string>({ label, options, value, onChange }
         </div>
       </div>
       <div className="module-tab-scroll relative max-w-full min-w-0 overflow-hidden">
-        <div role="tablist" aria-label={label} className="flex max-w-full gap-1 overflow-x-auto pb-1 pr-6 md:pb-0">
-          {options.map((option) => {
+        <div ref={tablistRef} role="tablist" aria-label={label} className="flex max-w-full gap-1 overflow-x-auto pb-1 pr-6 md:pb-0">
+          {options.map((option, index) => {
             const active = option.id === value;
             return (
               <button
                 key={option.id}
                 type="button"
                 role="tab"
+                id={`${baseId}-${option.id}`}
+                aria-controls={panelId}
                 aria-selected={active}
+                tabIndex={active ? 0 : -1}
+                onKeyDown={(event) => onKeyDown(event, index)}
                 onClick={() => onChange(option.id)}
                 className={`module-tab-button shrink-0 rounded-sm border px-2.5 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider transition-colors ${
                   active

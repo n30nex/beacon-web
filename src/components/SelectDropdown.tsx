@@ -27,7 +27,7 @@ export function SelectDropdown({ label, options, value, onChange, align = "right
       align={align}
       width="w-52"
       fullWidth={fullWidth}
-      renderTrigger={({ open, toggle }) => (
+      renderTrigger={({ open, toggle, panelId }) => (
         <button
           type="button"
           className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-sm border font-mono cursor-pointer transition-all ${
@@ -39,6 +39,8 @@ export function SelectDropdown({ label, options, value, onChange, align = "right
           }`}
           onClick={toggle}
           aria-haspopup="listbox"
+          aria-controls={panelId}
+          aria-expanded={open}
         >
           {label}
           <span className={active ? "text-primary" : "text-text-dim"}>{active ? selectedLabel : allLabel}</span>
@@ -47,7 +49,7 @@ export function SelectDropdown({ label, options, value, onChange, align = "right
       )}
     >
       {(close) => (
-        <div role="listbox">
+        <div role="listbox" aria-label={label}>
           {!hideAll && (
             <button
               type="button"

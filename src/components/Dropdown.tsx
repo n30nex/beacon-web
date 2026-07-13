@@ -1,8 +1,8 @@
-import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
+import { useState, useRef, useCallback, useEffect, useId, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { useClickOutside } from "../hooks/useClickOutside";
 
 export function Dropdown({ renderTrigger, align = "right", width = "w-48", fullWidth = false, children }: {
-  renderTrigger: (props: { open: boolean; toggle: () => void }) => ReactNode;
+  renderTrigger: (props: { open: boolean; toggle: () => void; panelId: string }) => ReactNode;
   align?: "left" | "right";
   width?: string;
   // stretch + render the panel inline (accordion) for the mobile filter sheet
@@ -11,26 +11,61 @@ export function Dropdown({ renderTrigger, align = "right", width = "w-48", fullW
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const close = useCallback(() => setOpen(false), []);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const panelId = useId();
+  const close = useCallback(() => {
+    setOpen(false);
+    window.requestAnimationFrame(() => restoreFocusRef.current?.focus());
+  }, []);
   const toggle = useCallback(() => setOpen((v) => !v), []);
   useClickOutside(ref, open, close);
 
   useEffect(() => {
     if (!open) return;
+    const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    restoreFocusRef.current = activeElement && activeElement !== document.body
+      ? activeElement
+      : ref.current?.querySelector<HTMLElement>("button, [role=button]") ?? null;
+    const focusId = window.requestAnimationFrame(() => {
+      const target = panelRef.current?.querySelector<HTMLElement>(
+        '[aria-selected="true"], [aria-checked="true"], [role="menuitem"], [role="option"], button:not([disabled]), input:not([disabled])',
+      );
+      target?.focus();
+    });
     function handleKey(e: KeyboardEvent) {
       if (e.key !== "Escape") return;
       e.stopPropagation(); // innermost layer wins — don't let an enclosing sheet/modal close too
       close();
     }
     document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
+    return () => {
+      window.cancelAnimationFrame(focusId);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, [open, close]);
+
+  function movePanelFocus(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    const controls = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(
+      '[role="menuitem"]:not([aria-disabled="true"]), [role="option"]:not([aria-disabled="true"]), button:not([disabled]), input:not([disabled])',
+    ) ?? []);
+    if (controls.length === 0) return;
+    const current = controls.indexOf(document.activeElement as HTMLElement);
+    let next = current;
+    if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = controls.length - 1;
+    else if (event.key === "ArrowDown") next = current < 0 ? 0 : (current + 1) % controls.length;
+    else next = current <= 0 ? controls.length - 1 : current - 1;
+    event.preventDefault();
+    controls[next]?.focus();
+  }
 
   return (
     <div ref={ref} className={`relative ${fullWidth ? "w-full" : ""}`}>
-      {renderTrigger({ open, toggle })}
+      {renderTrigger({ open, toggle, panelId })}
       {open && (
-        <div className={
+        <div ref={panelRef} id={panelId} onKeyDown={movePanelFocus} className={
           fullWidth
             ? "crt-panel mt-1 w-full bg-bg-raised border border-border rounded-md py-1 max-h-72 overflow-y-auto"
             : `crt-panel absolute top-full mt-1 ${align === "left" ? "left-0" : "right-0"} ${width} max-w-[calc(100vw-1.5rem)] bg-bg-raised border border-border rounded-md shadow-lg z-[120] py-1 max-h-80 overflow-y-auto`

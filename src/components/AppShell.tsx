@@ -14,7 +14,7 @@ import { TerminalLoadingState } from "./TerminalLoader";
 import { RuntimeStatusPanel } from "./RuntimeStatusPanel";
 import { getIatas } from "../api/client";
 import { sanitizeDisplayLabel } from "../lib/display-label";
-import { DATA_TABS, SYSTEM_TABS, isDataTab, isSystemTab, type PageTab } from "../lib/navigation";
+import { DATA_TABS, MONITOR_TABS, SYSTEM_TABS, TOOL_TABS, isDataTab, isMonitorTab, isSystemTab, isToolTab, type PageTab } from "../lib/navigation";
 import type { WsManager } from "../api/ws-manager";
 
 // header widgets: WS status, region picker, theme picker
@@ -26,17 +26,12 @@ type DensityMode = "comfortable" | "dense";
 const FONT_MODE_KEY = "beacon-font-mode";
 const SCANLINES_KEY = "beacon-scanlines";
 const UI_DENSITY_KEY = "beacon-ui-density";
-const DISPLAY_VERSION = "133.7";
+const DISPLAY_VERSION = __APP_VERSION__;
+const DISPLAY_BUILD = __BUILD_SHA__ === "unknown" ? "" : __BUILD_SHA__.slice(0, 7);
 
 type NavIconName = Parameters<typeof NavIcon>[0]["name"];
 
-const DESKTOP_PAGES: { tab: PageTab; icon: NavIconName }[] = [
-  { tab: "Home", icon: "home" },
-  { tab: "Live", icon: "live" },
-  { tab: "Netgraph", icon: "netgraph" },
-  { tab: "Map", icon: "map" },
-  { tab: "Analytics", icon: "analytics" },
-];
+const DESKTOP_PAGES: { tab: PageTab; icon: NavIconName }[] = [{ tab: "Home", icon: "home" }];
 
 const TAB_ICON: Record<PageTab, NavIconName> = {
   Home: "home",
@@ -53,8 +48,6 @@ const TAB_ICON: Record<PageTab, NavIconName> = {
   Analytics: "analytics",
   System: "system",
 };
-
-const DESKTOP_SYSTEM_TABS = SYSTEM_TABS.filter((tab) => tab !== "Analytics");
 
 function readFontMode(): FontMode {
   try {
@@ -719,6 +712,14 @@ export function AppShell({ activeTab, onTabChange, wsManager, onOpenSearch, chil
           />
         ))}
         <DesktopGroupNav
+          label="Monitor"
+          icon="live"
+          tabs={MONITOR_TABS}
+          active={isMonitorTab(activeTab)}
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+        />
+        <DesktopGroupNav
           label="Data"
           icon="data"
           tabs={DATA_TABS}
@@ -727,17 +728,25 @@ export function AppShell({ activeTab, onTabChange, wsManager, onOpenSearch, chil
           onTabChange={onTabChange}
         />
         <DesktopGroupNav
+          label="Tools"
+          icon="search"
+          tabs={TOOL_TABS}
+          active={isToolTab(activeTab)}
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+        />
+        <DesktopGroupNav
           label="System"
           icon="system"
-          tabs={DESKTOP_SYSTEM_TABS}
-          active={activeTab !== "Analytics" && isSystemTab(activeTab)}
+          tabs={SYSTEM_TABS}
+          active={isSystemTab(activeTab)}
           activeTab={activeTab}
           onTabChange={onTabChange}
         />
       </nav>
 
       <main className="flex-1 flex flex-col min-h-0">
-        <ErrorBoundary>{children}</ErrorBoundary>
+        <ErrorBoundary key={activeTab}>{children}</ErrorBoundary>
       </main>
 
       <footer
@@ -747,6 +756,7 @@ export function AppShell({ activeTab, onTabChange, wsManager, onOpenSearch, chil
       >
         <span className="shrink-0">
           BEACON v<span className="animate-pulse font-bold text-green">{DISPLAY_VERSION}</span>
+          {DISPLAY_BUILD && <span className="ml-1 text-text-muted">+{DISPLAY_BUILD}</span>}
         </span>
       </footer>
 

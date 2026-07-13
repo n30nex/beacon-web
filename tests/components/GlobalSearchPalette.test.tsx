@@ -94,13 +94,13 @@ describe("GlobalSearchPalette", () => {
     mockGetGlobalSearch.mockResolvedValue({ query: "ga", items: [nodeResult] });
     const { onSelect } = renderPalette();
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Global search" }), { target: { value: "ga" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Global search" }), { target: { value: "ga" } });
 
     const result = await screen.findByText("Gateway Alpha");
     expect(result).toBeInTheDocument();
     expect(mockGetGlobalSearch).toHaveBeenCalledWith(undefined, { q: "ga", limit: 24 }, expect.any(AbortSignal));
 
-    fireEvent.keyDown(screen.getByRole("dialog", { name: "Global Beacon search" }), { key: "Enter" });
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Global search" }), { key: "Enter" });
     await waitFor(() => expect(onSelect).toHaveBeenCalledWith(nodeResult));
   });
 
@@ -117,9 +117,9 @@ describe("GlobalSearchPalette", () => {
     mockGetGlobalSearch.mockResolvedValue({ query: "gateway alpha", items: [nodeResult] });
     renderPalette();
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Global search" }), { target: { value: "gateway alpha" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Global search" }), { target: { value: "gateway alpha" } });
     await screen.findByText("Gateway Alpha");
-    fireEvent.keyDown(screen.getByRole("dialog", { name: "Global Beacon search" }), { key: "Enter" });
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Global search" }), { key: "Enter" });
 
     expect(JSON.parse(localStorage.getItem("beacon-global-search-recents") ?? "[]")).toEqual(["gateway alpha"]);
   });
@@ -131,7 +131,7 @@ describe("GlobalSearchPalette", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "gateway alpha" }));
 
-    expect(screen.getByRole("textbox", { name: "Global search" })).toHaveValue("gateway alpha");
+    expect(screen.getByRole("combobox", { name: "Global search" })).toHaveValue("gateway alpha");
     await waitFor(() => expect(mockGetGlobalSearch).toHaveBeenCalledWith(undefined, { q: "gateway alpha", limit: 24 }, expect.any(AbortSignal)));
   });
 
@@ -139,7 +139,7 @@ describe("GlobalSearchPalette", () => {
     mockGetGlobalSearch.mockImplementation(() => new Promise(() => undefined));
     renderPalette();
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Global search" }), { target: { value: "atlas" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Global search" }), { target: { value: "atlas" } });
 
     expect(await screen.findByText("Analytics")).toBeInTheDocument();
     expect(screen.getByText("LOCAL PAGE MATCHES REMAIN AVAILABLE")).toBeInTheDocument();
@@ -149,9 +149,44 @@ describe("GlobalSearchPalette", () => {
     mockGetGlobalSearch.mockResolvedValue({ query: "alpha", items: [], partial: true, providers: { node: { status: "timeout", durationMs: 1000 } } });
     renderPalette();
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Global search" }), { target: { value: "alpha" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Global search" }), { target: { value: "alpha" } });
 
     expect(await screen.findByText(/PARTIAL RESULTS/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "RETRY" })).toBeInTheDocument();
+  });
+
+  it("keeps the nested Watch control independent from result selection", async () => {
+    const nodeResult: GlobalSearchResult = {
+      type: "node",
+      id: "node-1",
+      label: "Gateway Alpha",
+      subtitle: "NODE / YOW",
+      url: "/?tab=Nodes&nodeId=node-1",
+      score: 220,
+      matched: "node name",
+      metadata: { publicKey: "aabbccddeeff0011" },
+    };
+    mockGetGlobalSearch.mockResolvedValue({ query: "ga", items: [nodeResult] });
+    const { onSelect } = renderPalette();
+    fireEvent.change(screen.getByRole("combobox", { name: "Global search" }), { target: { value: "ga" } });
+
+    await screen.findByText("Gateway Alpha");
+    const watch = screen.getByRole("button", { name: "Add to My Nodes" });
+    fireEvent.keyDown(watch, { key: "Enter" });
+    fireEvent.click(watch);
+
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(watch).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("announces and changes the active option from the combobox", () => {
+    renderPalette();
+    const input = screen.getByRole("combobox", { name: "Global search" });
+    expect(input).toHaveAttribute("aria-activedescendant", "search-result-page-save-investigation");
+
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(input).toHaveAttribute("aria-activedescendant", "search-result-page-home");
+    fireEvent.keyDown(input, { key: "End" });
+    expect(input).toHaveAttribute("aria-activedescendant", "search-result-page-investigations");
   });
 });

@@ -4,15 +4,15 @@ import { BottomNav } from "../../src/components/BottomNav";
 
 describe("BottomNav", () => {
   it("marks a direct page as current", () => {
-    render(<BottomNav activeTab="Live" onTabChange={() => {}} />);
-    expect(screen.getByRole("button", { name: "Live" })).toHaveAttribute("aria-current", "page");
+    render(<BottomNav activeTab="Map" onTabChange={() => {}} />);
+    expect(screen.getByRole("button", { name: "Map" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("button", { name: "Home" })).not.toHaveAttribute("aria-current");
   });
 
   it("renders the five grouped mobile destinations", () => {
     render(<BottomNav activeTab="Packets" onTabChange={() => {}} />);
-    expect(screen.getAllByRole("button").map((button) => button.getAttribute("aria-label"))).toEqual(["Home", "Live", "Netgraph", "Data", "System"]);
-    expect(screen.queryByRole("button", { name: "Map" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button").map((button) => button.getAttribute("aria-label"))).toEqual(["Home", "Map", "Monitor", "Data", "System"]);
+    expect(screen.getByRole("button", { name: "Map" })).toBeInTheDocument();
     expect(screen.queryByText("Atlas")).not.toBeInTheDocument();
     expect(screen.queryByText("Investigate")).not.toBeInTheDocument();
     expect(screen.queryByText("Ops")).not.toBeInTheDocument();
@@ -29,13 +29,14 @@ describe("BottomNav", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
-  it("marks Netgraph as its own direct mobile page", () => {
+  it("opens Monitor and selects Netgraph", () => {
     const onTabChange = vi.fn();
     render(<BottomNav activeTab="Netgraph" onTabChange={onTabChange} />);
 
-    const netgraph = screen.getByRole("button", { name: "Netgraph" });
-    expect(netgraph).toHaveAttribute("aria-current", "page");
-    fireEvent.click(netgraph);
+    const monitor = screen.getByRole("button", { name: "Monitor" });
+    expect(monitor).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(monitor);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Netgraph" }));
     expect(onTabChange).toHaveBeenCalledWith("Netgraph");
   });
 

@@ -13,6 +13,7 @@ export function InvestigationsView() {
   }, [params]);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const creating = params.get("create") === "1";
 
   function closeCreate() {
@@ -27,6 +28,18 @@ export function InvestigationsView() {
     anchor.download = `beacon-investigations-${new Date().toISOString().slice(0, 10)}.json`;
     anchor.click();
     URL.revokeObjectURL(href);
+  }
+
+  async function copyLink(path: string) {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard access is unavailable");
+      await navigator.clipboard.writeText(new URL(path, window.location.origin).toString());
+      setError("");
+      setNotice("Investigation link copied");
+    } catch (cause) {
+      setNotice("");
+      setError(cause instanceof Error ? cause.message : "Copy failed");
+    }
   }
 
   return (
@@ -62,6 +75,7 @@ export function InvestigationsView() {
         )}
 
         {error && <div role="alert" className="border border-danger/45 bg-danger/8 p-3 font-mono text-xs text-danger">{error}</div>}
+        <div role="status" aria-live="polite" className={notice ? "border border-green/40 bg-green/8 p-3 font-mono text-xs text-green" : "sr-only"}>{notice}</div>
         {items.length === 0 ? (
           <div className="rounded-sm border border-border bg-bg-surface p-8 text-center font-mono text-sm text-text-dim">No saved investigations. Use Ctrl+K and choose Save Investigation.</div>
         ) : (
@@ -74,9 +88,9 @@ export function InvestigationsView() {
                 </div>
                 <div className="grid grid-cols-4 gap-1.5">
                   <button type="button" className="min-h-11 border border-primary/40 px-3 font-mono text-[10px] uppercase text-primary" onClick={() => navigate(item.path)}>Open</button>
-                  <button type="button" className="min-h-11 border border-border px-3 font-mono text-[10px] uppercase text-text-normal" onClick={() => void navigator.clipboard.writeText(new URL(item.path, window.location.origin).toString())}>Copy link</button>
-                  <button type="button" className="min-h-11 border border-border px-3 font-mono text-[10px] uppercase text-text-normal" onClick={() => { createSavedInvestigation(`${item.name} copy`, item.path); refresh(); }}>Copy</button>
-                  <button type="button" className="min-h-11 border border-danger/35 px-3 font-mono text-[10px] uppercase text-danger" onClick={() => { deleteSavedInvestigation(item.id); refresh(); }}>Delete</button>
+                  <button type="button" className="min-h-11 border border-border px-3 font-mono text-[10px] uppercase text-text-normal" onClick={() => void copyLink(item.path)}>Copy link</button>
+                  <button type="button" className="min-h-11 border border-border px-3 font-mono text-[10px] uppercase text-text-normal" onClick={() => { createSavedInvestigation(`${item.name} copy`, item.path); setNotice("Investigation duplicated"); refresh(); }}>Copy</button>
+                  <button type="button" className="min-h-11 border border-danger/35 px-3 font-mono text-[10px] uppercase text-danger" onClick={() => { if (!window.confirm(`Delete ${item.name}?`)) return; deleteSavedInvestigation(item.id); setNotice("Investigation deleted"); refresh(); }}>Delete</button>
                 </div>
               </article>
             ))}

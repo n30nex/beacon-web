@@ -128,6 +128,7 @@ export function GlobalSearchPalette({ open, onClose, onSelect }: GlobalSearchPal
   const debounced = useDebounced(query.trim(), 180);
   const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listboxId = "beacon-global-search-results";
   useFocusTrap(dialogRef);
 
   useEffect(() => {
@@ -186,15 +187,6 @@ export function GlobalSearchPalette({ open, onClose, onSelect }: GlobalSearchPal
           if (event.key === "Escape") {
             event.preventDefault();
             onClose();
-          } else if (event.key === "ArrowDown") {
-            event.preventDefault();
-            setSelectedIndex((idx) => Math.min(items.length - 1, idx + 1));
-          } else if (event.key === "ArrowUp") {
-            event.preventDefault();
-            setSelectedIndex((idx) => Math.max(0, idx - 1));
-          } else if (event.key === "Enter") {
-            event.preventDefault();
-            choose(selected);
           }
         }}
       >
@@ -211,6 +203,29 @@ export function GlobalSearchPalette({ open, onClose, onSelect }: GlobalSearchPal
               placeholder="Search packets, nodes, observers, channels, routes, traces..."
               className="w-full bg-transparent py-1 pr-7 font-mono text-sm text-text-bright placeholder:text-text-dim focus:outline-none"
               aria-label="Global search"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-controls={listboxId}
+              aria-expanded="true"
+              aria-activedescendant={selected ? `search-result-${selected.type}-${selected.id}` : undefined}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowDown") {
+                  event.preventDefault();
+                  setSelectedIndex((idx) => items.length === 0 ? 0 : (idx + 1) % items.length);
+                } else if (event.key === "ArrowUp") {
+                  event.preventDefault();
+                  setSelectedIndex((idx) => items.length === 0 ? 0 : (idx - 1 + items.length) % items.length);
+                } else if (event.key === "Home") {
+                  event.preventDefault();
+                  setSelectedIndex(0);
+                } else if (event.key === "End") {
+                  event.preventDefault();
+                  setSelectedIndex(Math.max(0, items.length - 1));
+                } else if (event.key === "Enter") {
+                  event.preventDefault();
+                  choose(selected);
+                }
+              }}
             />
             <TerminalCursor className="absolute right-1 top-1/2 -translate-y-1/2" />
           </div>
@@ -257,12 +272,10 @@ export function GlobalSearchPalette({ open, onClose, onSelect }: GlobalSearchPal
           {items.length === 0 && !search.isLoading ? (
             <div className="p-4 font-mono text-[12px] text-text-dim">NO MATCHING SIGNALS</div>
           ) : (
-            <div role="listbox" aria-label="Search results" className="space-y-1">
+            <div id={listboxId} role="listbox" aria-label="Search results" className="space-y-1">
               {items.map((item, index) => (
                 <div
                   key={`${item.type}:${item.id}`}
-                  role="option"
-                  aria-selected={index === safeSelectedIndex}
                   className={`flex w-full items-center rounded-sm border transition-colors ${
                     index === safeSelectedIndex
                       ? "border-primary bg-primary/12 text-text-bright"
@@ -270,7 +283,15 @@ export function GlobalSearchPalette({ open, onClose, onSelect }: GlobalSearchPal
                   }`}
                   onMouseEnter={() => setSelectedIndex(index)}
                 >
-                  <button type="button" className="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left" onClick={() => choose(item)}>
+                  <button
+                    id={`search-result-${item.type}-${item.id}`}
+                    type="button"
+                    role="option"
+                    aria-selected={index === safeSelectedIndex}
+                    tabIndex={-1}
+                    className="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left"
+                    onClick={() => choose(item)}
+                  >
                     <span className="w-12 shrink-0 rounded-sm border border-primary/35 bg-primary/8 px-1.5 py-0.5 text-center font-mono text-[10px] font-semibold text-primary">
                       {TYPE_LABEL[item.type]}
                     </span>

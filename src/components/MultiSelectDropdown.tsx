@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, useId, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useClickOutside } from "../hooks/useClickOutside";
 
 interface Option {
@@ -21,28 +21,41 @@ interface MultiSelectDropdownProps {
 export function MultiSelectDropdown({ label, options, selected, onChange, searchable, align = "left", fullWidth = false }: MultiSelectDropdownProps) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const listboxId = useId();
 
   const showSearch = searchable ?? options.length > 6;
 
-  const closeDropdown = useCallback(() => setOpen(false), []);
+  const closeDropdown = useCallback(() => {
+    setOpen(false);
+    window.requestAnimationFrame(() => triggerRef.current?.focus());
+  }, []);
   useClickOutside(ref, open, closeDropdown);
 
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        closeDropdown();
+      }
     }
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
-  }, [open]);
+  }, [open, closeDropdown]);
 
   useEffect(() => {
-    if (open && showSearch) {
-      inputRef.current?.focus();
-    }
-  }, [open, showSearch]);
+    if (!open) return;
+    const id = window.requestAnimationFrame(() => {
+      if (showSearch) inputRef.current?.focus();
+      else optionRefs.current[activeIndex]?.focus();
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [activeIndex, open, showSearch]);
 
   const filtered = useMemo(() => {
     if (!filter) return options;
@@ -50,11 +63,25 @@ export function MultiSelectDropdown({ label, options, selected, onChange, search
     return options.filter((o) => o.label.toLowerCase().includes(q));
   }, [options, filter]);
 
+  useEffect(() => {
+    const selectedIndex = filtered.findIndex((option) => selected.includes(option.value));
+    setActiveIndex(selectedIndex >= 0 ? selectedIndex : 0);
+  }, [filtered, selected]);
+
+  function onListboxKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (filtered.length === 0 || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? 0 : event.key === "End" ? filtered.length - 1 : event.key === "ArrowDown" ? (activeIndex + 1) % filtered.length : (activeIndex - 1 + filtered.length) % filtered.length;
+    setActiveIndex(next);
+    optionRefs.current[next]?.focus();
+  }
+
   const count = selected.length;
 
   return (
     <div ref={ref} className={`relative ${fullWidth ? "w-full" : ""}`}>
       <button
+        ref={triggerRef}
         type="button"
         className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-sm border font-mono cursor-pointer transition-all ${
           fullWidth ? "w-full justify-between" : ""
@@ -71,6 +98,7 @@ export function MultiSelectDropdown({ label, options, selected, onChange, search
         }}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={listboxId}
       >
         {label}
         <span className={`text-[9px] px-1 rounded-sm min-w-[1ch] text-center ${count > 0 ? "bg-primary/15" : "invisible"}`}>
@@ -92,7 +120,14 @@ export function MultiSelectDropdown({ label, options, selected, onChange, search
                 type="text"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowDown" && filtered.length > 0) {
+                    event.preventDefault();
+                    optionRefs.current[activeIndex]?.focus();
+                  }
+                }}
                 placeholder="Filter..."
+                aria-label={`Filter ${label}`}
                 className="w-full text-[11px] font-mono bg-bg-surface border border-border rounded px-2 py-1 text-text-bright placeholder:text-text-dim"
               />
             </div>
@@ -120,15 +155,18 @@ export function MultiSelectDropdown({ label, options, selected, onChange, search
             </button>
           </div>
 
-          <div className="max-h-64 overflow-y-auto" role="listbox" aria-multiselectable="true">
-            {filtered.map((opt) => {
+          <div id={listboxId} className="max-h-64 overflow-y-auto" role="listbox" aria-label={label} aria-multiselectable="true" onKeyDown={onListboxKeyDown}>
+            {filtered.map((opt, index) => {
               const isSelected = selected.includes(opt.value);
               return (
                 <button
                   key={opt.value}
+                  ref={(node) => { optionRefs.current[index] = node; }}
                   type="button"
                   role="option"
                   aria-selected={isSelected}
+                  tabIndex={index === activeIndex ? 0 : -1}
+                  onFocus={() => setActiveIndex(index)}
                   className={`w-full flex items-center gap-2 px-2.5 py-1 text-left text-xs font-mono transition-colors ${
                     isSelected
                       ? "text-text-bright bg-primary/10"

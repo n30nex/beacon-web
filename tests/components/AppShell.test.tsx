@@ -218,8 +218,8 @@ describe("AppShell", () => {
   it("footer shows the display version with a green pulse", () => {
     vi.mocked(getIatas).mockResolvedValue([]);
     renderShell();
-    expect(screen.getByText("BEACON v", { exact: false })).toHaveTextContent("BEACON v133.7");
-    const version = screen.getByText("133.7");
+    expect(screen.getByText("BEACON v", { exact: false })).toHaveTextContent("BEACON v1.0.0");
+    const version = screen.getByText("1.0.0");
     expect(version).toHaveClass("animate-pulse");
     expect(version).toHaveClass("text-green");
   });
@@ -235,13 +235,14 @@ describe("AppShell", () => {
     expect(screen.getAllByText("BEACON v", { exact: false }).at(-1)?.closest("footer")).toHaveClass("md:flex");
   });
 
-  it("promotes Netgraph to standalone desktop navigation outside System", () => {
+  it("groups Netgraph under Monitor and outside System", () => {
     vi.mocked(getIatas).mockResolvedValue([]);
     const onTabChange = vi.fn();
     renderShell("Home", onTabChange);
 
     const pagesNav = screen.getByRole("navigation", { name: "Pages" });
-    fireEvent.click(within(pagesNav).getByRole("button", { name: "Netgraph" }));
+    fireEvent.click(within(pagesNav).getByRole("button", { name: "Monitor" }));
+    fireEvent.click(within(screen.getByRole("menu", { name: "Monitor" })).getByRole("menuitem", { name: "Netgraph" }));
     expect(onTabChange).toHaveBeenCalledWith("Netgraph");
 
     fireEvent.click(within(pagesNav).getByRole("button", { name: "System" }));
@@ -275,8 +276,7 @@ describe("AppShell", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Live system live/i }));
 
-    expect(await screen.findByText("System")).toBeInTheDocument();
-    expect(screen.getByText("CONNECTED")).toBeInTheDocument();
+    expect(await screen.findByText("CONNECTED")).toBeInTheDocument();
     expect(await screen.findByText("broker-a")).toBeInTheDocument();
     expect(screen.getByText("broker-b")).toBeInTheDocument();
     expect(screen.getByText("YES")).toBeInTheDocument();

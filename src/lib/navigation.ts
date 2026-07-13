@@ -1,10 +1,12 @@
 export const PAGE_TABS = ["Home", "Packets", "Map", "Live", "Channels", "Nodes", "Observers", "Investigations", "Routes", "Traces", "Analytics", "System", "Netgraph"] as const;
-export const DATA_TABS = ["Packets", "Channels", "Nodes", "Observers", "Investigations"] as const;
-export const TOOL_TABS = ["Routes", "Traces"] as const;
-export const SYSTEM_TABS = ["Analytics", "System", ...TOOL_TABS] as const;
+export const MONITOR_TABS = ["Live", "Map", "Netgraph"] as const;
+export const DATA_TABS = ["Packets", "Channels", "Nodes", "Observers"] as const;
+export const TOOL_TABS = ["Investigations", "Routes", "Traces"] as const;
+export const SYSTEM_TABS = ["Analytics", "System"] as const;
 
 export type PageTab = (typeof PAGE_TABS)[number];
 export type DataTab = (typeof DATA_TABS)[number];
+export type MonitorTab = (typeof MONITOR_TABS)[number];
 export type ToolTab = (typeof TOOL_TABS)[number];
 export type SystemTab = (typeof SYSTEM_TABS)[number];
 
@@ -24,6 +26,10 @@ export function isPageTab(value: string | null | undefined): value is PageTab {
 
 export function isDataTab(value: string | null | undefined): value is DataTab {
   return includes(DATA_TABS, value);
+}
+
+export function isMonitorTab(value: string | null | undefined): value is MonitorTab {
+  return includes(MONITOR_TABS, value);
 }
 
 export function isToolTab(value: string | null | undefined): value is ToolTab {

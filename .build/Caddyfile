@@ -15,12 +15,19 @@
 :8080 {
 	encode zstd gzip
 
+	# Cloudflare terminates TLS. Redirect only when the trusted proxy explicitly
+	# reports an HTTP visitor so direct health checks do not loop.
+	@forwarded_http header X-Forwarded-Proto http
+	redir @forwarded_http https://{http.request.host}{http.request.uri} 308
+
 	header {
 		-Server
 		X-Content-Type-Options nosniff
 		X-Frame-Options DENY
 		Referrer-Policy strict-origin-when-cross-origin
 		Permissions-Policy "camera=(), microphone=(), payment=(), usb=()"
+		Strict-Transport-Security "max-age=86400"
+		Content-Security-Policy-Report-Only "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; worker-src 'self' blob:; child-src blob:"
 	}
 
 	@backend path /api /api/* /healthz /healthz/* /readyz /readyz/* /ws /ws/*
@@ -34,7 +41,8 @@
 
 	# Vite fingerprints /assets files, so missing assets should be a real 404
 	# rather than the SPA shell and valid assets can be cached indefinitely.
-	handle /assets/* {
+	@immutable_assets path /assets/* /fonts/* /netgraph-asset-pack/* /beacon-*.png /favicon.svg /icons.svg /logo-*.svg /themes.json /modern-designs.json
+	handle @immutable_assets {
 		root * /srv
 		header Cache-Control "public, max-age=31536000, immutable"
 		file_server

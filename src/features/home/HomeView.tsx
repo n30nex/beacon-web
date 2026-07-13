@@ -1,4 +1,5 @@
 import { type ReactNode, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { NavIcon } from "../../components/NavIcon";
 import { TerminalLoadingState } from "../../components/TerminalLoader";
 import { QueryStatePanel } from "../../components/QueryStatePanel";
@@ -16,9 +17,9 @@ import { useHomeLiveActivity } from "./useHomeLiveActivity";
 
 const COMMAND_GROUPS: { label: string; tabs: readonly PageTab[] }[] = [
   { label: "Monitor", tabs: ["Live", "Map", "Netgraph"] },
-  { label: "Explore", tabs: ["Packets", "Nodes", "Observers"] },
-  { label: "Network", tabs: ["Routes", "Traces", "Channels"] },
-  { label: "System", tabs: ["Analytics", "System", "Investigations"] },
+  { label: "Data", tabs: ["Packets", "Channels", "Nodes", "Observers"] },
+  { label: "Tools", tabs: ["Investigations", "Routes", "Traces"] },
+  { label: "System", tabs: ["Analytics", "System"] },
 ];
 
 const ICON_FOR_TAB: Record<PageTab, Parameters<typeof NavIcon>[0]["name"]> = {
@@ -107,6 +108,7 @@ function ActivityButton({
   icon,
   tone = "text-text-bright",
   onNavigate,
+  onActivate,
 }: {
   label: string;
   value: ReactNode;
@@ -115,12 +117,13 @@ function ActivityButton({
   icon: Parameters<typeof NavIcon>[0]["name"];
   tone?: string;
   onNavigate: (tab: PageTab) => void;
+  onActivate?: () => void;
 }) {
   return (
     <button
       type="button"
       className="grid min-h-[66px] grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-sm border border-border-subtle bg-bg-base/55 px-2.5 py-2 text-left transition-colors hover:border-primary/45 hover:bg-primary/7"
-      onClick={() => onNavigate(tab)}
+      onClick={onActivate ?? (() => onNavigate(tab))}
     >
       <span className={`flex h-8 w-8 items-center justify-center rounded-sm border border-border-subtle bg-bg-surface ${tone}`}>
         <NavIcon name={icon} size={17} />
@@ -144,9 +147,9 @@ function ActivityNow({
 }: {
   livePackets: ReactNode;
   liveDetail: string;
-  topNode: { label: string; detail: string } | null;
-  topObserver: { label: string; detail: string } | null;
-  topIata: { label: string; detail: string } | null;
+  topNode: { label: string; detail: string; onActivate: () => void } | null;
+  topObserver: { label: string; detail: string; onActivate: () => void } | null;
+  topIata: { label: string; detail: string; onActivate: () => void } | null;
   onNavigate: (tab: PageTab) => void;
 }) {
   return (
@@ -157,9 +160,9 @@ function ActivityNow({
       </div>
       <div className="grid gap-1.5 sm:grid-cols-2">
         <ActivityButton label="Live packets" value={livePackets} detail={liveDetail} tab="Live" icon="live" tone="text-green" onNavigate={onNavigate} />
-        <ActivityButton label="Top node" value={topNode?.label ?? "No node"} detail={topNode?.detail ?? "no recent observations"} tab="Nodes" icon="nodes" tone="text-primary" onNavigate={onNavigate} />
-        <ActivityButton label="Top observer" value={topObserver?.label ?? "No observer"} detail={topObserver?.detail ?? "no recent observations"} tab="Observers" icon="observers" tone="text-secondary" onNavigate={onNavigate} />
-        <ActivityButton label="Busiest IATA" value={topIata?.label ?? "No IATA"} detail={topIata?.detail ?? "no recent observations"} tab="Analytics" icon="analytics" tone="text-warn" onNavigate={onNavigate} />
+        <ActivityButton label="Top node" value={topNode?.label ?? "No node"} detail={topNode?.detail ?? "no recent observations"} tab="Nodes" icon="nodes" tone="text-primary" onNavigate={onNavigate} onActivate={topNode?.onActivate} />
+        <ActivityButton label="Top observer" value={topObserver?.label ?? "No observer"} detail={topObserver?.detail ?? "no recent observations"} tab="Observers" icon="observers" tone="text-secondary" onNavigate={onNavigate} onActivate={topObserver?.onActivate} />
+        <ActivityButton label="Busiest IATA" value={topIata?.label ?? "No IATA"} detail={topIata?.detail ?? "no recent observations"} tab="Analytics" icon="analytics" tone="text-warn" onNavigate={onNavigate} onActivate={topIata?.onActivate} />
       </div>
     </section>
   );
@@ -190,7 +193,7 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function MyNodes({ onNavigate }: { onNavigate: (tab: PageTab) => void }) {
+function MyNodes({ onNavigate, onOpenNode }: { onNavigate: (tab: PageTab) => void; onOpenNode: (nodeId: string) => void }) {
   const [watchlist] = useWatchlist();
   return (
     <section aria-label="My Nodes" className="rounded-sm border border-border bg-bg-surface p-3">
@@ -203,7 +206,7 @@ function MyNodes({ onNavigate }: { onNavigate: (tab: PageTab) => void }) {
       ) : (
         <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
           {watchlist.slice(0, 8).map((item) => (
-            <button key={item.publicKey} type="button" className="min-h-11 min-w-0 rounded-sm border border-primary/25 bg-primary/7 px-2.5 text-left" onClick={() => onNavigate("Nodes")}>
+            <button key={item.publicKey} type="button" className="min-h-11 min-w-0 rounded-sm border border-primary/25 bg-primary/7 px-2.5 text-left" onClick={() => item.lastKnownUuid ? onOpenNode(item.lastKnownUuid) : onNavigate("Nodes")}>
               <span className="block truncate font-mono text-[11px] font-semibold text-text-bright">{item.label ?? item.publicKey.slice(0, 12).toUpperCase()}</span>
               <span className="block truncate font-mono text-[9px] uppercase text-text-dim">{item.lastKnownUuid ?? item.publicKey}</span>
             </button>
@@ -215,6 +218,8 @@ function MyNodes({ onNavigate }: { onNavigate: (tab: PageTab) => void }) {
 }
 
 export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNavigate: (tab: PageTab) => void }) {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { iatas, regionKey } = useRegion();
   const homeQuery = useStatsHome("24h");
   const liveQuery = useLiveSummary();
@@ -244,6 +249,18 @@ export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNa
   const liveState = activity.state;
   const liveTone = liveState === "ACTIVE" ? "text-green" : liveState === "OFFLINE" ? "text-danger" : liveState === "SYNCING" ? "text-secondary" : "text-warn";
   const pulseEnabled = liveState !== "SYNCING";
+  const openEntity = (tab: PageTab, key: "nodeId" | "observerId" | "iata", value: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", tab);
+    next.delete("nodeId");
+    next.delete("observerId");
+    if (key === "iata") {
+      next.delete("regions");
+      next.delete("region");
+    }
+    next.set(key, value);
+    navigate({ pathname: "/", search: next.toString() });
+  };
   const paceLabel = activity.pacePerMinute == null ? "FLOW WARMING" : `${formatExactCount(activity.pacePerMinute)} / MIN`;
   const metrics = [
     { label: "Packets", value: <LiveMetricValue metric="packets" value={overview?.totalPackets} pulseRevision={activity.pulseRevision} pulseEnabled={pulseEnabled} />, detail: windowLabel },
@@ -257,18 +274,21 @@ export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNa
     ? {
         label: sanitizeDisplayLabel(topNode.nodeName, topNode.nodeId.slice(0, 8)),
         detail: `${formatCount(topNode.observationCount)} obs / ${topNode.iata}`,
+        onActivate: () => openEntity("Nodes", "nodeId", topNode.nodeId),
       }
     : null;
   const topObserverActivity = topObserver
     ? {
         label: sanitizeDisplayLabel(topObserver.displayName, topObserver.observerId.slice(0, 8)),
         detail: `${formatCount(topObserver.observationCount)} obs / ${topObserver.iata}`,
+        onActivate: () => openEntity("Observers", "observerId", topObserver.observerId),
       }
     : null;
   const topIataActivity = topIata
     ? {
         label: topIata.iata,
         detail: `${formatCount(topIata.count)} obs`,
+        onActivate: () => openEntity("Analytics", "iata", topIata.iata),
       }
     : null;
 
@@ -290,11 +310,23 @@ export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNa
           </div>
         </header>
 
+        {homeQuery.isError && data && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-warn/45 bg-warn/8 px-3 py-2 font-mono" role="status">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-warn">Cached home snapshot shown</div>
+              <div className="text-[10px] text-text-muted">
+                Refresh failed · last good sync {homeQuery.dataUpdatedAt ? new Date(homeQuery.dataUpdatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "unknown"}
+              </div>
+            </div>
+            <button type="button" className="min-h-9 rounded-sm border border-warn/45 px-3 text-[10px] font-semibold uppercase tracking-wider text-warn hover:bg-warn/10" onClick={() => void homeQuery.refetch()}>Retry</button>
+          </div>
+        )}
+
         {homeQuery.isLoading && !data ? (
           <div className="min-h-[360px] rounded-sm border border-border bg-bg-surface">
             <TerminalLoadingState label="QUERYING HOME DATA" detail="PLEASE WAIT" className="h-full" />
           </div>
-        ) : homeQuery.isError ? (
+        ) : homeQuery.isError && !data ? (
           <div className="rounded-sm border border-border bg-bg-surface">
             <QueryStatePanel
               {...queryStateForError(homeQuery.error, "home dashboard")}
@@ -322,7 +354,7 @@ export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNa
               />
             </div>
 
-            <MyNodes onNavigate={onNavigate} />
+            <MyNodes onNavigate={onNavigate} onOpenNode={(nodeId) => openEntity("Nodes", "nodeId", nodeId)} />
 
             <section aria-label="Mobile rankings" className="rounded-sm border border-border bg-bg-surface p-3 md:hidden">
               <div className="mb-2 grid grid-cols-3 gap-1">
@@ -331,9 +363,9 @@ export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNa
                 ))}
               </div>
               <div className="space-y-1.5">
-                {mobileRanking === "nodes" && topNodes.map((node) => <EntityRow key={node.nodeId} label={sanitizeDisplayLabel(node.nodeName, node.nodeId.slice(0, 8))} value={formatCount(node.observationCount)} meta={`${node.nodeTypeName} / ${node.iata}`} onClick={() => onNavigate("Nodes")} />)}
-                {mobileRanking === "observers" && topObservers.map((observer) => <EntityRow key={observer.observerId} label={sanitizeDisplayLabel(observer.displayName, observer.observerId.slice(0, 8))} value={formatCount(observer.observationCount)} meta={`${observer.observerType ?? "observer"} / ${observer.iata}`} onClick={() => onNavigate("Observers")} />)}
-                {mobileRanking === "iatas" && topIatas.map((iata) => <EntityRow key={iata.iata} label={iata.iata} value={formatCount(iata.count)} meta="observations" onClick={() => onNavigate("Analytics")} />)}
+                {mobileRanking === "nodes" && topNodes.map((node) => <EntityRow key={node.nodeId} label={sanitizeDisplayLabel(node.nodeName, node.nodeId.slice(0, 8))} value={formatCount(node.observationCount)} meta={`${node.nodeTypeName} / ${node.iata}`} onClick={() => openEntity("Nodes", "nodeId", node.nodeId)} />)}
+                {mobileRanking === "observers" && topObservers.map((observer) => <EntityRow key={observer.observerId} label={sanitizeDisplayLabel(observer.displayName, observer.observerId.slice(0, 8))} value={formatCount(observer.observationCount)} meta={`${observer.observerType ?? "observer"} / ${observer.iata}`} onClick={() => openEntity("Observers", "observerId", observer.observerId)} />)}
+                {mobileRanking === "iatas" && topIatas.map((iata) => <EntityRow key={iata.iata} label={iata.iata} value={formatCount(iata.count)} meta="observations" onClick={() => openEntity("Analytics", "iata", iata.iata)} />)}
                 {((mobileRanking === "nodes" && topNodes.length === 0) || (mobileRanking === "observers" && topObservers.length === 0) || (mobileRanking === "iatas" && topIatas.length === 0)) && <div className="p-3 font-mono text-[11px] text-text-dim">No activity in this window</div>}
               </div>
             </section>
@@ -350,7 +382,7 @@ export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNa
                         label={sanitizeDisplayLabel(node.nodeName, node.nodeId.slice(0, 8))}
                         value={formatCount(node.observationCount)}
                         meta={`${node.nodeTypeName} / ${node.iata} / ${timeAgoMs(node.lastHeard)} ago`}
-                        onClick={() => onNavigate("Nodes")}
+                        onClick={() => openEntity("Nodes", "nodeId", node.nodeId)}
                       />
                     ))
                   )}
@@ -368,7 +400,7 @@ export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNa
                         label={sanitizeDisplayLabel(observer.displayName, observer.observerId.slice(0, 8))}
                         value={formatCount(observer.observationCount)}
                         meta={`${observer.observerType ?? "observer"} / ${observer.iata}`}
-                        onClick={() => onNavigate("Observers")}
+                        onClick={() => openEntity("Observers", "observerId", observer.observerId)}
                       />
                     ))
                   )}
@@ -385,7 +417,7 @@ export function HomeView({ wsManager, onNavigate }: { wsManager: WsManager; onNa
                         key={iata.iata}
                         type="button"
                         className="rounded-sm border border-border-subtle bg-bg-base/55 px-2.5 py-2 text-left hover:border-primary/45"
-                        onClick={() => onNavigate("Analytics")}
+                        onClick={() => openEntity("Analytics", "iata", iata.iata)}
                       >
                         <span className="block font-mono text-sm font-bold text-primary">{iata.iata}</span>
                         <span className="block font-mono text-[10px] text-text-dim">{formatCount(iata.count)} obs</span>

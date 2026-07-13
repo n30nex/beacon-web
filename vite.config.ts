@@ -18,7 +18,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss()],
-    define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+    define: {
+      __APP_VERSION__: JSON.stringify(env.VITE_APP_VERSION || pkg.version),
+      __BUILD_SHA__: JSON.stringify(env.VITE_BUILD_SHA || "unknown"),
+    },
     server: {
       allowedHosts,
       ...(proxyTarget

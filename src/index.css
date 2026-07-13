@@ -26,8 +26,8 @@
 
 /* theme tokens from palette CSS vars */
 @theme {
-  --font-mono: var(--beacon-mono-font, "Beacon IBM VGA", "Beacon IBM MDA", "Share Tech Mono", "JetBrains Mono", monospace);
-  --font-sans: var(--beacon-ui-font, "Beacon IBM VGA", "Beacon IBM MDA", "Share Tech Mono", "JetBrains Mono", monospace);
+  --font-mono: var(--beacon-mono-font, "Beacon IBM VGA", "Beacon IBM MDA", "Cascadia Mono", Consolas, monospace);
+  --font-sans: var(--beacon-ui-font, "Beacon IBM VGA", "Beacon IBM MDA", "Segoe UI", system-ui, monospace);
 
   --color-bg-base: var(--palette-bg-base, #090500);
   --color-bg-surface: var(--palette-bg-surface, #120900);
@@ -51,7 +51,7 @@
 /* base resets */
 @layer base {
   :root {
-    --beacon-retro-font: "Beacon IBM VGA", "Beacon IBM MDA", "Share Tech Mono", "JetBrains Mono", monospace;
+    --beacon-retro-font: "Beacon IBM VGA", "Beacon IBM MDA", "Cascadia Mono", Consolas, monospace;
     --beacon-modern-font: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     --beacon-ui-font: var(--beacon-modern-font);
     --beacon-mono-font: var(--beacon-modern-font);
@@ -98,7 +98,7 @@
 
   html[data-font-mode="modern"] {
     --beacon-ui-font: var(--beacon-modern-font);
-    --beacon-mono-font: "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+    --beacon-mono-font: "Cascadia Mono", Consolas, monospace;
   }
 
   html[data-font-mode="retro"][data-theme="crt-3278"] {
@@ -1042,7 +1042,7 @@
 }
 
 .crt-title {
-  font-family: "VT323", "Share Tech Mono", monospace;
+  font-family: "Beacon IBM 3270", "Beacon IBM VGA", monospace;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   text-shadow:
@@ -1475,4 +1475,11 @@ html[data-ui-density="dense"] table th,
 html[data-ui-density="dense"] table td {
   padding-top: 0.35rem;
   padding-bottom: 0.35rem;
+}
+
+/* Preserve compact desktop density while keeping controls reliably tappable. */
+@media (pointer: coarse), (max-width: 767px) {
+  .crt-shell :where(button, input, select, textarea, [role="button"]) {
+    min-height: 44px;
+  }
 }
