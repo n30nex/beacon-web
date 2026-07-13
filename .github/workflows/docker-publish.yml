@@ -23,8 +23,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - name: Validate production image contract
-        run: node scripts/validate-production-image.mjs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install and validate
+        run: |
+          npm ci
+          npm audit --omit=dev --audit-level=moderate
+          npm run validate:production-image
+          npm run build
+          npm run perf:budget
+          npm run lint
+
+      - name: Checkout pinned backend contracts
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: n30nex/beacon-server
+          ref: dev
+          path: .contracts/beacon-server
+          sparse-checkout: docs
+
+      - name: Unit and contract tests
+        env:
+          BEACON_SERVER_ROOT: ${{ github.workspace }}/.contracts/beacon-server
+        run: npm test
+
+      - name: Install browser test dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser and accessibility tests
+        run: npm run test:e2e
 
       - name: Set reproducible build metadata
         id: build-info
@@ -38,14 +68,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels)
+      - name: Extract metadata
         id: meta
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
@@ -53,15 +76,16 @@ jobs:
           tags: |
             type=sha,format=long,prefix=sha-
 
-      - name: Build and push
+      - name: Build candidate image locally
         id: build
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: .build/Dockerfile
-          push: true
+          load: true
+          push: false
           platforms: linux/amd64
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:candidate-${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             BUILD_SHA=${{ github.sha }}
@@ -73,13 +97,11 @@ jobs:
             VITE_MAP_ZOOM=3.2
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          provenance: mode=max
-          sbom: true
 
-      - name: Scan the published digest
+      - name: Scan candidate image
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:candidate-${{ github.sha }}
           format: sarif
           output: trivy-results.sarif
           exit-code: "1"
@@ -87,24 +109,51 @@ jobs:
           vuln-type: os,library
           severity: CRITICAL,HIGH
 
+      - name: Generate candidate SBOM
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:candidate-${{ github.sha }}
+          format: cyclonedx
+          output: beacon-web-sbom.cdx.json
+          exit-code: "0"
+
       - name: Upload vulnerability results
         if: always() && hashFiles('trivy-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@641a925cfafe92d0fdf8b239ba4053e3f8d99d6d # v3
         with:
           sarif_file: trivy-results.sarif
 
-      - name: Record immutable image reference
-        if: success()
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish the scanned image
+        id: publish
         shell: bash
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
         run: |
-          ref="${REGISTRY}/${IMAGE_NAME}@${{ steps.build.outputs.digest }}"
+          set -Eeuo pipefail
+          candidate="${REGISTRY}/${IMAGE_NAME}:candidate-${GITHUB_SHA}"
+          while IFS= read -r tag; do
+            [[ -n "$tag" ]] || continue
+            docker tag "$candidate" "$tag"
+            docker push "$tag"
+          done <<< "$IMAGE_TAGS"
+          ref="$(docker inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$candidate" | grep -m1 "^${REGISTRY}/${IMAGE_NAME}@sha256:")"
+          [[ -n "$ref" ]] || { echo "Published image digest was not recorded" >&2; exit 1; }
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
           printf '%s\n' "$ref" | tee beacon-web-image.txt
           printf '### Beacon web image\n\n`%s`\n' "$ref" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload image reference
-        if: success()
+      - name: Upload image reference and SBOM
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: beacon-web-image-${{ github.sha }}
-          path: beacon-web-image.txt
+          path: |
+            beacon-web-image.txt
+            beacon-web-sbom.cdx.json
           if-no-files-found: error
