@@ -13,13 +13,22 @@ export function Dropdown({ renderTrigger, align = "right", width = "w-48", fullW
   const ref = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const wasOpenRef = useRef(false);
   const panelId = useId();
-  const close = useCallback(() => {
-    setOpen(false);
-    window.requestAnimationFrame(() => restoreFocusRef.current?.focus());
-  }, []);
+  const close = useCallback(() => setOpen(false), []);
   const toggle = useCallback(() => setOpen((v) => !v), []);
   useClickOutside(ref, open, close);
+
+  useEffect(() => {
+    if (open) {
+      wasOpenRef.current = true;
+      return;
+    }
+    if (!wasOpenRef.current) return;
+    wasOpenRef.current = false;
+    const focusId = window.requestAnimationFrame(() => restoreFocusRef.current?.focus());
+    return () => window.cancelAnimationFrame(focusId);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -52,11 +61,13 @@ export function Dropdown({ renderTrigger, align = "right", width = "w-48", fullW
     ) ?? []);
     if (controls.length === 0) return;
     const current = controls.indexOf(document.activeElement as HTMLElement);
-    let next = current;
-    if (event.key === "Home") next = 0;
-    else if (event.key === "End") next = controls.length - 1;
-    else if (event.key === "ArrowDown") next = current < 0 ? 0 : (current + 1) % controls.length;
-    else next = current <= 0 ? controls.length - 1 : current - 1;
+    const next = event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? controls.length - 1
+        : event.key === "ArrowDown"
+          ? current < 0 ? 0 : (current + 1) % controls.length
+          : current <= 0 ? controls.length - 1 : current - 1;
     event.preventDefault();
     controls[next]?.focus();
   }

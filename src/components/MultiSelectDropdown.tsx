@@ -48,30 +48,27 @@ export function MultiSelectDropdown({ label, options, selected, onChange, search
     return () => document.removeEventListener("keydown", handleKey);
   }, [open, closeDropdown]);
 
-  useEffect(() => {
-    if (!open) return;
-    const id = window.requestAnimationFrame(() => {
-      if (showSearch) inputRef.current?.focus();
-      else optionRefs.current[activeIndex]?.focus();
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, [activeIndex, open, showSearch]);
-
   const filtered = useMemo(() => {
     if (!filter) return options;
     const q = filter.toLowerCase();
     return options.filter((o) => o.label.toLowerCase().includes(q));
   }, [options, filter]);
 
+  const boundedActiveIndex = filtered.length === 0 ? 0 : Math.min(activeIndex, filtered.length - 1);
+
   useEffect(() => {
-    const selectedIndex = filtered.findIndex((option) => selected.includes(option.value));
-    setActiveIndex(selectedIndex >= 0 ? selectedIndex : 0);
-  }, [filtered, selected]);
+    if (!open) return;
+    const id = window.requestAnimationFrame(() => {
+      if (showSearch) inputRef.current?.focus();
+      else optionRefs.current[boundedActiveIndex]?.focus();
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [boundedActiveIndex, open, showSearch]);
 
   function onListboxKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
     if (filtered.length === 0 || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
-    const next = event.key === "Home" ? 0 : event.key === "End" ? filtered.length - 1 : event.key === "ArrowDown" ? (activeIndex + 1) % filtered.length : (activeIndex - 1 + filtered.length) % filtered.length;
+    const next = event.key === "Home" ? 0 : event.key === "End" ? filtered.length - 1 : event.key === "ArrowDown" ? (boundedActiveIndex + 1) % filtered.length : (boundedActiveIndex - 1 + filtered.length) % filtered.length;
     setActiveIndex(next);
     optionRefs.current[next]?.focus();
   }
@@ -119,11 +116,14 @@ export function MultiSelectDropdown({ label, options, selected, onChange, search
                 ref={inputRef}
                 type="text"
                 value={filter}
-                onChange={(e) => setFilter(e.target.value)}
+                onChange={(e) => {
+                  setFilter(e.target.value);
+                  setActiveIndex(0);
+                }}
                 onKeyDown={(event) => {
                   if (event.key === "ArrowDown" && filtered.length > 0) {
                     event.preventDefault();
-                    optionRefs.current[activeIndex]?.focus();
+                    optionRefs.current[boundedActiveIndex]?.focus();
                   }
                 }}
                 placeholder="Filter..."
@@ -165,7 +165,7 @@ export function MultiSelectDropdown({ label, options, selected, onChange, search
                   type="button"
                   role="option"
                   aria-selected={isSelected}
-                  tabIndex={index === activeIndex ? 0 : -1}
+                  tabIndex={index === boundedActiveIndex ? 0 : -1}
                   onFocus={() => setActiveIndex(index)}
                   className={`w-full flex items-center gap-2 px-2.5 py-1 text-left text-xs font-mono transition-colors ${
                     isSelected
