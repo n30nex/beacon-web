@@ -78,14 +78,14 @@ export function NetgraphCanvasHud(props: NetgraphCanvasHudProps) {
 
   return (
     <>
-      <div className="netgraph-control-rail pointer-events-auto absolute bottom-3 left-1/2 z-20 flex max-w-[calc(100%-1rem)] -translate-x-1/2 items-center gap-1.5 rounded-full border border-border bg-bg-surface/55 p-1.5 shadow-2xl backdrop-blur-xl" aria-label="Netgraph camera controls">
+      <div className="netgraph-control-rail pointer-events-auto absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-border bg-bg-surface/55 p-1.5 shadow-2xl backdrop-blur-xl" aria-label="Netgraph camera controls">
         <ControlButton label="Show netgraph overview" onClick={props.onOverview}><Icon>◎</Icon><span className="hidden sm:inline">Overview</span></ControlButton>
         <ControlButton label="Focus selected netgraph item" disabled={!props.selectionActive} onClick={props.onFocusSelected}><Icon>⌖</Icon><span className="hidden sm:inline">Focus</span></ControlButton>
         <ControlButton label={props.orbitActive ? "Pause netgraph orbit" : "Resume netgraph orbit"} active={props.orbitActive} disabled={props.reducedMotion} onClick={props.onToggleOrbit}><Icon>↻</Icon><span className="hidden sm:inline">Orbit</span></ControlButton>
         <div ref={moreRef} className="relative">
           <ControlButton label="More netgraph camera controls" active={moreOpen} onClick={() => setMoreOpen((open) => !open)}><Icon>•••</Icon><span className="hidden sm:inline">More</span></ControlButton>
           {moreOpen && (
-            <div className="absolute bottom-[calc(100%+0.55rem)] right-0 grid min-w-48 gap-1 rounded-xl border border-border bg-bg-surface/95 p-2 shadow-2xl backdrop-blur-xl" role="menu" aria-label="More netgraph controls">
+            <div className="netgraph-more-menu absolute right-0 grid min-w-48 gap-1 rounded-xl border border-border bg-bg-surface/95 p-2 shadow-2xl backdrop-blur-xl" role="menu" aria-label="More netgraph controls">
               <MenuButton onClick={props.onZoomIn}>Zoom in</MenuButton>
               <MenuButton onClick={props.onZoomOut}>Zoom out</MenuButton>
               <MenuButton onClick={props.onTopView}>Top view</MenuButton>
@@ -114,7 +114,7 @@ export function NetgraphCanvasHud(props: NetgraphCanvasHudProps) {
       )}
 
       {props.controlMode === "touch-flight" && (
-        <div className="netgraph-touch-controls pointer-events-none absolute inset-x-0 bottom-16 z-[18] flex items-end justify-between px-3 md:hidden" aria-label="Mobile netgraph flight controls">
+        <div className="netgraph-touch-controls pointer-events-none absolute inset-x-0 bottom-16 flex items-end justify-between px-3 md:hidden" aria-label="Mobile netgraph flight controls">
           <div className="netgraph-touch-pad netgraph-touch-pad--move pointer-events-auto grid h-20 w-20 place-items-center rounded-full border border-primary/25 bg-bg-surface/25 backdrop-blur-md" role="application" aria-label="Netgraph movement control" onPointerDown={props.onMovePadPointerDown} onPointerMove={props.onMovePadPointerMove} onPointerUp={props.onMovePadPointerEnd} onPointerCancel={props.onMovePadPointerEnd}>
             <span className="h-9 w-9 rounded-full border border-green/45 bg-green/12" />
           </div>

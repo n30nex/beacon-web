@@ -100,6 +100,55 @@
 
 .netgraph-control-rail {
   filter: drop-shadow(0 12px 28px color-mix(in srgb, black 36%, transparent));
+  max-width: calc(100% - 1rem);
+}
+
+.netgraph-more-menu {
+  bottom: calc(100% + 0.55rem);
+}
+
+.netgraph-search {
+  width: min(19rem, calc(100vw - 7.5rem));
+}
+
+.netgraph-search-results {
+  top: calc(100% + 0.45rem);
+}
+
+.netgraph-legend {
+  top: 5.25rem;
+}
+
+.netgraph-live-prompt {
+  top: 5.1rem;
+  width: min(26rem, calc(100% - 1rem));
+}
+
+.netgraph-inspector {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  background: color-mix(in srgb, var(--color-bg-surface) 90%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+  border-radius: 1rem;
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  left: 0.5rem;
+  max-height: 11rem;
+  overflow-y: auto;
+  padding: 0.75rem;
+  pointer-events: auto;
+  position: absolute;
+  right: 0.5rem;
+  top: 5.1rem;
+  z-index: 10;
+}
+
+.netgraph-inspector--expanded {
+  max-height: calc(100% - 6rem);
+}
+
+.netgraph-settings-sheet {
+  max-height: calc(100% - 1.5rem);
+  width: min(360px, calc(100% - 1.2rem));
 }
 
 .netgraph-control-button::after {
@@ -140,6 +189,7 @@
 
 .netgraph-touch-controls {
   padding-bottom: 0.125rem;
+  z-index: 18;
 }
 
 .netgraph-touch-pad {
@@ -199,6 +249,18 @@
   .netgraph-canvas-host {
     height: 100%;
     min-height: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .netgraph-search {
+    width: 18rem;
+  }
+
+  .netgraph-inspector {
+    left: auto;
+    right: 0.75rem;
+    width: min(360px, calc(100% - 1.5rem));
   }
 }
 

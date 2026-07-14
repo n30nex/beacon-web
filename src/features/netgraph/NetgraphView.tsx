@@ -74,7 +74,7 @@ function DeviceLegend({ graph }: { graph: ReturnType<typeof buildNetgraph> }) {
     ["Observer", "#ffb21f"], ["Sensor", "#a6f43b"], ["Other", "#9aa6bb"],
   ];
   return (
-    <aside className="netgraph-legend pointer-events-auto absolute left-3 top-[5.25rem] z-10 hidden w-52 rounded-2xl border border-border bg-bg-surface/72 p-3 shadow-2xl backdrop-blur-xl lg:block" aria-label="Netgraph legend">
+    <aside className="netgraph-legend pointer-events-auto absolute left-3 z-10 hidden w-52 rounded-2xl border border-border bg-bg-surface/72 p-3 shadow-2xl backdrop-blur-xl lg:block" aria-label="Netgraph legend">
       <div className="flex items-center justify-between font-mono text-[9px] font-bold uppercase tracking-widest text-primary"><span>Node roles</span><span>{graph.layoutMode === "geo" ? "Geo" : "Galaxy"}</span></div>
       <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5">
         {devices.map(([label, color]) => <span key={label} className="flex items-center gap-1.5 font-mono text-[9px] uppercase text-text-muted"><i className="h-2 w-2 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}` }} />{label}</span>)}
@@ -279,12 +279,12 @@ export function NetgraphView({ immersive = false, onImmersiveChange, selectedNod
         </div>
         <div className="pointer-events-auto ml-auto flex min-w-0 items-start gap-1.5">
           <div className="relative min-w-0">
-            <label className="netgraph-search flex h-10 w-[min(19rem,calc(100vw-7.5rem))] min-w-0 items-center gap-2 rounded-full border border-border bg-bg-surface/78 px-3 shadow-2xl backdrop-blur-xl md:w-72">
+            <label className="netgraph-search flex h-10 min-w-0 items-center gap-2 rounded-full border border-border bg-bg-surface/78 px-3 shadow-2xl backdrop-blur-xl">
               <SearchIcon size={15} className="shrink-0 text-text-dim" />
               <input value={query} onChange={(event) => { setQuery(event.target.value); setSearchFocused(true); setActiveSearchIndex(0); }} onFocus={() => setSearchFocused(true)} onBlur={() => window.setTimeout(() => setSearchFocused(false), 120)} onKeyDown={onSearchKeyDown} role="combobox" aria-label="Search Netgraph nodes" aria-autocomplete="list" aria-expanded={searchFocused && query.trim().length > 0} aria-controls="netgraph-search-results" aria-activedescendant={searchResults[activeSearchIndex] ? `netgraph-search-${searchResults[activeSearchIndex]!.id}` : undefined} className="w-full min-w-0 bg-transparent font-mono text-[11px] text-text-normal outline-none placeholder:text-text-dim" placeholder="Find a node or IATA" />
             </label>
             {searchFocused && query.trim() && (
-              <div id="netgraph-search-results" role="listbox" className="absolute right-0 top-[calc(100%+0.45rem)] max-h-80 w-full overflow-y-auto rounded-2xl border border-border bg-bg-surface/96 p-1.5 shadow-2xl backdrop-blur-xl">
+              <div id="netgraph-search-results" role="listbox" className="netgraph-search-results absolute right-0 max-h-80 w-full overflow-y-auto rounded-2xl border border-border bg-bg-surface/96 p-1.5 shadow-2xl backdrop-blur-xl">
                 {searchResults.length > 0 ? searchResults.map((node, index) => (
                   <button id={`netgraph-search-${node.id}`} key={node.id} type="button" role="option" aria-selected={index === activeSearchIndex} className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left ${index === activeSearchIndex ? "bg-primary/12" : "hover:bg-primary/8"}`} onMouseEnter={() => setActiveSearchIndex(index)} onClick={() => chooseSearchResult(node.id)}>
                     <span className="min-w-0"><b className="block truncate text-xs text-text-bright">{node.label}</b><span className="block truncate font-mono text-[9px] uppercase text-text-dim">{node.role} · {node.iatas.join(", ") || "unlocated"}</span></span>
@@ -313,7 +313,7 @@ export function NetgraphView({ immersive = false, onImmersiveChange, selectedNod
       <div className="netgraph-live-pill pointer-events-none absolute bottom-3 left-3 z-10 hidden items-center gap-2 rounded-full border border-border bg-bg-surface/72 px-3 py-2 font-mono text-[10px] shadow-2xl backdrop-blur-xl md:inline-flex"><ActivityIcon size={14} className="text-primary" /><span className="text-text-muted">{wsManager?.getStatus() ?? "offline"}</span><b className="text-green">{liveStats.visualCount} live</b></div>
 
       {visibleLivePrompt && (
-        <aside className="pointer-events-auto absolute left-1/2 top-[5.1rem] z-30 flex w-[min(26rem,calc(100%-1rem))] -translate-x-1/2 items-center gap-3 rounded-2xl border border-green/35 bg-bg-surface/92 p-3 shadow-2xl backdrop-blur-xl" aria-live="polite">
+        <aside className="netgraph-live-prompt pointer-events-auto absolute left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-green/35 bg-bg-surface/92 p-3 shadow-2xl backdrop-blur-xl" aria-live="polite">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-green/12 text-green"><ActivityIcon size={17} /></span>
           <div className="min-w-0 flex-1"><div className="font-mono text-[9px] font-bold uppercase tracking-widest text-green">Live route available</div><div className="truncate text-xs text-text-bright">Follow {visibleLivePrompt.segments.length} active hops</div></div>
           <button type="button" className="rounded-full border border-green/40 bg-green/10 px-3 py-2 font-mono text-[9px] font-bold uppercase text-green" onClick={followLivePrompt}>Follow</button>

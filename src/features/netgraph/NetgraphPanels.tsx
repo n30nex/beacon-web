@@ -115,7 +115,7 @@ export function Inspector({
   const from = graph.nodeById.get(selectedEdge.fromId)?.label ?? selectedEdge.fromId.slice(0, 8);
   const to = graph.nodeById.get(selectedEdge.toId)?.label ?? selectedEdge.toId.slice(0, 8);
   return (
-    <aside aria-label="Selected route" className={`pointer-events-auto absolute left-2 right-2 top-[5.1rem] z-10 overflow-y-auto rounded-2xl border border-primary/35 bg-bg-surface/90 p-3 shadow-2xl backdrop-blur-xl md:left-auto md:right-3 md:w-[min(360px,calc(100%-1.5rem))] ${expanded ? "max-h-[calc(100%-6rem)]" : "max-h-44"}`}>
+    <aside aria-label="Selected route" className={`netgraph-inspector ${expanded ? "netgraph-inspector--expanded" : ""}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="font-mono text-[10px] font-semibold uppercase text-primary">Selected route</div>
@@ -180,7 +180,7 @@ export function NodeInspector({
   const directNeighborCount = Math.max(0, nodeDirectNeighborIds(graph, node.id).size - 1);
   const secondHopCount = nodeSecondHopNeighborIds(graph, node.id).size;
   return (
-    <aside aria-label="Selected node focus" className={`pointer-events-auto absolute left-2 right-2 top-[5.1rem] z-10 overflow-y-auto rounded-2xl border border-primary/35 bg-bg-surface/90 p-3 shadow-2xl backdrop-blur-xl md:left-auto md:right-3 md:w-[min(360px,calc(100%-1.5rem))] ${expanded ? "max-h-[calc(100%-6rem)]" : "max-h-44"}`}>
+    <aside aria-label="Selected node focus" className={`netgraph-inspector ${expanded ? "netgraph-inspector--expanded" : ""}`}>
       <div className="flex items-center justify-between gap-2 md:items-start md:gap-3">
         <div className="min-w-0">
           <div className="font-mono text-[9px] font-semibold uppercase text-primary md:text-[10px]">Selected node</div>

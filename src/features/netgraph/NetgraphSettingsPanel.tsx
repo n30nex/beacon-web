@@ -232,7 +232,7 @@ export function NetgraphSettingsPanel({
     <div className="pointer-events-none absolute inset-0 z-30">
       <div className="absolute inset-0 bg-black/35 pointer-events-auto md:block" onClick={onClose} />
       <aside
-        className="pointer-events-auto absolute right-2 top-3 z-40 flex max-h-[calc(100%-1.5rem)] w-[min(360px,calc(100%-1.2rem))] flex-col overflow-hidden rounded-sm border border-border bg-bg-surface/95 shadow-2xl backdrop-blur md:right-3 md:top-3"
+        className="netgraph-settings-sheet pointer-events-auto absolute right-2 top-3 z-40 flex flex-col overflow-hidden rounded-sm border border-border bg-bg-surface/95 shadow-2xl backdrop-blur md:right-3 md:top-3"
         aria-label="Netgraph settings"
       >
         <div className="flex shrink-0 items-center justify-between border-b border-border/80 px-3 py-2">
