@@ -697,12 +697,16 @@ test("Netgraph node focus stays in the 3D topology workspace", async ({ page }) 
   await expect(page).not.toHaveURL(/nodeId=node-alpha/);
 });
 
-test("Netgraph search, Galaxy fallback, and immersive Escape stay in one workspace", async ({ page }) => {
+test("Netgraph search, Geo alternate, and immersive Escape stay in one workspace", async ({ page }) => {
   test.slow();
   await primeLocalStorage(page, { "beacon.netgraph.quality.v1": "low-power" });
   await page.addInitScript(() => sessionStorage.setItem("beacon.netgraph.intro-complete.v1", "1"));
   await page.goto("/?tab=Netgraph&boot=0", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("region", { name: "Animated 3D netgraph topology" })).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole("button", { name: "Open netgraph settings" }).click();
+  await expect(page.getByRole("button", { name: /Galaxy/ })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Close netgraph settings" }).click();
 
   await page.getByRole("combobox", { name: "Search Netgraph nodes" }).fill("Alpha");
   await page.getByRole("option", { name: /Alpha/ }).click();
@@ -710,9 +714,9 @@ test("Netgraph search, Galaxy fallback, and immersive Escape stay in one workspa
   await expect(page.getByRole("complementary", { name: "Selected node focus" })).toContainText("Alpha");
 
   await page.getByRole("button", { name: "Open netgraph settings" }).click();
-  const galaxyLayout = page.getByRole("button", { name: /Galaxy/ });
-  await galaxyLayout.click();
-  await expect(galaxyLayout).toHaveAttribute("aria-pressed", "true");
+  const geoLayout = page.getByRole("button", { name: /Geo Constellation/ });
+  await geoLayout.click();
+  await expect(geoLayout).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Close netgraph settings" }).click();
 
   await page.getByRole("button", { name: "Enter immersive Netgraph" }).click();

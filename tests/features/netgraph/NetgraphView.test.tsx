@@ -235,20 +235,20 @@ describe("NetgraphView", () => {
     await waitFor(() => expect(mockGetNetgraphSnapshot).toHaveBeenCalledWith({ iatas: undefined, routeLimit: 1600 }));
   });
 
-  it("defaults to Geo and keeps layout independent from quality", async () => {
+  it("defaults to Galaxy and keeps layout independent from quality", async () => {
     renderNetgraph();
     await screen.findByTestId("mock-netgraph-canvas");
 
     expect(screen.getByLabelText("canvas mode")).toHaveTextContent("overview");
-    expect(screen.getByLabelText("canvas layout")).toHaveTextContent("geo");
+    expect(screen.getByLabelText("canvas layout")).toHaveTextContent("galaxy");
     expect(screen.getByLabelText("canvas quality")).toHaveTextContent("high");
     expect(screen.getByLabelText("canvas data overlay")).toHaveTextContent("on");
 
     fireEvent.click(screen.getByRole("button", { name: "Open netgraph settings" }));
-    fireEvent.click(screen.getByRole("button", { name: /Galaxy/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Geo Constellation/ }));
     fireEvent.click(screen.getByRole("button", { name: /Low Power/ }));
 
-    await waitFor(() => expect(screen.getByLabelText("canvas layout")).toHaveTextContent("galaxy"));
+    await waitFor(() => expect(screen.getByLabelText("canvas layout")).toHaveTextContent("geo"));
     expect(screen.getByLabelText("canvas quality")).toHaveTextContent("battery");
     expect(screen.getByLabelText("canvas data overlay")).toHaveTextContent("on");
   });
@@ -261,22 +261,29 @@ describe("NetgraphView", () => {
 
     expect(screen.getByRole("group", { name: "Netgraph layout" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Netgraph quality" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Geo Constellation/ })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: /Galaxy/ })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: /Geo Constellation/ })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: /Galaxy/ })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: /Cinematic/ })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: /Low Power/ })).toBeInTheDocument();
     expect(screen.queryByText("Advanced")).not.toBeInTheDocument();
   });
 
-  it("persists the selected Galaxy layout", async () => {
+  it("persists the selected Geo layout", async () => {
     renderNetgraph();
     await screen.findByTestId("mock-netgraph-canvas");
     fireEvent.click(screen.getByRole("button", { name: "Open netgraph settings" }));
-    fireEvent.click(screen.getByRole("button", { name: /Galaxy/ }));
-    await waitFor(() => expect(screen.getByLabelText("canvas layout")).toHaveTextContent("galaxy"));
+    fireEvent.click(screen.getByRole("button", { name: /Geo Constellation/ }));
+    await waitFor(() => expect(screen.getByLabelText("canvas layout")).toHaveTextContent("geo"));
 
     cleanup();
     renderNetgraph();
+    expect(await screen.findByLabelText("canvas layout")).toHaveTextContent("geo");
+  });
+
+  it("resets the previous Geo-default rollout to Galaxy", async () => {
+    localStorage.setItem("beacon.netgraph.layout.v1", "geo");
+    renderNetgraph();
+
     expect(await screen.findByLabelText("canvas layout")).toHaveTextContent("galaxy");
   });
 

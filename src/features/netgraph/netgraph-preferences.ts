@@ -1,12 +1,12 @@
 import type { NetgraphLayoutMode, NetgraphQualityPreference } from "./netgraph-model";
 
-const LAYOUT_KEY = "beacon.netgraph.layout.v1";
+const LAYOUT_KEY = "beacon.netgraph.layout.v2";
 const QUALITY_KEY = "beacon.netgraph.quality.v1";
 const LIVE_GUIDE_KEY = "beacon.netgraph.live-guide.v1";
 const INTRO_SESSION_KEY = "beacon.netgraph.intro-complete.v1";
 
 export function readNetgraphLayoutMode(): NetgraphLayoutMode {
-  return readStorage(localStorageSafe(), LAYOUT_KEY) === "galaxy" ? "galaxy" : "geo";
+  return readStorage(localStorageSafe(), LAYOUT_KEY) === "geo" ? "geo" : "galaxy";
 }
 
 export function writeNetgraphLayoutMode(mode: NetgraphLayoutMode): void {
