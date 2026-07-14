@@ -557,7 +557,7 @@ export function ThreeNetgraphCanvas({
     let lastAspect = camera.aspect;
     let userInteracted = false;
     let introTimer: number | null = null;
-    const targetFrameMs = denseGraph && !narrowViewport ? 33 : 0;
+    const targetFrameMs = batteryQuality ? 50 : balancedQuality || denseGraph || narrowViewport ? 33 : 0;
     let frameTiming = createNetgraphFrameTimingState();
     let hadLiveNodeFlashes = false;
     const cancelIntro = () => {

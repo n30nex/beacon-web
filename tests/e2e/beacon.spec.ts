@@ -684,6 +684,8 @@ for (const profile of [
 }
 
 test("Netgraph node focus stays in the 3D topology workspace", async ({ page }) => {
+  test.slow();
+  await primeLocalStorage(page, { "beacon.netgraph.quality.v1": "low-power" });
   await page.addInitScript(() => sessionStorage.setItem("beacon.netgraph.intro-complete.v1", "1"));
   await page.goto("/?tab=Netgraph&boot=0&nodeId=node-alpha", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("region", { name: "Animated 3D netgraph topology" })).toBeVisible({ timeout: 15_000 });
@@ -696,6 +698,8 @@ test("Netgraph node focus stays in the 3D topology workspace", async ({ page }) 
 });
 
 test("Netgraph search, Galaxy fallback, and immersive Escape stay in one workspace", async ({ page }) => {
+  test.slow();
+  await primeLocalStorage(page, { "beacon.netgraph.quality.v1": "low-power" });
   await page.addInitScript(() => sessionStorage.setItem("beacon.netgraph.intro-complete.v1", "1"));
   await page.goto("/?tab=Netgraph&boot=0", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("region", { name: "Animated 3D netgraph topology" })).toBeVisible({ timeout: 15_000 });
@@ -758,6 +762,8 @@ for (const viewport of [
 ] as const) {
   test(`Netgraph renders a nonblank 3D canvas without horizontal overflow on ${viewport.name}`, async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== viewport.name, `Covered by the ${viewport.name} project`);
+    test.slow();
+    await primeLocalStorage(page, { "beacon.netgraph.quality.v1": "low-power" });
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await page.addInitScript(() => {
       (window as Window & { __BEACON_NETGRAPH_TEST_CAPTURE?: boolean }).__BEACON_NETGRAPH_TEST_CAPTURE = true;
