@@ -18,7 +18,7 @@ export function useNetgraphSelection({ selectedNodeId, onSelectNode }: UseNetgra
   const selectedNodeIdFromUrl = searchParams.get("nodeId");
   const effectiveSelectedNodeId = selectedNodeId ?? selectedNodeIdFromUrl;
   const [viewMode, setViewMode] = useState<NetgraphViewMode>(
-    () => (selectedRouteId != null ? "routes" : effectiveSelectedNodeId ? "focus" : "galaxy"),
+    () => (selectedRouteId != null ? "routes" : effectiveSelectedNodeId ? "focus" : "overview"),
   );
   const previousFocusRef = useRef({ selectedNodeId: effectiveSelectedNodeId, selectedRouteId });
 
@@ -61,7 +61,7 @@ export function useNetgraphSelection({ selectedNodeId, onSelectNode }: UseNetgra
 
   const clearRoute = useCallback(() => {
     onSelectNode(null);
-    setViewMode("galaxy");
+    setViewMode("overview");
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete("nodeId");
@@ -73,7 +73,7 @@ export function useNetgraphSelection({ selectedNodeId, onSelectNode }: UseNetgra
 
   const clearNode = useCallback(() => {
     onSelectNode(null);
-    setViewMode("galaxy");
+    setViewMode("overview");
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete("nodeId");
@@ -84,7 +84,7 @@ export function useNetgraphSelection({ selectedNodeId, onSelectNode }: UseNetgra
 
   const clearSelection = useCallback(() => {
     onSelectNode(null);
-    setViewMode("galaxy");
+    setViewMode("overview");
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete("nodeId");

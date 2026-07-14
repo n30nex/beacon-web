@@ -207,6 +207,7 @@ function AppInner() {
   // lifted (like selectedNodeId) so a node's "View observer" link can select it before the tab mounts
   const [selectedObserverId, setSelectedObserverId] = useState<string | null>(() => searchParams.get("observerId"));
   const [searchOpen, setSearchOpen] = useState(false);
+  const [netgraphImmersive, setNetgraphImmersive] = useState(false);
   // node detail shown as a modal over the packet analyzer (e.g. clicking a resolved path hop)
   const [overlayNodeId, setOverlayNodeId] = useState<string | null>(null);
   // packet analyzer shown as a modal over the node panel (clicking a node's observation row)
@@ -386,6 +387,15 @@ function AppInner() {
   }, []);
 
   useEffect(() => {
+    if (activeTab !== "Netgraph" || !netgraphImmersive) return;
+    const exitImmersive = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setNetgraphImmersive(false);
+    };
+    window.addEventListener("keydown", exitImmersive);
+    return () => window.removeEventListener("keydown", exitImmersive);
+  }, [activeTab, netgraphImmersive]);
+
+  useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -416,7 +426,7 @@ function AppInner() {
     Observers: <ObserverTable wsManager={wsManager} selectedObserverId={selectedObserverId} onSelectObserver={handleSelectObserver} onAnalyzePacket={setOverlayPacketHash} onViewStats={handleViewObserverStats} />,
     Investigations: <InvestigationsView />,
     Routes: <RouteTable />,
-    Netgraph: <NetgraphView selectedNodeId={selectedNodeId} onSelectNode={(id) => handleSelectNode(id)} wsManager={wsManager} />,
+    Netgraph: <NetgraphView immersive={netgraphImmersive} onImmersiveChange={setNetgraphImmersive} selectedNodeId={selectedNodeId} onSelectNode={(id) => handleSelectNode(id)} wsManager={wsManager} />,
     // analyze opens the packet overlay (modal) rather than the side drawer, which suits the
     // master/detail layout and renders on any tab — same path NodeDetailPanel's onAnalyzePacket uses
     Traces: <TraceList onAnalyze={setOverlayPacketHash} onViewNode={setOverlayNodeId} />,
@@ -436,7 +446,7 @@ function AppInner() {
       <RegionWatcher wsManager={wsManager} />
       <RegionUrlSync />
       <SelectionResetOnRegion onRegionChange={clearSelection} />
-      <AppShell activeTab={activeTab} onTabChange={handleTabChange} wsManager={wsManager} onOpenSearch={() => setSearchOpen(true)}>
+      <AppShell activeTab={activeTab} immersive={activeTab === "Netgraph" && netgraphImmersive} onTabChange={handleTabChange} wsManager={wsManager} onOpenSearch={() => setSearchOpen(true)}>
         <div className="relative flex flex-1 min-h-0 min-w-0">
           <div key={contentKey} className="flex flex-1 min-h-0 min-w-0 fade-in">
             <Suspense fallback={<TerminalLoadingState label={`LOADING ${contentLabel}`} detail="MODULE TRANSFER IN PROGRESS" />}>

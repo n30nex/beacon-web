@@ -136,7 +136,7 @@ function createEdgeBeamGroup(options: {
 }): THREE.Group {
   const edgeBeamsGroup = new THREE.Group();
   const hasEmphasis = options.selectedEdgesCount > 0 || options.directNodeEdgesCount > 0;
-  const edgeBeamEnabled = options.highQuality && !options.batteryQuality && (!options.denseGraph || options.nodeFocusActive || hasEmphasis) && !options.lowPower;
+  const edgeBeamEnabled = options.graph.layoutMode === "galaxy" && options.highQuality && !options.batteryQuality && (!options.denseGraph || options.nodeFocusActive || hasEmphasis) && !options.lowPower;
   if (!edgeBeamEnabled) return edgeBeamsGroup;
 
   const edgeBeamVariant = chooseAmbientPacketVariant(options.nodeFocusActive, options.batteryQuality);

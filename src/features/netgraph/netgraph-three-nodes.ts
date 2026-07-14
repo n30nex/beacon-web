@@ -164,3 +164,30 @@ export function paintRoleMeshes(options: {
     mesh.instanceColor!.needsUpdate = true;
   }
 }
+
+export function applyLiveElevationToRoleMeshes(options: {
+  roleMeshes: RoleMesh[];
+  graph: NetgraphGraph;
+  liveNodeFlashes: Map<string, NodeLiveFlashPaint>;
+}): void {
+  if (options.graph.layoutMode !== "geo") return;
+  const matrix = new THREE.Matrix4();
+  const position = new THREE.Vector3();
+  const rotation = new THREE.Quaternion();
+  const scale = new THREE.Vector3();
+  const base = new THREE.Vector3();
+  for (const { mesh, nodeIndices } of options.roleMeshes) {
+    nodeIndices.forEach((nodeIndex, instanceIndex) => {
+      const node = options.graph.nodes[nodeIndex]!;
+      mesh.getMatrixAt(instanceIndex, matrix);
+      matrix.decompose(position, rotation, scale);
+      base.set(node.position.x, node.position.y, node.position.z);
+      const flash = options.liveNodeFlashes.get(node.id);
+      const lift = flash ? Math.min(10, 2.2 + Math.max(0, flash.strength) * 5.4) : 0;
+      if (base.lengthSq() > 0.001) base.addScaledVector(base.clone().normalize(), lift);
+      matrix.compose(base, rotation, scale);
+      mesh.setMatrixAt(instanceIndex, matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+  }
+}

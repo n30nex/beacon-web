@@ -113,14 +113,14 @@ function mockThemeFetch() {
   );
 }
 
-function renderShell(activeTab = "Home", onTabChange: (tab: string) => void = () => {}, onOpenSearch?: () => void) {
+function renderShell(activeTab = "Home", onTabChange: (tab: string) => void = () => {}, onOpenSearch?: () => void, immersive = false) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <ThemeProvider>
         <RegionProvider defaultSelection={ALL_REGIONS}>
-          <AppShell activeTab={activeTab} onTabChange={onTabChange} wsManager={wsManager} onOpenSearch={onOpenSearch}>
-            <div />
+          <AppShell activeTab={activeTab} immersive={immersive} onTabChange={onTabChange} wsManager={wsManager} onOpenSearch={onOpenSearch}>
+            <div data-testid="workspace-content" />
           </AppShell>
         </RegionProvider>
       </ThemeProvider>
@@ -193,6 +193,16 @@ afterEach(() => {
 });
 
 describe("AppShell", () => {
+  it("hides app chrome while preserving workspace content in immersive mode", () => {
+    vi.mocked(getIatas).mockResolvedValue([]);
+    renderShell("Netgraph", () => {}, undefined, true);
+
+    expect(screen.getByTestId("workspace-content")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Pages" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Mobile navigation" })).not.toBeInTheDocument();
+    expect(screen.queryByText("BEACON v", { exact: false })).not.toBeInTheDocument();
+  });
+
   it("footer shows the display version with a green pulse", () => {
     vi.mocked(getIatas).mockResolvedValue([]);
     renderShell();

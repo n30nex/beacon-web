@@ -1,6 +1,8 @@
 import * as THREE from "three";
 
 import type { NetgraphGraph, NetgraphRole } from "./netgraph-model";
+import { NETGRAPH_GLOBE_RADIUS, projectLatLngToSphere } from "./netgraph-geo";
+import { NATURAL_EARTH_110M_LAND_OUTLINES } from "./natural-earth-110m";
 import { clamp } from "./netgraph-three-geometry";
 
 const MAX_LABELS = 3200;
@@ -70,6 +72,111 @@ export function createReferenceGrid(options: {
   return referenceGrid;
 }
 
+export function createAbstractGlobe(options: {
+  atmosphereDensity: number;
+  batteryQuality: boolean;
+  globeRadius?: number;
+  green: THREE.Color;
+  primary: THREE.Color;
+  reduced: boolean;
+}): THREE.Group {
+  const radius = options.globeRadius ?? NETGRAPH_GLOBE_RADIUS;
+  const group = new THREE.Group();
+  group.name = "netgraph-geo-globe";
+
+  const surface = new THREE.Mesh(
+    new THREE.SphereGeometry(radius, options.batteryQuality ? 40 : 72, options.batteryQuality ? 24 : 48),
+    new THREE.MeshPhongMaterial({
+      color: options.primary.clone().lerp(options.green, 0.22),
+      emissive: options.primary.clone().multiplyScalar(0.08),
+      emissiveIntensity: 0.7,
+      transparent: true,
+      opacity: options.batteryQuality ? 0.035 : 0.055,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  );
+  surface.renderOrder = -1;
+  group.add(surface);
+
+  const atmosphere = new THREE.Mesh(
+    new THREE.SphereGeometry(radius * 1.045, options.batteryQuality ? 32 : 56, options.batteryQuality ? 20 : 38),
+    new THREE.MeshBasicMaterial({
+      color: options.primary,
+      transparent: true,
+      opacity: (options.batteryQuality ? 0.025 : 0.052) * clamp(options.atmosphereDensity, 0.4, 1.8),
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.BackSide,
+    }),
+  );
+  atmosphere.renderOrder = -2;
+  group.add(atmosphere);
+
+  const graticule = new THREE.BufferGeometry();
+  const graticulePositions: number[] = [];
+  const latitudeStep = options.batteryQuality ? 30 : 20;
+  const longitudeStep = options.batteryQuality ? 30 : 20;
+  const segmentStep = options.batteryQuality ? 10 : 6;
+  for (let latitude = -60; latitude <= 60; latitude += latitudeStep) {
+    for (let longitude = -180; longitude < 180; longitude += segmentStep) {
+      pushGeoSegment(graticulePositions, latitude, longitude, latitude, longitude + segmentStep, radius * 1.003);
+    }
+  }
+  for (let longitude = -180; longitude < 180; longitude += longitudeStep) {
+    for (let latitude = -90; latitude < 90; latitude += segmentStep) {
+      pushGeoSegment(graticulePositions, latitude, longitude, latitude + segmentStep, longitude, radius * 1.003);
+    }
+  }
+  graticule.setAttribute("position", new THREE.Float32BufferAttribute(graticulePositions, 3));
+  const graticuleLines = new THREE.LineSegments(graticule, new THREE.LineBasicMaterial({
+    color: options.primary,
+    transparent: true,
+    opacity: options.batteryQuality ? 0.045 : 0.075,
+    depthWrite: false,
+  }));
+  graticuleLines.renderOrder = 0;
+  group.add(graticuleLines);
+
+  if (!options.batteryQuality) {
+    const landPositions: number[] = [];
+    for (const ring of NATURAL_EARTH_110M_LAND_OUTLINES) {
+      for (let index = 0; index < ring.length - 1; index += 1) {
+        const start = ring[index]!;
+        const end = ring[index + 1]!;
+        if (Math.abs(end[0] - start[0]) > 180) continue;
+        pushGeoSegment(landPositions, start[1], start[0], end[1], end[0], radius * 1.007);
+      }
+    }
+    const landGeometry = new THREE.BufferGeometry();
+    landGeometry.setAttribute("position", new THREE.Float32BufferAttribute(landPositions, 3));
+    const land = new THREE.LineSegments(landGeometry, new THREE.LineBasicMaterial({
+      color: options.green.clone().lerp(options.primary, 0.32),
+      transparent: true,
+      opacity: options.reduced ? 0.12 : 0.22,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }));
+    land.renderOrder = 1;
+    group.add(land);
+  }
+
+  return group;
+}
+
+function pushGeoSegment(
+  values: number[],
+  startLat: number,
+  startLng: number,
+  endLat: number,
+  endLng: number,
+  radius: number,
+): void {
+  const start = projectLatLngToSphere(startLat, startLng, radius);
+  const end = projectLatLngToSphere(endLat, endLng, radius);
+  values.push(start.x, start.y, start.z, end.x, end.y, end.z);
+}
+
 export function createNetgraphSceneStage(options: {
   atmosphereDensity: number;
   backdropTexture?: THREE.Texture | null;
@@ -104,14 +211,17 @@ export function createNetgraphSceneStage(options: {
     .filter((node) => options.visibleNodeIds.has(node.id))
     .map((node) => new THREE.Vector3(node.position.x, node.position.y, node.position.z));
   const box = new THREE.Box3().setFromPoints(nodePositions);
-  const center = box.getCenter(new THREE.Vector3());
+  const geoMode = options.graph.layoutMode === "geo";
+  const center = geoMode ? new THREE.Vector3() : box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3());
-  const radius = Math.max(options.narrowViewport ? 42 : 38, Math.max(size.x, size.y, Math.abs(size.z) * 1.3) * 1.16 * options.cameraDistanceScale * depthSpread);
+  const radius = geoMode
+    ? options.graph.globeRadius * (options.graph.locationStats.unlocated > 0 ? 1.92 : 1.45) * options.cameraDistanceScale
+    : Math.max(options.narrowViewport ? 42 : 38, Math.max(size.x, size.y, Math.abs(size.z) * 1.3) * 1.16 * options.cameraDistanceScale * depthSpread);
 
   options.scene.fog = new THREE.Fog(
     options.bg,
-    radius * (options.narrowViewport ? 1.06 : 0.86),
-    radius * (options.narrowViewport ? 5.2 : 3.8) * (0.88 + atmosphereScale * 0.24),
+    radius * (geoMode ? 1.34 : options.narrowViewport ? 1.06 : 0.86),
+    radius * (geoMode ? 5.6 : options.narrowViewport ? 5.2 : 3.8) * (0.88 + atmosphereScale * 0.24),
   );
   options.scene.add(createSpaceBackdrop(
     center,
@@ -126,14 +236,25 @@ export function createNetgraphSceneStage(options: {
     options.starDensity,
     atmosphereScale,
   ));
-  options.referenceGroup.add(createReferenceGrid({
-    batteryQuality: options.batteryQuality,
-    center,
-    muted: options.muted,
-    narrowViewport: options.narrowViewport,
-    primary: options.primary,
-    radius,
-  }));
+  if (geoMode) {
+    options.referenceGroup.add(createAbstractGlobe({
+      atmosphereDensity: options.atmosphereDensity,
+      batteryQuality: options.batteryQuality,
+      globeRadius: options.graph.globeRadius,
+      green: options.green,
+      primary: options.primary,
+      reduced: options.reduced,
+    }));
+  } else {
+    options.referenceGroup.add(createReferenceGrid({
+      batteryQuality: options.batteryQuality,
+      center,
+      muted: options.muted,
+      narrowViewport: options.narrowViewport,
+      primary: options.primary,
+      radius,
+    }));
+  }
 
   return { center, radius };
 }

@@ -213,8 +213,8 @@ describe("buildNetgraph", () => {
   });
 
   it("keeps fallback positions and settled layout deterministic", () => {
-    const graphA = buildNetgraph(snapshot());
-    const graphB = buildNetgraph(snapshot());
+    const graphA = buildNetgraph(snapshot(), undefined, "galaxy");
+    const graphB = buildNetgraph(snapshot(), undefined, "galaxy");
 
     expect(graphA.nodeById.get("node-charlie")?.seed).toEqual(graphB.nodeById.get("node-charlie")?.seed);
     expect(stableHash("node-charlie")).toBe(stableHash("node-charlie"));
@@ -250,7 +250,7 @@ describe("buildNetgraph", () => {
   });
 
   it("settles nodes into meaningful 3D depth instead of a flat XY sheet", () => {
-    const graph = buildNetgraph(chainSnapshot());
+    const graph = buildNetgraph(chainSnapshot(), undefined, "galaxy");
     const seedDepth = depthSpan(graph.nodes.map((node) => node.seed.z));
     const positions = resultToPositionMap(settleNetgraphLayout(layoutRequestFromGraph(graph, 34)));
     const settledDepth = depthSpan(Array.from(positions.values()).map((point) => point.z));
@@ -264,7 +264,7 @@ describe("buildNetgraph", () => {
   });
 
   it("seeds default complete-view clusters as rounded 3D volumes", () => {
-    const graph = buildNetgraph(chainSnapshot(28));
+    const graph = buildNetgraph(chainSnapshot(28), undefined, "galaxy");
     const spans = axisSpans(graph.nodes.map((node) => node.seed));
     const widestFlatAxis = Math.max(spans.x, spans.y);
 
@@ -274,7 +274,7 @@ describe("buildNetgraph", () => {
   });
 
   it("enforces breathing room between settled complete-view nodes", () => {
-    const graph = buildNetgraph(chainSnapshot(22));
+    const graph = buildNetgraph(chainSnapshot(22), undefined, "galaxy");
     const positions = resultToPositionMap(settleNetgraphLayout(layoutRequestFromGraph(graph, 54)));
 
     expect(minimumPairDistance(Array.from(positions.values()))).toBeGreaterThan(22);
@@ -283,7 +283,10 @@ describe("buildNetgraph", () => {
   it("returns route path points in graph coordinates", () => {
     const graph = buildNetgraph(snapshot());
 
-    expect(routePathPoints(graph, 42)).toHaveLength(3);
+    const points = routePathPoints(graph, 42);
+    expect(points.length).toBeGreaterThan(3);
+    expect(points[0]).toEqual(graph.nodeById.get("node-alpha")?.position);
+    expect(points.at(-1)).toEqual(graph.nodeById.get("node-charlie")?.position);
     expect(routePathPoints(graph, 404)).toEqual([]);
   });
 
@@ -332,7 +335,7 @@ describe("buildNetgraph", () => {
         edge("node-bravo", "node-charlie", [42], 22),
         edge("node-delta", "node-echo", [900], 4),
       ],
-    }));
+    }), undefined, "galaxy");
 
     const focus = resolveNetgraphVisibilitySets(graph, "focus", "node-alpha");
     expect(focus.visibleNodeIds).toEqual(new Set(["node-alpha", "node-bravo", "node-charlie"]));
@@ -340,7 +343,7 @@ describe("buildNetgraph", () => {
     expect(focus.pickableNodeIds.has("node-delta")).toBe(false);
     expect(focus.pickableEdgeIds.has("node-delta>node-echo")).toBe(false);
 
-    const overview = resolveNetgraphVisibilitySets(graph, "galaxy", "node-alpha");
+    const overview = resolveNetgraphVisibilitySets(graph, "overview", "node-alpha");
     expect(overview.visibleNodeIds.has("node-delta")).toBe(true);
     expect(overview.visibleEdgeIds.has("node-delta>node-echo")).toBe(true);
   });

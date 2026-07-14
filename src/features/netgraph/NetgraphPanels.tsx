@@ -90,12 +90,16 @@ function Metric({ label, value }: { label: string; value: string }) {
 export function Inspector({
   graph,
   selectedRouteId,
+  expanded,
+  onToggleExpanded,
   onFocusRoute,
   onViewRouteOnMap,
   onClearRoute,
 }: {
   graph: NetgraphGraph;
   selectedRouteId: number | null;
+  expanded: boolean;
+  onToggleExpanded: () => void;
   onFocusRoute: () => void;
   onViewRouteOnMap: () => void;
   onClearRoute: () => void;
@@ -111,15 +115,12 @@ export function Inspector({
   const from = graph.nodeById.get(selectedEdge.fromId)?.label ?? selectedEdge.fromId.slice(0, 8);
   const to = graph.nodeById.get(selectedEdge.toId)?.label ?? selectedEdge.toId.slice(0, 8);
   return (
-    <aside className="pointer-events-auto absolute bottom-3 left-2 right-2 z-10 max-h-[46vh] overflow-y-auto rounded-sm border border-primary/35 bg-bg-surface/90 p-2 shadow-2xl backdrop-blur md:bottom-3 md:left-auto md:right-3 md:max-h-none md:w-[min(360px,calc(100%-1.5rem))] md:overflow-visible md:p-3">
+    <aside aria-label="Selected route" className={`pointer-events-auto absolute left-2 right-2 top-[5.1rem] z-10 overflow-y-auto rounded-2xl border border-primary/35 bg-bg-surface/90 p-3 shadow-2xl backdrop-blur-xl md:left-auto md:right-3 md:w-[min(360px,calc(100%-1.5rem))] ${expanded ? "max-h-[calc(100%-6rem)]" : "max-h-44"}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="font-mono text-[10px] font-semibold uppercase text-primary">Selected route</div>
           <div className="mt-1 text-sm font-semibold text-text-bright">{from} {"->"} {to}</div>
-          <div className="mt-1 hidden font-mono text-[11px] text-text-muted sm:block">{formatCount(selectedEdge.observationCount)} observations / {selectedEdge.iatas.join(", ") || "all regions"}</div>
-          <div className="mt-1 font-mono text-[10px] text-text-muted md:block">
-            {formatCount(routeEdges.length)} highlighted links / {formatCount(routeNodeIds.size)} nodes / {timeAgoMs(selectedEdge.lastSeen)} ago
-          </div>
+          <div className="mt-1 font-mono text-[10px] text-text-muted">{formatCount(routeEdges.length)} links · {formatCount(routeNodeIds.size)} nodes</div>
         </div>
         <button
           type="button"
@@ -131,6 +132,7 @@ export function Inspector({
           <CloseIcon size={16} />
         </button>
       </div>
+      {expanded && <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border-subtle pt-3"><Metric label="Observations" value={formatCount(selectedEdge.observationCount)} /><Metric label="Last seen" value={`${timeAgoMs(selectedEdge.lastSeen)} ago`} /><Metric label="Regions" value={selectedEdge.iatas.join(", ") || "All"} /><Metric label="Route ID" value={String(selectedRouteId)} /></div>}
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
@@ -140,13 +142,14 @@ export function Inspector({
         >
           Replay 3D
         </button>
-        <button
+        <button type="button" className="rounded-full border border-border px-3 py-1.5 font-mono text-[10px] font-semibold uppercase text-text-muted hover:border-primary/45 hover:text-text-bright" onClick={onToggleExpanded}>{expanded ? "Less" : "Details"}</button>
+        {expanded && <button
           type="button"
           className="rounded-sm border border-primary/45 bg-primary/10 px-2 py-1.5 font-mono text-[10px] font-semibold uppercase text-primary transition-colors hover:bg-primary/15"
           onClick={onViewRouteOnMap}
         >
           View on map
-        </button>
+        </button>}
       </div>
     </aside>
   );
@@ -155,12 +158,16 @@ export function Inspector({
 export function NodeInspector({
   graph,
   selectedNodeId,
+  expanded,
+  onToggleExpanded,
   onFocusNode,
   onViewNodeOnMap,
   onClearNode,
 }: {
   graph: NetgraphGraph;
   selectedNodeId: string | null;
+  expanded: boolean;
+  onToggleExpanded: () => void;
   onFocusNode: () => void;
   onViewNodeOnMap: () => void;
   onClearNode: () => void;
@@ -173,7 +180,7 @@ export function NodeInspector({
   const directNeighborCount = Math.max(0, nodeDirectNeighborIds(graph, node.id).size - 1);
   const secondHopCount = nodeSecondHopNeighborIds(graph, node.id).size;
   return (
-    <aside aria-label="Selected node focus" className="pointer-events-auto absolute bottom-3 left-2 right-2 z-10 max-h-[46vh] overflow-y-auto rounded-sm border border-primary/35 bg-bg-surface/90 p-2 shadow-2xl backdrop-blur md:bottom-3 md:left-auto md:right-3 md:max-h-none md:w-[min(360px,calc(100%-1.5rem))] md:overflow-visible md:p-3">
+    <aside aria-label="Selected node focus" className={`pointer-events-auto absolute left-2 right-2 top-[5.1rem] z-10 overflow-y-auto rounded-2xl border border-primary/35 bg-bg-surface/90 p-3 shadow-2xl backdrop-blur-xl md:left-auto md:right-3 md:w-[min(360px,calc(100%-1.5rem))] ${expanded ? "max-h-[calc(100%-6rem)]" : "max-h-44"}`}>
       <div className="flex items-center justify-between gap-2 md:items-start md:gap-3">
         <div className="min-w-0">
           <div className="font-mono text-[9px] font-semibold uppercase text-primary md:text-[10px]">Selected node</div>
@@ -181,12 +188,12 @@ export function NodeInspector({
           <div className="mt-1 font-mono text-[10px] text-text-muted md:text-[11px]">
             {node.role} / {formatCount(edgeCount)} highlighted pathways / {formatCount(neighborhoodCount)} nodes
           </div>
-          <div className="mt-1 hidden font-mono text-[10px] text-text-muted md:block">
+          {expanded && <div className="mt-1 font-mono text-[10px] text-text-muted">
             {formatCount(directNeighborCount)} first-hop / {formatCount(secondHopCount)} second-hop / {formatCount(directEdgeCount)} direct links
-          </div>
-          <div className="mt-1 hidden font-mono text-[10px] text-text-muted md:block">
+          </div>}
+          {expanded && <div className="mt-1 font-mono text-[10px] text-text-muted">
             {formatCount(node.routeCount)} routes / {formatCount(node.observationCount)} observations / {timeAgoMs(node.lastSeen)} ago
-          </div>
+          </div>}
         </div>
         <button
           type="button"
@@ -207,14 +214,15 @@ export function NodeInspector({
         >
           Focus
         </button>
-        <button
+        <button type="button" className="rounded-full border border-border px-3 py-1.5 font-mono text-[10px] font-semibold uppercase text-text-muted hover:border-primary/45 hover:text-text-bright" onClick={onToggleExpanded}>{expanded ? "Less" : "Details"}</button>
+        {expanded && <button
           type="button"
           className="rounded-sm border border-primary/45 bg-primary/10 px-2 py-1.5 font-mono text-[10px] font-semibold uppercase text-primary transition-colors hover:bg-primary/15"
           onClick={onViewNodeOnMap}
           aria-label="View selected node on map"
         >
           View on map
-        </button>
+        </button>}
       </div>
     </aside>
   );

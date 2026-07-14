@@ -4,42 +4,49 @@ import {
   DEFAULT_NETGRAPH_VISUAL_PROFILE,
   type NetgraphCinematicPreset,
   type NetgraphGalaxyProfile,
+  type NetgraphLayoutMode,
+  type NetgraphQualityPreference,
   type NetgraphQualityMode,
   type NetgraphRouteLimit,
-  type NetgraphVisualMode,
   type NetgraphVisualProfile,
 } from "./netgraph-model";
 
 export const MOBILE_NETGRAPH_ROUTE_LIMIT: NetgraphRouteLimit = 800;
 export const MOBILE_NETGRAPH_QUERY = "(max-width: 767px)";
 
-export const NETGRAPH_VISUAL_MODE_CONFIGS: Record<NetgraphVisualMode, {
+export const NETGRAPH_LAYOUT_CONFIGS: Record<NetgraphLayoutMode, {
+  label: string;
+  detail: string;
+  galaxy: NetgraphGalaxyProfile;
+}> = {
+  geo: {
+    label: "Geo Constellation",
+    detail: "Geographic globe",
+    galaxy: DEFAULT_NETGRAPH_GALAXY_PROFILE,
+  },
+  galaxy: {
+    label: "Galaxy",
+    detail: "Topology clusters",
+    galaxy: DEFAULT_NETGRAPH_GALAXY_PROFILE,
+  },
+};
+
+export const NETGRAPH_QUALITY_CONFIGS: Record<NetgraphQualityPreference, {
   label: string;
   detail: string;
   quality: NetgraphQualityMode;
-  galaxy: NetgraphGalaxyProfile;
   visual: NetgraphVisualProfile;
 }> = {
-  galaxy: {
-    label: "Galaxy",
-    detail: "Full assets / live packets",
+  cinematic: {
+    label: "Cinematic",
+    detail: "Full atmosphere and live effects",
     quality: "high",
-    galaxy: DEFAULT_NETGRAPH_GALAXY_PROFILE,
     visual: DEFAULT_NETGRAPH_VISUAL_PROFILE,
   },
   "low-power": {
     label: "Low Power",
-    detail: "FPS / lean render",
+    detail: "Lean effects and battery rendering",
     quality: "battery",
-    galaxy: {
-      ...DEFAULT_NETGRAPH_GALAXY_PROFILE,
-      seedShape: "spherical",
-      clusterScale: 2.02,
-      spiralIntensity: 0.1,
-      depthContrast: 2.72,
-      settleStrength: 1.18,
-      edgeSpacingScale: 1.92,
-    },
     visual: {
       ...DEFAULT_NETGRAPH_VISUAL_PROFILE,
       autoRotateSpeed: 0,

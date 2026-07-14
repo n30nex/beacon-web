@@ -8,6 +8,7 @@ import {
   type NetgraphPulse,
   type NetgraphRole,
 } from "./netgraph-model";
+import { buildEdgePathMap, pointOnSampledPath } from "./netgraph-geo";
 
 const EDGE_LOW = new THREE.Color("#25b7a8");
 const EDGE_MID = new THREE.Color("#78d641");
@@ -92,10 +93,13 @@ export function edgePositions(graph: NetgraphGraph, edgeIds?: Set<string>): Floa
   const values: number[] = [];
   for (const edge of graph.edges) {
     if (edgeIds && !edgeIds.has(edge.id)) continue;
-    const from = graph.nodes[edge.fromIndex]?.position;
-    const to = graph.nodes[edge.toIndex]?.position;
-    if (!from || !to) continue;
-    values.push(from.x, from.y, from.z, to.x, to.y, to.z);
+    const path = graph.edgePaths.get(edge.id);
+    if (!path) continue;
+    for (let index = 0; index < path.length - 1; index += 1) {
+      const from = path[index]!;
+      const to = path[index + 1]!;
+      values.push(from.x, from.y, from.z, to.x, to.y, to.z);
+    }
   }
   return new Float32Array(values);
 }
@@ -114,6 +118,7 @@ export function graphWithPositions(graph: NetgraphGraph, positions: Map<string, 
     ...graph,
     nodes,
     nodeById: new Map(nodes.map((node) => [node.id, node])),
+    edgePaths: buildEdgePathMap(nodes, graph.edges, graph.layoutMode, graph.globeRadius),
   };
 }
 
@@ -138,7 +143,10 @@ export function edgeColors(graph: NetgraphGraph, edgeIds?: Set<string>): Float32
   for (const edge of graph.edges) {
     if (edgeIds && !edgeIds.has(edge.id)) continue;
     const color = colorForEdge(edge.observationCount);
-    values.push(color.r, color.g, color.b, color.r, color.g, color.b);
+    const segmentCount = Math.max(0, (graph.edgePaths.get(edge.id)?.length ?? 1) - 1);
+    for (let index = 0; index < segmentCount; index += 1) {
+      values.push(color.r, color.g, color.b, color.r, color.g, color.b);
+    }
   }
   return new Float32Array(values);
 }
@@ -154,20 +162,23 @@ export function nearestEdgeId(graph: NetgraphGraph, camera: THREE.Camera, rect: 
   const to = new THREE.Vector3();
   for (const edge of graph.edges) {
     if (edgeIds && !edgeIds.has(edge.id)) continue;
-    const a = graph.nodes[edge.fromIndex]?.position;
-    const b = graph.nodes[edge.toIndex]?.position;
-    if (!a || !b) continue;
-    from.set(a.x, a.y, a.z).project(camera);
-    to.set(b.x, b.y, b.z).project(camera);
-    if (Math.abs(from.z) > 1 || Math.abs(to.z) > 1) continue;
-    const ax = (from.x * 0.5 + 0.5) * rect.width;
-    const ay = (-from.y * 0.5 + 0.5) * rect.height;
-    const bx = (to.x * 0.5 + 0.5) * rect.width;
-    const by = (-to.y * 0.5 + 0.5) * rect.height;
-    const distance = distanceToSegment(clientX - rect.left, clientY - rect.top, ax, ay, bx, by);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      bestId = edge.id;
+    const path = graph.edgePaths.get(edge.id);
+    if (!path) continue;
+    for (let index = 0; index < path.length - 1; index += 1) {
+      const a = path[index]!;
+      const b = path[index + 1]!;
+      from.set(a.x, a.y, a.z).project(camera);
+      to.set(b.x, b.y, b.z).project(camera);
+      if (Math.abs(from.z) > 1 || Math.abs(to.z) > 1) continue;
+      const ax = (from.x * 0.5 + 0.5) * rect.width;
+      const ay = (-from.y * 0.5 + 0.5) * rect.height;
+      const bx = (to.x * 0.5 + 0.5) * rect.width;
+      const by = (-to.y * 0.5 + 0.5) * rect.height;
+      const distance = distanceToSegment(clientX - rect.left, clientY - rect.top, ax, ay, bx, by);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestId = edge.id;
+      }
     }
   }
   return bestId;
@@ -193,24 +204,14 @@ export function nearestProjectedNode(graph: NetgraphGraph, camera: THREE.Camera,
 }
 
 export function edgeFocusPoint(graph: NetgraphGraph, edgeId: string): THREE.Vector3 | null {
-  const edge = graph.edgeById.get(edgeId);
-  const from = edge ? graph.nodeById.get(edge.fromId) : null;
-  const to = edge ? graph.nodeById.get(edge.toId) : null;
-  if (!edge || !from || !to) return null;
-  return new THREE.Vector3(
-    (from.position.x + to.position.x) / 2,
-    (from.position.y + to.position.y) / 2,
-    (from.position.z + to.position.z) / 2,
-  );
+  const point = pointOnSampledPath(graph.edgePaths.get(edgeId), 0.5);
+  return point ? new THREE.Vector3(point.x, point.y, point.z) : null;
 }
 
 export function selectedRouteFocus(graph: NetgraphGraph, routeId: number | null | undefined): { center: THREE.Vector3; span: number } | null {
   const points: THREE.Vector3[] = [];
   for (const edge of graph.edgeByRouteId.get(routeId ?? -1) ?? []) {
-    const from = graph.nodeById.get(edge.fromId);
-    const to = graph.nodeById.get(edge.toId);
-    if (from) points.push(nodePosition(from));
-    if (to) points.push(nodePosition(to));
+    for (const point of graph.edgePaths.get(edge.id) ?? []) points.push(new THREE.Vector3(point.x, point.y, point.z));
   }
   if (points.length === 0) return null;
   const box = new THREE.Box3().setFromPoints(points);
@@ -221,11 +222,11 @@ export function selectedRouteFocus(graph: NetgraphGraph, routeId: number | null 
 export function selectedRouteWaypoints(graph: NetgraphGraph, routeId: number | null | undefined): THREE.Vector3[] {
   const waypoints: THREE.Vector3[] = [];
   for (const edge of graph.edgeByRouteId.get(routeId ?? -1) ?? []) {
-    const from = graph.nodeById.get(edge.fromId);
-    const to = graph.nodeById.get(edge.toId);
-    if (!from || !to) continue;
-    if (waypoints.length === 0) waypoints.push(nodePosition(from));
-    waypoints.push(nodePosition(to));
+    const path = graph.edgePaths.get(edge.id) ?? [];
+    path.forEach((point, index) => {
+      if (waypoints.length > 0 && index === 0) return;
+      waypoints.push(new THREE.Vector3(point.x, point.y, point.z));
+    });
   }
   return waypoints;
 }
@@ -274,13 +275,9 @@ export function pulseProgress(pulse: NetgraphPulse, now: number): { segmentIndex
 }
 
 export function positionOnEdge(graph: NetgraphGraph, edgeId: string, local: number, reverse: boolean): THREE.Vector3 | null {
-  const edge = graph.edgeById.get(edgeId);
-  if (!edge) return null;
-  const from = graph.nodeById.get(edge.fromId)?.position;
-  const to = graph.nodeById.get(edge.toId)?.position;
-  if (!from || !to) return null;
   const t = reverse ? 1 - local : local;
-  return new THREE.Vector3(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t, from.z + (to.z - from.z) * t);
+  const point = pointOnSampledPath(graph.edgePaths.get(edgeId), t);
+  return point ? new THREE.Vector3(point.x, point.y, point.z) : null;
 }
 
 export function positionForPulseLocal(graph: NetgraphGraph, pulse: NetgraphPulse, segmentIndex: number, local: number): THREE.Vector3 | null {

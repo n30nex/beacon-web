@@ -1,6 +1,12 @@
 import type { NetgraphSnapshot, NetgraphSnapshotEdge, NetgraphSnapshotNode } from "../../types/api";
 import type { WsPacketObservation } from "../../types/ws";
 import { payloadColor, payloadLabel } from "../live/live-model";
+import {
+  buildEdgePathMap,
+  buildGeoPlacements,
+  NETGRAPH_GLOBE_RADIUS,
+  type NetgraphLocationSource,
+} from "./netgraph-geo";
 
 export const NETGRAPH_ROUTE_LIMITS = [800, 1600, 2500] as const;
 export type NetgraphRouteLimit = (typeof NETGRAPH_ROUTE_LIMITS)[number];
@@ -51,8 +57,9 @@ export interface NetgraphVisualProfile {
   focusHaloScale: number;
 }
 
-export type NetgraphExperienceMode = "galaxy" | "focus" | "routes" | "live";
-export type NetgraphVisualMode = "galaxy" | "low-power";
+export type NetgraphExperienceMode = "overview" | "focus" | "routes" | "live";
+export type NetgraphLayoutMode = "geo" | "galaxy";
+export type NetgraphQualityPreference = "cinematic" | "low-power";
 export type NetgraphCinematicPreset = "cinematic" | "clarity" | "performance" | "presentation";
 export type NetgraphRenderTierName = "cinematic" | "balanced" | "battery";
 
@@ -113,6 +120,9 @@ export interface NetgraphNode extends NetgraphSnapshotNode {
   radius: number;
   position: NetgraphPoint;
   seed: NetgraphPoint;
+  geoAnchor: NetgraphPoint;
+  locationSource: NetgraphLocationSource;
+  locationSourceIata?: string;
   componentId: number;
   componentX: number;
   componentY: number;
@@ -135,6 +145,14 @@ export interface NetgraphGraph {
   nodeById: Map<string, NetgraphNode>;
   edgeById: Map<string, NetgraphEdge>;
   edgeByRouteId: Map<number, NetgraphEdge[]>;
+  edgePaths: Map<string, NetgraphPoint[]>;
+  globeRadius: number;
+  layoutMode: NetgraphLayoutMode;
+  locationStats: {
+    coordinates: number;
+    iataCentroid: number;
+    unlocated: number;
+  };
 }
 
 export type NetgraphFocusShell = "origin" | "direct" | "context";
@@ -216,7 +234,11 @@ interface Component {
   nodes: NetgraphNode[];
 }
 
-export function buildNetgraph(snapshot: NetgraphSnapshot | undefined, profile?: NetgraphGalaxyProfile): NetgraphGraph {
+export function buildNetgraph(
+  snapshot: NetgraphSnapshot | undefined,
+  profile?: NetgraphGalaxyProfile,
+  layoutMode: NetgraphLayoutMode = "geo",
+): NetgraphGraph {
   const safeSnapshot = snapshot ?? emptySnapshot();
   const nodeDrafts = safeSnapshot.nodes.map((node) => nodeFromSnapshot(node));
   const byId = new Map(nodeDrafts.map((node) => [node.id, node]));
@@ -238,7 +260,9 @@ export function buildNetgraph(snapshot: NetgraphSnapshot | undefined, profile?: 
     byId.get(next.fromId)!.degree += 1;
     byId.get(next.toId)!.degree += 1;
   }
-  const seeded = applySeedLayout(nodeDrafts, edges, NETGRAPH_LAYOUT_WIDTH, NETGRAPH_LAYOUT_HEIGHT, depthEnvelope, safeProfile);
+  const seeded = layoutMode === "geo"
+    ? applyGeoLayout(nodeDrafts)
+    : applySeedLayout(nodeDrafts, edges, NETGRAPH_LAYOUT_WIDTH, NETGRAPH_LAYOUT_HEIGHT, depthEnvelope, safeProfile);
   const nodeById = new Map(seeded.map((node) => [node.id, node]));
   const edgeById = new Map(edges.map((edge) => [edge.id, edge]));
   const edgeByRouteId = new Map<number, NetgraphEdge[]>();
@@ -249,6 +273,13 @@ export function buildNetgraph(snapshot: NetgraphSnapshot | undefined, profile?: 
       edgeByRouteId.set(routeId, list);
     }
   }
+  const edgePaths = buildEdgePathMap(seeded, edges, layoutMode, NETGRAPH_GLOBE_RADIUS);
+  const locationStats = seeded.reduce<NetgraphGraph["locationStats"]>((stats, node) => {
+    if (node.locationSource === "coordinates") stats.coordinates += 1;
+    else if (node.locationSource === "iata-centroid") stats.iataCentroid += 1;
+    else stats.unlocated += 1;
+    return stats;
+  }, { coordinates: 0, iataCentroid: 0, unlocated: 0 });
   return {
     serverTime: safeSnapshot.serverTime,
     stats: safeSnapshot.stats,
@@ -258,6 +289,10 @@ export function buildNetgraph(snapshot: NetgraphSnapshot | undefined, profile?: 
     nodeById,
     edgeById,
     edgeByRouteId,
+    edgePaths,
+    globeRadius: NETGRAPH_GLOBE_RADIUS,
+    layoutMode,
+    locationStats,
   };
 }
 
@@ -272,14 +307,14 @@ export function netgraphLayoutSignature(graph: NetgraphGraph, profile?: Netgraph
     safeProfile.edgeSpacingScale.toFixed(3),
   ].join(":");
   const nodeKey = graph.nodes
-    .map((node) => `${node.id}:${node.role}:${node.nodeTypeName}:${node.routeCount}`)
+    .map((node) => `${node.id}:${node.role}:${node.nodeTypeName}:${node.routeCount}:${node.lat ?? ""}:${node.lng ?? ""}:${node.iatas.join(",")}`)
     .sort()
     .join("|");
   const edgeKey = graph.edges
     .map((edge) => `${edge.id}:${edge.fromId}:${edge.toId}:${edge.routeCount}:${edge.routeIds.join(",")}`)
     .sort()
     .join("|");
-  return `${graph.nodes.length}:${graph.edges.length}:${profileKey}:${stableHash(nodeKey).toString(16)}:${stableHash(edgeKey).toString(16)}`;
+  return `${graph.layoutMode}:${graph.nodes.length}:${graph.edges.length}:${profileKey}:${stableHash(nodeKey).toString(16)}:${stableHash(edgeKey).toString(16)}`;
 }
 
 export function normalizeGalaxyProfile(profile?: NetgraphGalaxyProfile): NetgraphGalaxyProfile {
@@ -368,6 +403,7 @@ export function applyLayoutPositions(graph: NetgraphGraph, positions: Map<string
     ...graph,
     nodes,
     nodeById: new Map(nodes.map((node) => [node.id, node])),
+    edgePaths: buildEdgePathMap(nodes, graph.edges, graph.layoutMode, graph.globeRadius),
   };
 }
 
@@ -404,7 +440,9 @@ export function selectedRouteNodeIds(graph: NetgraphGraph, routeId: number | nul
 export function resolveNetgraphVisibilitySets(graph: NetgraphGraph, viewMode: NetgraphViewMode, selectedNodeId: string | null | undefined): NetgraphVisibilitySets {
   const allNodeIds = new Set(graph.nodes.map((node) => node.id));
   const allEdgeIds = new Set(graph.edges.map((edge) => edge.id));
-  const focusLayout = viewMode === "focus" ? focusedNodeNeighborhoodLayout(graph, selectedNodeId) : null;
+  const focusLayout = viewMode === "focus" && graph.layoutMode === "galaxy"
+    ? focusedNodeNeighborhoodLayout(graph, selectedNodeId)
+    : null;
   if (!focusLayout) {
     return {
       focusLayout: null,
@@ -560,11 +598,10 @@ export function routePathPoints(graph: NetgraphGraph, routeId: number | null | u
   if (edges.length === 0) return [];
   const points: NetgraphPoint[] = [];
   for (const edge of edges) {
-    const from = graph.nodeById.get(edge.fromId)?.position;
-    const to = graph.nodeById.get(edge.toId)?.position;
-    if (!from || !to) continue;
-    if (points.length === 0) points.push(from);
-    points.push(to);
+    const path = graph.edgePaths.get(edge.id);
+    if (!path || path.length === 0) continue;
+    if (points.length === 0) points.push(...path);
+    else points.push(...path.slice(1));
   }
   return points;
 }
@@ -809,11 +846,32 @@ function nodeFromSnapshot(node: NetgraphSnapshotNode): NetgraphNode {
     radius,
     position: fallbackPosition(node.id),
     seed: fallbackPosition(node.id),
+    geoAnchor: fallbackPosition(node.id),
+    locationSource: "unlocated",
     componentId: 0,
     componentX: 0,
     componentY: 0,
     searchText: `${label} ${node.id} ${node.publicKey} ${node.nodeTypeName} ${node.iatas.join(" ")} ${node.routeIds.join(" ")}`.toLowerCase(),
   };
+}
+
+function applyGeoLayout(nodes: NetgraphNode[]): NetgraphNode[] {
+  const placements = buildGeoPlacements(nodes);
+  return nodes.map((node) => {
+    const placement = placements.get(node.id);
+    if (!placement) return node;
+    return {
+      ...node,
+      position: placement.position,
+      seed: placement.position,
+      geoAnchor: placement.anchor,
+      locationSource: placement.source,
+      locationSourceIata: placement.sourceIata,
+      componentId: placement.source === "unlocated" ? 1 : 0,
+      componentX: 0,
+      componentY: 0,
+    };
+  });
 }
 
 function roleFromTypeName(typeName: string | undefined): NetgraphRole {

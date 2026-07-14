@@ -1,12 +1,14 @@
 import { BottomSheet } from "../../components/BottomSheet";
 import {
   NETGRAPH_ROUTE_LIMITS,
+  type NetgraphLayoutMode,
+  type NetgraphQualityPreference,
   type NetgraphRouteLimit,
-  type NetgraphVisualMode,
 } from "./netgraph-model";
-import { NETGRAPH_VISUAL_MODE_CONFIGS } from "./netgraph-settings-config";
+import { NETGRAPH_LAYOUT_CONFIGS, NETGRAPH_QUALITY_CONFIGS } from "./netgraph-settings-config";
 
-const VISUAL_MODE_ORDER: NetgraphVisualMode[] = ["galaxy", "low-power"];
+const LAYOUT_ORDER: NetgraphLayoutMode[] = ["geo", "galaxy"];
+const QUALITY_ORDER: NetgraphQualityPreference[] = ["cinematic", "low-power"];
 
 export function NetgraphSettingsIcon() {
   return (
@@ -33,6 +35,24 @@ function GalaxyIcon() {
       <path d="M4 12c2.1-4.2 13.8-5.2 16-1.2" />
       <path d="M20 12c-2.1 4.2-13.8 5.2-16 1.2" />
       <path d="M8 5.2c4.6.4 8.8 5.2 8 13.6" />
+    </svg>
+  );
+}
+
+function GlobeIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="8" />
+      <path d="M4 12h16M12 4c2.5 2.2 3.7 4.9 3.7 8S14.5 17.8 12 20M12 4c-2.5 2.2-3.7 4.9-3.7 8S9.5 17.8 12 20" />
+    </svg>
+  );
+}
+
+function CinematicIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m12 3 1.3 4.1L17 9l-3.7 1.9L12 15l-1.3-4.1L7 9l3.7-1.9L12 3Z" />
+      <path d="m18.5 14 .7 2.2 2.1 1.1-2.1 1.1-.7 2.1-.7-2.1-2.1-1.1 2.1-1.1.7-2.2Z" />
     </svg>
   );
 }
@@ -71,11 +91,11 @@ function RouteLimitRange({ value, onChange }: { value: NetgraphRouteLimit; onCha
   );
 }
 
-function VisualModePicker({ mode, onChange }: { mode: NetgraphVisualMode; onChange: (mode: NetgraphVisualMode) => void }) {
+function LayoutPicker({ mode, onChange }: { mode: NetgraphLayoutMode; onChange: (mode: NetgraphLayoutMode) => void }) {
   return (
-    <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Netgraph visual mode">
-      {VISUAL_MODE_ORDER.map((item) => {
-        const config = NETGRAPH_VISUAL_MODE_CONFIGS[item];
+    <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Netgraph layout">
+      {LAYOUT_ORDER.map((item) => {
+        const config = NETGRAPH_LAYOUT_CONFIGS[item];
         const active = item === mode;
         return (
           <button
@@ -88,10 +108,38 @@ function VisualModePicker({ mode, onChange }: { mode: NetgraphVisualMode; onChan
             onClick={() => onChange(item)}
           >
             <span className="flex items-center gap-2 font-mono text-[10px] font-semibold uppercase">
-              {item === "galaxy" ? <GalaxyIcon /> : <LowPowerIcon />}
+              {item === "geo" ? <GlobeIcon /> : <GalaxyIcon />}
               {config.label}
             </span>
             <span className="mt-2 block font-mono text-[9px] uppercase text-text-dim">{config.detail}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function QualityPicker({ mode, onChange }: { mode: NetgraphQualityPreference; onChange: (mode: NetgraphQualityPreference) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Netgraph quality">
+      {QUALITY_ORDER.map((item) => {
+        const config = NETGRAPH_QUALITY_CONFIGS[item];
+        const active = item === mode;
+        return (
+          <button
+            key={item}
+            type="button"
+            aria-pressed={active}
+            className={`min-h-16 rounded-sm border px-2.5 py-2 text-left transition-colors ${
+              active ? "border-primary/50 bg-primary/12 text-primary" : "border-border-subtle bg-bg-base/70 text-text-muted hover:text-text-bright"
+            }`}
+            onClick={() => onChange(item)}
+          >
+            <span className="flex items-center gap-2 font-mono text-[10px] font-semibold uppercase">
+              {item === "cinematic" ? <CinematicIcon /> : <LowPowerIcon />}
+              {config.label}
+            </span>
+            <span className="mt-1.5 block font-mono text-[9px] uppercase text-text-dim">{config.detail}</span>
           </button>
         );
       })}
@@ -103,32 +151,42 @@ export function NetgraphSettingsPanel({
   open,
   isMobile,
   routeLimit,
-  visualMode,
+  layoutMode,
+  qualityPreference,
+  liveGuideEnabled,
   showDataQuality,
   onChangeRouteLimit,
-  onChangeVisualMode,
+  onChangeLayoutMode,
+  onChangeQualityPreference,
+  onToggleLiveGuide,
   onToggleDataQuality,
   onClose,
 }: {
   open: boolean;
   isMobile: boolean;
   routeLimit: NetgraphRouteLimit;
-  visualMode: NetgraphVisualMode;
+  layoutMode: NetgraphLayoutMode;
+  qualityPreference: NetgraphQualityPreference;
+  liveGuideEnabled: boolean;
   showDataQuality: boolean;
   onChangeRouteLimit: (limit: NetgraphRouteLimit) => void;
-  onChangeVisualMode: (mode: NetgraphVisualMode) => void;
+  onChangeLayoutMode: (mode: NetgraphLayoutMode) => void;
+  onChangeQualityPreference: (mode: NetgraphQualityPreference) => void;
+  onToggleLiveGuide: () => void;
   onToggleDataQuality: () => void;
   onClose: () => void;
 }) {
-  const dataQualityActive = visualMode === "galaxy" && showDataQuality;
+  const dataQualityActive = showDataQuality;
   const panelContents = (
     <div className="space-y-2 p-3">
-      <VisualModePicker mode={visualMode} onChange={onChangeVisualMode} />
+      <div className="font-mono text-[9px] font-semibold uppercase tracking-wider text-text-dim">Layout</div>
+      <LayoutPicker mode={layoutMode} onChange={onChangeLayoutMode} />
+      <div className="pt-1 font-mono text-[9px] font-semibold uppercase tracking-wider text-text-dim">Quality</div>
+      <QualityPicker mode={qualityPreference} onChange={onChangeQualityPreference} />
       <RouteLimitRange value={routeLimit} onChange={onChangeRouteLimit} />
       <button
         type="button"
         aria-pressed={dataQualityActive}
-        disabled={visualMode === "low-power"}
         className={`flex w-full items-center justify-between gap-3 rounded-sm border px-2.5 py-1.5 font-mono text-[10px] font-semibold uppercase transition-colors ${
           dataQualityActive
             ? "border-primary/45 bg-primary/10 text-primary"
@@ -138,6 +196,17 @@ export function NetgraphSettingsPanel({
       >
         <span>Data quality overlay</span>
         <span className="text-text-dim">{dataQualityActive ? "On" : "Off"}</span>
+      </button>
+      <button
+        type="button"
+        aria-pressed={liveGuideEnabled}
+        className={`flex w-full items-center justify-between gap-3 rounded-sm border px-2.5 py-1.5 font-mono text-[10px] font-semibold uppercase transition-colors ${
+          liveGuideEnabled ? "border-green/45 bg-green/10 text-green" : "border-border bg-bg-base/90 text-text-muted hover:text-text-normal"
+        }`}
+        onClick={onToggleLiveGuide}
+      >
+        <span>Live route suggestions</span>
+        <span className="text-text-dim">{liveGuideEnabled ? "On" : "Off"}</span>
       </button>
     </div>
   );

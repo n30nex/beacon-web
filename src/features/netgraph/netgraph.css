@@ -17,15 +17,8 @@
   opacity: 0.7;
 }
 
-.netgraph-workspace > * {
-  position: relative;
-  z-index: 1;
-}
-
 .netgraph-toolbar {
-  box-shadow:
-    0 12px 30px color-mix(in srgb, black 22%, transparent),
-    inset 0 -1px 0 color-mix(in srgb, var(--color-primary) 16%, transparent);
+  box-shadow: none;
 }
 
 .netgraph-search,
@@ -244,7 +237,7 @@ html[data-design-mode="modern"] .netgraph-flight-badge {
 
 @media (max-width: 767px) {
   .netgraph-toolbar {
-    padding-block: 0.45rem;
+    padding-block: 0.5rem;
   }
 
   .netgraph-control-rail {
@@ -252,8 +245,8 @@ html[data-design-mode="modern"] .netgraph-flight-badge {
   }
 
   .netgraph-control-button {
-    height: 2.125rem;
-    width: 2.125rem;
+    height: 2.1rem;
+    padding-inline: 0.65rem;
   }
 
   .netgraph-touch-controls {
@@ -269,5 +262,20 @@ html[data-design-mode="modern"] .netgraph-flight-badge {
   .netgraph-touch-pad--look {
     height: 5.75rem;
     width: 4rem;
+  }
+}
+
+.crt-shell[data-immersive="true"] .netgraph-workspace {
+  border: 0;
+  border-radius: 0;
+}
+
+@media (max-width: 639px) {
+  .netgraph-control-rail {
+    bottom: 0.55rem;
+  }
+
+  .netgraph-hover-card {
+    display: none;
   }
 }

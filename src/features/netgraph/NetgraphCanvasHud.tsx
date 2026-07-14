@@ -1,4 +1,4 @@
-import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 
 import type { NetgraphCameraMode } from "./netgraph-model";
 
@@ -14,10 +14,14 @@ export interface NetgraphHoverState {
 
 interface NetgraphCanvasHudProps {
   controlMode: NetgraphControlMode;
+  flightError: string | null;
   hovered: NetgraphHoverState | null;
+  introActive: boolean;
   orbitActive: boolean;
   reducedMotion: boolean;
+  selectionActive: boolean;
   selectedRouteId?: number | null;
+  onDismissFlightError: () => void;
   onEnterFlight: () => void;
   onExitFlight: () => void;
   onFocusSelected: () => void;
@@ -28,24 +32,25 @@ interface NetgraphCanvasHudProps {
   onLookPadPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onLookPadPointerEnd: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onLookPadPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  onReset: () => void;
+  onOverview: () => void;
+  onReplayIntro: () => void;
+  onSkipIntro: () => void;
   onToggleOrbit: () => void;
   onTopView: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
 }
 
-function CanvasControlButton({ label, onClick, active = false, disabled = false, children }: { label: string; onClick: () => void; active?: boolean; disabled?: boolean; children: ReactNode }) {
+function ControlButton({ label, onClick, active = false, disabled = false, children }: { label: string; onClick: () => void; active?: boolean; disabled?: boolean; children: ReactNode }) {
   return (
     <button
       type="button"
       aria-label={label}
       aria-pressed={active}
-      title={label}
       disabled={disabled}
-      className={`netgraph-control-button grid h-8 w-8 place-items-center rounded-sm border font-mono text-sm font-bold shadow-lg backdrop-blur-md transition-colors md:h-9 md:w-9 ${
+      className={`netgraph-control-button inline-flex h-9 items-center justify-center gap-1.5 rounded-full border px-3 font-mono text-[10px] font-bold uppercase tracking-wide shadow-lg backdrop-blur-md transition-colors ${
         active ? "border-primary/60 bg-primary/15 text-primary" : "border-border bg-bg-surface/80 text-text-normal hover:border-primary/60 hover:bg-primary/10 hover:text-text-bright"
-      } disabled:cursor-not-allowed disabled:border-border-subtle disabled:bg-bg-surface/55 disabled:text-text-dim/45`}
+      } disabled:cursor-not-allowed disabled:opacity-45`}
       onClick={onClick}
     >
       {children}
@@ -53,156 +58,100 @@ function CanvasControlButton({ label, onClick, active = false, disabled = false,
   );
 }
 
-function TargetIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="7" />
-      <circle cx="12" cy="12" r="2" />
-      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-    </svg>
-  );
+function Icon({ children }: { children: ReactNode }) {
+  return <span className="grid h-4 w-4 place-items-center text-[14px]" aria-hidden="true">{children}</span>;
 }
 
-function ResetIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 12a8 8 0 1 0 2.35-5.65" />
-      <path d="M4 4v6h6" />
-    </svg>
-  );
-}
+export function NetgraphCanvasHud(props: NetgraphCanvasHudProps) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [flightGuideOpen, setFlightGuideOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
 
-function OrbitIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 12c0-4 4-7 8-7 3.5 0 6.5 2.2 7.6 5.3" />
-      <path d="m20 4-.2 6.2-6.2-.2" />
-      <path d="M20 12c0 4-4 7-8 7-3.5 0-6.5-2.2-7.6-5.3" />
-      <path d="m4 20 .2-6.2 6.2.2" />
-    </svg>
-  );
-}
+  useEffect(() => {
+    if (!moreOpen) return;
+    const close = (event: PointerEvent) => {
+      if (!moreRef.current?.contains(event.target as Node)) setMoreOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [moreOpen]);
 
-function TopViewIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 3 4 8l8 5 8-5-8-5Z" />
-      <path d="M4 14l8 5 8-5" />
-    </svg>
-  );
-}
-
-function RouteFlyIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 17c4-8 8 6 16-8" />
-      <path d="m16 7 4 2-2 4" />
-      <circle cx="5" cy="17" r="1.5" />
-      <circle cx="19" cy="9" r="1.5" />
-    </svg>
-  );
-}
-
-export function NetgraphCanvasHud({
-  controlMode,
-  hovered,
-  orbitActive,
-  reducedMotion,
-  selectedRouteId,
-  onEnterFlight,
-  onExitFlight,
-  onFocusSelected,
-  onFlyRoute,
-  onLookPadPointerDown,
-  onLookPadPointerEnd,
-  onLookPadPointerMove,
-  onMovePadPointerDown,
-  onMovePadPointerEnd,
-  onMovePadPointerMove,
-  onReset,
-  onToggleOrbit,
-  onTopView,
-  onZoomIn,
-  onZoomOut,
-}: NetgraphCanvasHudProps) {
   return (
     <>
-      <div className={`netgraph-control-rail pointer-events-auto absolute right-2 top-2 z-20 grid grid-cols-2 gap-1.5 transition-opacity md:right-3 md:top-3 md:grid-cols-1 ${controlMode === "touch-flight" ? "opacity-35 md:opacity-100" : "opacity-100"}`} aria-label="Netgraph camera controls">
-        <CanvasControlButton label={controlMode === "flight" ? "Exit flight mode" : "Enter flight mode"} onClick={controlMode === "flight" ? onExitFlight : onEnterFlight}>
-          <span className="text-[9px]">F</span>
-        </CanvasControlButton>
-        <CanvasControlButton label="Zoom into netgraph" onClick={onZoomIn}>
-          +
-        </CanvasControlButton>
-        <CanvasControlButton label="Zoom out of netgraph" onClick={onZoomOut}>
-          -
-        </CanvasControlButton>
-        <CanvasControlButton label="Focus selected netgraph item" onClick={onFocusSelected}>
-          <TargetIcon />
-        </CanvasControlButton>
-        <CanvasControlButton label="Fly selected route" disabled={selectedRouteId == null} onClick={onFlyRoute}>
-          <RouteFlyIcon />
-        </CanvasControlButton>
-        <CanvasControlButton label="Switch to top netgraph view" onClick={onTopView}>
-          <TopViewIcon />
-        </CanvasControlButton>
-        <CanvasControlButton label={orbitActive ? "Pause netgraph orbit" : "Resume netgraph orbit"} active={orbitActive} disabled={reducedMotion} onClick={onToggleOrbit}>
-          <OrbitIcon />
-        </CanvasControlButton>
-        <CanvasControlButton label="Reset netgraph camera" onClick={onReset}>
-          <ResetIcon />
-        </CanvasControlButton>
+      <div className="netgraph-control-rail pointer-events-auto absolute bottom-3 left-1/2 z-20 flex max-w-[calc(100%-1rem)] -translate-x-1/2 items-center gap-1.5 rounded-full border border-border bg-bg-surface/55 p-1.5 shadow-2xl backdrop-blur-xl" aria-label="Netgraph camera controls">
+        <ControlButton label="Show netgraph overview" onClick={props.onOverview}><Icon>◎</Icon><span className="hidden sm:inline">Overview</span></ControlButton>
+        <ControlButton label="Focus selected netgraph item" disabled={!props.selectionActive} onClick={props.onFocusSelected}><Icon>⌖</Icon><span className="hidden sm:inline">Focus</span></ControlButton>
+        <ControlButton label={props.orbitActive ? "Pause netgraph orbit" : "Resume netgraph orbit"} active={props.orbitActive} disabled={props.reducedMotion} onClick={props.onToggleOrbit}><Icon>↻</Icon><span className="hidden sm:inline">Orbit</span></ControlButton>
+        <div ref={moreRef} className="relative">
+          <ControlButton label="More netgraph camera controls" active={moreOpen} onClick={() => setMoreOpen((open) => !open)}><Icon>•••</Icon><span className="hidden sm:inline">More</span></ControlButton>
+          {moreOpen && (
+            <div className="absolute bottom-[calc(100%+0.55rem)] right-0 grid min-w-48 gap-1 rounded-xl border border-border bg-bg-surface/95 p-2 shadow-2xl backdrop-blur-xl" role="menu" aria-label="More netgraph controls">
+              <MenuButton onClick={props.onZoomIn}>Zoom in</MenuButton>
+              <MenuButton onClick={props.onZoomOut}>Zoom out</MenuButton>
+              <MenuButton onClick={props.onTopView}>Top view</MenuButton>
+              <MenuButton disabled={props.selectedRouteId == null} onClick={props.onFlyRoute}>Replay selected route</MenuButton>
+              <MenuButton onClick={props.onReplayIntro}>Replay reveal</MenuButton>
+              <MenuButton onClick={() => setFlightGuideOpen(true)}>Free flight</MenuButton>
+            </div>
+          )}
+        </div>
       </div>
-      {controlMode === "flight" && (
+
+      {props.introActive && (
+        <div className="pointer-events-auto absolute bottom-16 left-1/2 z-20 -translate-x-1/2 rounded-full border border-primary/30 bg-bg-surface/75 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-text-muted shadow-xl backdrop-blur-lg">
+          Mapping the constellation
+          <button type="button" className="ml-3 font-bold text-primary hover:text-text-bright" onClick={props.onSkipIntro}>Skip</button>
+        </div>
+      )}
+
+      {(props.controlMode === "flight" || props.controlMode === "touch-flight") && (
         <>
-          <div className="pointer-events-none absolute left-1/2 top-1/2 z-20 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/45 shadow-[0_0_18px_rgba(122,183,255,0.35)]">
-            <span className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-green shadow-[0_0_12px_rgba(84,225,166,0.85)]" />
-            <span className="absolute left-1/2 top-0 h-2 w-px -translate-x-1/2 bg-primary/70" />
-            <span className="absolute bottom-0 left-1/2 h-2 w-px -translate-x-1/2 bg-primary/70" />
-            <span className="absolute left-0 top-1/2 h-px w-2 -translate-y-1/2 bg-primary/70" />
-            <span className="absolute right-0 top-1/2 h-px w-2 -translate-y-1/2 bg-primary/70" />
+          <div className="pointer-events-none absolute left-1/2 top-1/2 z-20 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/45">
+            <span className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-green" />
           </div>
-          <div className="netgraph-flight-badge pointer-events-none absolute left-3 top-3 z-20 rounded-sm border border-primary/30 bg-bg-surface/80 px-2 py-1 font-mono text-[10px] font-bold uppercase text-primary shadow-lg backdrop-blur">
-            Flight
-          </div>
+          <button type="button" className="pointer-events-auto absolute right-3 top-3 z-30 rounded-full border border-primary/40 bg-bg-surface/90 px-3 py-2 font-mono text-[10px] font-bold uppercase text-primary shadow-xl backdrop-blur" onClick={props.onExitFlight}>Exit flight</button>
         </>
       )}
-      <div className="netgraph-touch-controls pointer-events-none absolute inset-x-0 bottom-2 z-[8] flex items-end justify-between px-2.5 md:hidden" aria-label="Mobile netgraph flight controls">
-        <div
-          className={`netgraph-touch-pad netgraph-touch-pad--move pointer-events-auto grid h-20 w-20 place-items-center rounded-full border border-primary/25 bg-bg-surface/25 shadow-[0_0_20px_rgba(122,183,255,0.16)] backdrop-blur-md transition-opacity ${controlMode === "touch-flight" ? "opacity-100" : "opacity-40"}`}
-          role="application"
-          aria-label="Netgraph movement control"
-          onPointerDown={onMovePadPointerDown}
-          onPointerMove={onMovePadPointerMove}
-          onPointerUp={onMovePadPointerEnd}
-          onPointerCancel={onMovePadPointerEnd}
-        >
-          <span className="h-9 w-9 rounded-full border border-green/45 bg-green/12 shadow-[0_0_16px_rgba(84,225,166,0.24)]" />
+
+      {props.controlMode === "touch-flight" && (
+        <div className="netgraph-touch-controls pointer-events-none absolute inset-x-0 bottom-16 z-[18] flex items-end justify-between px-3 md:hidden" aria-label="Mobile netgraph flight controls">
+          <div className="netgraph-touch-pad netgraph-touch-pad--move pointer-events-auto grid h-20 w-20 place-items-center rounded-full border border-primary/25 bg-bg-surface/25 backdrop-blur-md" role="application" aria-label="Netgraph movement control" onPointerDown={props.onMovePadPointerDown} onPointerMove={props.onMovePadPointerMove} onPointerUp={props.onMovePadPointerEnd} onPointerCancel={props.onMovePadPointerEnd}>
+            <span className="h-9 w-9 rounded-full border border-green/45 bg-green/12" />
+          </div>
+          <div className="netgraph-touch-pad netgraph-touch-pad--look pointer-events-auto grid h-24 w-16 place-items-center rounded-full border border-border bg-bg-surface/20 backdrop-blur-md" role="application" aria-label="Netgraph look control" onPointerDown={props.onLookPadPointerDown} onPointerMove={props.onLookPadPointerMove} onPointerUp={props.onLookPadPointerEnd} onPointerCancel={props.onLookPadPointerEnd}>
+            <span className="h-10 w-10 rounded-full border border-primary/40 bg-primary/10" />
+          </div>
         </div>
-        <div
-          className={`netgraph-touch-pad netgraph-touch-pad--look pointer-events-auto grid h-24 w-16 place-items-center rounded-full border border-border bg-bg-surface/20 shadow-[0_0_20px_rgba(186,102,255,0.1)] backdrop-blur-md transition-opacity ${controlMode === "touch-flight" ? "opacity-100" : "opacity-40"}`}
-          role="application"
-          aria-label="Netgraph look control"
-          onPointerDown={onLookPadPointerDown}
-          onPointerMove={onLookPadPointerMove}
-          onPointerUp={onLookPadPointerEnd}
-          onPointerCancel={onLookPadPointerEnd}
-        >
-          <span className="h-10 w-10 rounded-full border border-primary/40 bg-primary/10 shadow-[0_0_16px_rgba(122,183,255,0.2)]" />
+      )}
+
+      {(flightGuideOpen || props.flightError) && (
+        <div className="pointer-events-auto absolute inset-0 z-40 grid place-items-center bg-black/45 p-4 backdrop-blur-sm" role="presentation">
+          <section className="w-full max-w-sm rounded-2xl border border-primary/35 bg-bg-surface/95 p-4 shadow-2xl" role="dialog" aria-modal="true" aria-label="Free flight controls">
+            <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-primary">Advanced mode</div>
+            <h2 className="mt-1 text-lg font-semibold text-text-bright">Free flight</h2>
+            {props.flightError ? (
+              <p className="mt-2 text-sm text-text-muted">{props.flightError} Orbit controls remain available.</p>
+            ) : (
+              <p className="mt-2 text-sm text-text-muted">Desktop: click Begin, then use W/A/S/D, Q/E, mouse look, and Escape. Mobile: two touch pads appear after activation.</p>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" className="rounded-full border border-border px-3 py-2 font-mono text-[10px] font-bold uppercase text-text-muted" onClick={() => { setFlightGuideOpen(false); props.onDismissFlightError(); }}>Cancel</button>
+              {!props.flightError && <button type="button" className="rounded-full border border-primary/50 bg-primary/15 px-3 py-2 font-mono text-[10px] font-bold uppercase text-primary" onClick={() => { setFlightGuideOpen(false); props.onEnterFlight(); }}>Begin flight</button>}
+            </div>
+          </section>
         </div>
-      </div>
-      {hovered && (
-        <div
-          className="netgraph-hover-card pointer-events-none absolute z-10 max-w-64 rounded-sm border border-primary/35 bg-bg-surface/95 px-2.5 py-2 font-mono text-[11px] shadow-lg backdrop-blur-md"
-          style={{
-            left: `min(${Math.max(12, hovered.x + 12)}px, calc(100% - 270px))`,
-            top: Math.max(12, hovered.y - 18),
-          }}
-        >
-          <div className="truncate font-semibold text-text-bright">{hovered.label}</div>
-          <div className="mt-1 text-text-muted">{hovered.detail}</div>
+      )}
+
+      {props.hovered && (
+        <div className="netgraph-hover-card pointer-events-none absolute z-10 max-w-64 rounded-sm border border-primary/35 bg-bg-surface/95 px-2.5 py-2 font-mono text-[11px] shadow-lg backdrop-blur-md" style={{ left: `min(${Math.max(12, props.hovered.x + 12)}px, calc(100% - 270px))`, top: Math.max(12, props.hovered.y - 18) }}>
+          <div className="truncate font-semibold text-text-bright">{props.hovered.label}</div>
+          <div className="mt-1 text-text-muted">{props.hovered.detail}</div>
         </div>
       )}
     </>
   );
+}
+
+function MenuButton({ children, disabled = false, onClick }: { children: ReactNode; disabled?: boolean; onClick: () => void }) {
+  return <button type="button" role="menuitem" disabled={disabled} className="rounded-lg px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase text-text-muted transition-colors hover:bg-primary/10 hover:text-text-bright disabled:opacity-35" onClick={onClick}>{children}</button>;
 }

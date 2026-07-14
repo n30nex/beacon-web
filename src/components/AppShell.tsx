@@ -667,19 +667,20 @@ function DesktopGroupNav({
 
 interface AppShellProps {
   activeTab: string;
+  immersive?: boolean;
   onTabChange: (tab: string) => void;
   wsManager: WsManager;
   onOpenSearch?: () => void;
   children: ReactNode;
 }
 
-export function AppShell({ activeTab, onTabChange, wsManager, onOpenSearch, children }: AppShellProps) {
+export function AppShell({ activeTab, immersive = false, onTabChange, wsManager, onOpenSearch, children }: AppShellProps) {
   const mapFirstMobile = activeTab === "Live" || activeTab === "Map" || activeTab === "Netgraph";
   return (
-    <div className="crt-shell flex flex-col h-dvh" data-active-tab={activeTab.toLowerCase()}>
+    <div className="crt-shell flex flex-col h-dvh" data-active-tab={activeTab.toLowerCase()} data-immersive={immersive ? "true" : "false"}>
       <AppearancePreferenceSync />
-      <ThemeAmbientLayer activeTab={activeTab} />
-      <header className="app-shell-topbar crt-panel flex items-center justify-between gap-2 px-3 md:px-4 h-[46px] bg-bg-surface border-b border-border shrink-0">
+      {!immersive && <ThemeAmbientLayer activeTab={activeTab} />}
+      {!immersive && <header className="app-shell-topbar crt-panel flex items-center justify-between gap-2 px-3 md:px-4 h-[46px] bg-bg-surface border-b border-border shrink-0">
         <BeaconWordmark className="app-shell-wordmark shrink-0" iconSize={22} textClassName="text-xs sm:text-sm" />
         <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
           {onOpenSearch && (
@@ -699,9 +700,9 @@ export function AppShell({ activeTab, onTabChange, wsManager, onOpenSearch, chil
           <AppearanceMenu />
           <LiveBadge wsManager={wsManager} />
         </div>
-      </header>
+      </header>}
 
-      <nav className="app-shell-tabs crt-panel hidden h-[44px] items-center gap-1 bg-bg-surface border-b border-border px-4 shrink-0 md:flex" aria-label="Pages">
+      {!immersive && <nav className="app-shell-tabs crt-panel hidden h-[44px] items-center gap-1 bg-bg-surface border-b border-border px-4 shrink-0 md:flex" aria-label="Pages">
         {DESKTOP_PAGES.map((item) => (
           <DesktopNavButton
             key={item.tab}
@@ -743,13 +744,13 @@ export function AppShell({ activeTab, onTabChange, wsManager, onOpenSearch, chil
           activeTab={activeTab}
           onTabChange={onTabChange}
         />
-      </nav>
+      </nav>}
 
       <main className="flex-1 flex flex-col min-h-0">
         <ErrorBoundary key={activeTab}>{children}</ErrorBoundary>
       </main>
 
-      <footer
+      {!immersive && <footer
         className={`crt-panel items-center gap-2 px-2 py-1 bg-bg-surface border-t border-border font-mono text-[10px] text-text-dim shrink-0 md:px-4 md:text-[11px] ${
           mapFirstMobile ? "hidden md:flex" : "flex"
         }`}
@@ -758,9 +759,9 @@ export function AppShell({ activeTab, onTabChange, wsManager, onOpenSearch, chil
           BEACON v<span className="animate-pulse font-bold text-green">{DISPLAY_VERSION}</span>
           {DISPLAY_BUILD && <span className="ml-1 text-text-muted">+{DISPLAY_BUILD}</span>}
         </span>
-      </footer>
+      </footer>}
 
-      <BottomNav activeTab={activeTab} onOpenSearch={onOpenSearch} onTabChange={onTabChange} />
+      {!immersive && <BottomNav activeTab={activeTab} onOpenSearch={onOpenSearch} onTabChange={onTabChange} />}
     </div>
   );
 }

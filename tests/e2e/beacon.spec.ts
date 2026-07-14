@@ -684,6 +684,7 @@ for (const profile of [
 }
 
 test("Netgraph node focus stays in the 3D topology workspace", async ({ page }) => {
+  await page.addInitScript(() => sessionStorage.setItem("beacon.netgraph.intro-complete.v1", "1"));
   await page.goto("/?tab=Netgraph&boot=0&nodeId=node-alpha", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "Netgraph" })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("region", { name: "Animated 3D netgraph topology" })).toBeVisible({ timeout: 15_000 });
@@ -691,10 +692,65 @@ test("Netgraph node focus stays in the 3D topology workspace", async ({ page }) 
   await expect(page.getByText("Verified Reach")).toHaveCount(0);
   await page.getByRole("button", { name: "Focus selected netgraph item" }).click();
   await page.getByRole("button", { name: "Focus selected node neighborhood" }).click();
-  await page.getByRole("button", { name: "Switch to top netgraph view" }).click();
-  await page.getByRole("button", { name: "Resume netgraph orbit" }).click();
+  await page.getByRole("button", { name: "More netgraph camera controls" }).click();
+  await page.getByRole("menuitem", { name: "Top view" }).click();
+  await page.getByRole("button", { name: /netgraph orbit/ }).click();
   await page.getByRole("button", { name: "Close selected node focus" }).click();
   await expect(page).not.toHaveURL(/nodeId=node-alpha/);
+});
+
+test("Netgraph search, Galaxy fallback, and immersive Escape stay in one workspace", async ({ page }) => {
+  await page.addInitScript(() => sessionStorage.setItem("beacon.netgraph.intro-complete.v1", "1"));
+  await page.goto("/?tab=Netgraph&boot=0", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("region", { name: "Animated 3D netgraph topology" })).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole("combobox", { name: "Search Netgraph nodes" }).fill("Alpha");
+  await page.getByRole("option", { name: /Alpha/ }).click();
+  await expect(page).toHaveURL(/nodeId=node-alpha/);
+  await expect(page.getByRole("complementary", { name: "Selected node focus" })).toContainText("Alpha");
+
+  await page.getByRole("button", { name: "Open netgraph settings" }).click();
+  await page.getByRole("button", { name: /Galaxy/ }).click();
+  await expect(page.getByText("Galaxy", { exact: true }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Close netgraph settings" }).click();
+
+  await page.getByRole("button", { name: "Enter immersive Netgraph" }).click();
+  await expect(page.locator(".app-shell-topbar")).toHaveCount(0);
+  await expect(page.locator(".app-shell-tabs")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".app-shell-topbar")).toBeVisible();
+});
+
+test("Netgraph pointer-lock rejection falls back without console errors", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.addInitScript(() => {
+    sessionStorage.setItem("beacon.netgraph.intro-complete.v1", "1");
+    HTMLCanvasElement.prototype.requestPointerLock = () => Promise.reject(new DOMException("test denial", "NotAllowedError"));
+  });
+  await page.goto("/?tab=Netgraph&boot=0", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("region", { name: "Animated 3D netgraph topology" })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "More netgraph camera controls" }).click();
+  await page.getByRole("menuitem", { name: "Free flight" }).click();
+  await page.getByRole("button", { name: "Begin flight" }).click();
+  await expect(page.getByText(/Pointer lock was unavailable/)).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("Netgraph mobile flight pads remain hidden until flight is activated", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => sessionStorage.setItem("beacon.netgraph.intro-complete.v1", "1"));
+  await page.goto("/?tab=Netgraph&boot=0", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("region", { name: "Animated 3D netgraph topology" })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("application", { name: "Netgraph movement control" })).toHaveCount(0);
+  await page.getByRole("button", { name: "More netgraph camera controls" }).click();
+  await page.getByRole("menuitem", { name: "Free flight" }).click();
+  await page.getByRole("button", { name: "Begin flight" }).click();
+  await expect(page.getByRole("application", { name: "Netgraph movement control" })).toBeVisible();
+  await expect(page.getByRole("application", { name: "Netgraph look control" })).toBeVisible();
+  await page.getByRole("button", { name: "Exit flight" }).click();
+  await expect(page.getByRole("application", { name: "Netgraph movement control" })).toHaveCount(0);
 });
 
 for (const viewport of [
@@ -705,21 +761,23 @@ for (const viewport of [
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await page.addInitScript(() => {
       (window as Window & { __BEACON_NETGRAPH_TEST_CAPTURE?: boolean }).__BEACON_NETGRAPH_TEST_CAPTURE = true;
+      sessionStorage.setItem("beacon.netgraph.intro-complete.v1", "1");
     });
     await page.goto("/?tab=Netgraph&boot=0", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "Netgraph" })).toBeVisible({ timeout: 15_000 });
-    await page.getByPlaceholder("Search nodes").fill("Alpha");
+    if (viewport.name === "desktop") await expect(page.getByRole("heading", { name: "Netgraph" })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("combobox", { name: "Search Netgraph nodes" }).fill("Alpha");
+    await page.getByRole("option", { name: /Alpha/ }).click();
     const canvas = page.locator("canvas.netgraph-three-canvas");
     await expect(canvas).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("region", { name: "Animated 3D netgraph topology" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Zoom into netgraph" })).toBeVisible();
-    await page.getByRole("button", { name: "Zoom into netgraph" }).click();
-    await page.getByRole("button", { name: "Zoom out of netgraph" }).click();
     await page.getByRole("button", { name: "Focus selected netgraph item" }).click();
-    await page.getByRole("button", { name: "Switch to top netgraph view" }).click();
-    await page.getByRole("button", { name: "Resume netgraph orbit" }).click();
-    await page.getByRole("button", { name: "Pause netgraph orbit" }).click();
-    await page.getByRole("button", { name: "Reset netgraph camera" }).click();
+    await page.getByRole("button", { name: "More netgraph camera controls" }).click();
+    await page.getByRole("menuitem", { name: "Zoom in" }).click();
+    await page.getByRole("menuitem", { name: "Zoom out" }).click();
+    await page.getByRole("menuitem", { name: "Top view" }).click();
+    await page.getByRole("button", { name: /netgraph orbit/ }).click();
+    await page.getByRole("button", { name: /netgraph orbit/ }).click();
+    await page.getByRole("button", { name: "Show netgraph overview" }).click();
     await page.waitForTimeout(500);
 
     const nonblank = await canvas.evaluate((item) => {

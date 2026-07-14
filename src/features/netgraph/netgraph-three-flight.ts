@@ -94,15 +94,25 @@ export function createNetgraphFlightCommandHandlers(options: {
   flightKeys: NetgraphFlightKeys;
   markUserInteracted: () => void;
   onCameraTweenCancel: () => void;
+  onFlightError: (message: string) => void;
   setControlMode: (mode: "orbit" | "flight") => void;
   setHovered: (hovered: NetgraphHoverState | null) => void;
   setOrbit: (active: boolean) => void;
   syncOrbitTargetToCamera: () => void;
 }): NetgraphFlightCommandHandlers {
   const enterFlightMode = () => {
-    options.controls.enabled = false;
     if (options.flightControls.isLocked) return;
-    void options.flightControls.lock();
+    const fail = () => {
+      options.controls.enabled = true;
+      options.setControlMode("orbit");
+      options.onFlightError("Pointer lock was unavailable or declined by the browser.");
+    };
+    try {
+      const request = options.canvas.requestPointerLock();
+      if (request && typeof request.catch === "function") void request.catch(fail);
+    } catch {
+      fail();
+    }
   };
 
   const exitFlightMode = () => {
@@ -112,7 +122,13 @@ export function createNetgraphFlightCommandHandlers(options: {
       options.syncOrbitTargetToCamera();
       return;
     }
-    options.flightControls.unlock();
+    try {
+      options.flightControls.unlock();
+    } catch {
+      options.controls.enabled = true;
+      options.setControlMode("orbit");
+      options.syncOrbitTargetToCamera();
+    }
   };
 
   const onFlightLock = () => {

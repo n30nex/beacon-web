@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import {
   PLANET_TEXTURE_NAMES,
@@ -13,6 +14,7 @@ import {
   stellarGasTextureFile,
 } from "../../../src/features/netgraph/netgraph-three-assets";
 import type { NetgraphNode, NetgraphRole } from "../../../src/features/netgraph/netgraph-model";
+import { NATURAL_EARTH_110M_LAND_OUTLINES, NATURAL_EARTH_110M_PROVENANCE } from "../../../src/features/netgraph/natural-earth-110m";
 
 const ASSET_ROOT = join(process.cwd(), "public", "netgraph-asset-pack", "beacon_netgraph_asset_pack");
 const ASSET_BASE = "/netgraph-asset-pack/beacon_netgraph_asset_pack/";
@@ -39,6 +41,8 @@ function node(role: NetgraphRole, nodeTypeName = role): NetgraphNode {
     radius: 1,
     position: { x: 0, y: 0, z: 0 },
     seed: { x: 0, y: 0, z: 0 },
+    geoAnchor: { x: 0, y: 0, z: 0 },
+    locationSource: "coordinates",
     componentId: 1,
     componentX: 0,
     componentY: 0,
@@ -75,6 +79,17 @@ describe("netgraph planet node assets", () => {
     );
 
     expect(textures.size).toBeGreaterThan(6);
+  });
+});
+
+describe("Netgraph Natural Earth outline", () => {
+  it("keeps provenance and the route-lazy land asset inside its budget", () => {
+    const source = readFileSync(join(process.cwd(), "src", "features", "netgraph", "natural-earth-110m.ts"));
+    expect(NATURAL_EARTH_110M_PROVENANCE.dataset).toContain("1:110m");
+    expect(NATURAL_EARTH_110M_PROVENANCE.license).toBe("Public domain");
+    expect(NATURAL_EARTH_110M_LAND_OUTLINES.length).toBeGreaterThan(100);
+    expect(source.byteLength).toBeLessThanOrEqual(200 * 1024);
+    expect(gzipSync(source).byteLength).toBeLessThanOrEqual(75 * 1024);
   });
 });
 

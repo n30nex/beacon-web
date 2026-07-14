@@ -66,7 +66,7 @@ import {
   createFlightKeys,
 } from "./netgraph-three-flight";
 import { createNetgraphObjectVisuals } from "./netgraph-three-objects";
-import { paintRoleMeshes, type NodeLiveFlashPaint } from "./netgraph-three-nodes";
+import { applyLiveElevationToRoleMeshes, paintRoleMeshes, type NodeLiveFlashPaint } from "./netgraph-three-nodes";
 import { advanceNetgraphCameraControlFrame, createNetgraphFrameTimingState, startNetgraphRenderLoop } from "./netgraph-three-render-loop";
 import { renderRouteHeatFrame, routeHeatEffectsEnabled } from "./netgraph-three-route-heat";
 import { createNetgraphSceneStage, cssColor } from "./netgraph-three-scene";
@@ -75,6 +75,7 @@ import { useNetgraphTouchFlightControls } from "./useNetgraphTouchFlightControls
 
 interface ThreeNetgraphCanvasProps {
   graph: NetgraphGraph;
+  externalInteractionAt?: number;
   selectedNodeId?: string | null;
   selectedRouteId?: number | null;
   viewMode: NetgraphViewMode;
@@ -85,16 +86,23 @@ interface ThreeNetgraphCanvasProps {
   pulses: NetgraphPulse[];
   glows: NetgraphGlow[];
   routeHeat: NetgraphRouteHeat[];
+  introEnabled?: boolean;
+  routeFlightRequestId?: number;
   reducedMotion?: boolean;
   onSelectNode: (nodeId: string) => void;
   onSelectRoute: (routeId: number) => void;
   onClearSelection: () => void;
   onError: (message: string) => void;
+  onIntroComplete?: () => void;
+  onUserInteraction?: () => void;
 }
 
 interface CameraCommands {
   flyRoute: () => void;
   focusSelected: () => void;
+  overview: () => void;
+  replayIntro: () => void;
+  stopMotion: () => void;
   reset: () => void;
   toggleOrbit: () => void;
   enterFlight: () => void;
@@ -108,6 +116,7 @@ const MOBILE_RENDER_QUERY = "(max-width: 767px)";
 
 export function ThreeNetgraphCanvas({
   graph,
+  externalInteractionAt = 0,
   selectedNodeId,
   selectedRouteId,
   viewMode,
@@ -118,13 +127,19 @@ export function ThreeNetgraphCanvas({
   pulses,
   glows,
   routeHeat,
+  introEnabled = false,
+  routeFlightRequestId = 0,
   reducedMotion = false,
   onSelectNode,
   onSelectRoute,
   onError,
+  onIntroComplete,
+  onUserInteraction,
 }: ThreeNetgraphCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const commandsRef = useRef<CameraCommands | null>(null);
+  const handledRouteFlightRequestRef = useRef(0);
+  const handledExternalInteractionRef = useRef(externalInteractionAt);
   const pulsesRef = useRef(pulses);
   const glowsRef = useRef(glows);
   const routeHeatRef = useRef(routeHeat);
@@ -132,6 +147,8 @@ export function ThreeNetgraphCanvas({
   const [orbitActive, setOrbitActive] = useState(false);
   const orbitActiveRef = useRef(false);
   const [controlMode, setControlMode] = useState<NetgraphControlMode>("orbit");
+  const [flightError, setFlightError] = useState<string | null>(null);
+  const [introActive, setIntroActive] = useState(false);
   const displayedOrbitActive = orbitActive && !reducedMotion;
   const {
     handleLookPadPointerDown,
@@ -318,7 +335,9 @@ export function ThreeNetgraphCanvas({
     });
     let cameraTween: CameraTween | null = null;
     const cameraControls = { camera, controls };
-    const obliqueDirection = createObliqueCameraDirection();
+    const obliqueDirection = renderGraph.layoutMode === "geo"
+      ? new THREE.Vector3(-0.72, 0.42, 0.55).normalize()
+      : createObliqueCameraDirection();
     const currentCameraDirection = () => resolveCurrentCameraDirection(cameraControls, obliqueDirection);
     const focusDirectionForNode = (node: NetgraphNode) => {
       return createFocusDirectionForNode({
@@ -373,7 +392,7 @@ export function ThreeNetgraphCanvas({
           radius,
         });
         applyCameraFrame(intro.position, intro.target);
-        setCameraTween(next.position, next.target, narrowViewport ? 1450 : 2100);
+        setCameraTween(next.position, next.target, narrowViewport ? 1450 : 2400);
         return;
       }
       if (animate) setCameraTween(next.position, next.target, 640);
@@ -390,16 +409,22 @@ export function ThreeNetgraphCanvas({
           span = Math.max(span, layoutSpan);
         }
       }
-      focusPoint(
-        target,
-        Math.max(8, Math.min(controls.maxDistance, span * (narrowViewport ? 1.58 : 1.34) + 10)),
-        animate,
-        focusDirectionForNode(renderedNode),
-      );
+      const geoFocus = renderGraph.layoutMode === "geo";
+      const direction = geoFocus ? target.clone().normalize() : focusDirectionForNode(renderedNode);
+      const distance = geoFocus
+        ? Math.max(28, renderGraph.globeRadius * (narrowViewport ? 0.5 : 0.38))
+        : Math.max(8, Math.min(controls.maxDistance, span * (narrowViewport ? 1.58 : 1.34) + 10));
+      focusPoint(target, distance, animate, direction);
     };
     const focusRoute = (routeId: number, animate = true) => {
       const focus = selectedRouteFocus(renderGraph, routeId);
       if (!focus) return;
+      if (renderGraph.layoutMode === "geo") {
+        const waypoints = selectedRouteWaypoints(renderGraph, routeId);
+        const target = waypoints[Math.floor(waypoints.length / 2)] ?? focus.center;
+        focusPoint(target, Math.max(30, renderGraph.globeRadius * (narrowViewport ? 0.56 : 0.42)), animate, target.clone().normalize());
+        return;
+      }
       focusPoint(
         focus.center,
         Math.max(8, Math.min(controls.maxDistance, focus.span * (narrowViewport ? 1.7 : 1.48) + 9)),
@@ -419,9 +444,14 @@ export function ThreeNetgraphCanvas({
       const next = waypoints[Math.min(waypoints.length - 1, index + 1)]!;
       const tangent = next.clone().sub(previous);
       if (tangent.lengthSq() < 0.001) tangent.copy(focusDirectionForPoint(target));
-      const side = new THREE.Vector3(-tangent.y, tangent.x, Math.max(radius * 0.14, Math.abs(tangent.z) + 8)).normalize();
+      const side = renderGraph.layoutMode === "geo"
+        ? target.clone().normalize().multiplyScalar(0.86).add(target.clone().normalize().cross(tangent.clone().normalize()).multiplyScalar(0.34)).normalize()
+        : new THREE.Vector3(-tangent.y, tangent.x, Math.max(radius * 0.14, Math.abs(tangent.z) + 8)).normalize();
       const span = Math.max(10, previous.distanceTo(next));
-      focusPoint(target, Math.max(18, Math.min(radius * 0.58, span * 2.8 + 18)), true, side);
+      const distance = renderGraph.layoutMode === "geo"
+        ? Math.max(24, renderGraph.globeRadius * (narrowViewport ? 0.42 : 0.3))
+        : Math.max(18, Math.min(radius * 0.58, span * 2.8 + 18));
+      focusPoint(target, distance, true, side);
     };
     const zoomCamera = (factor: number) => {
       const next = createZoomCameraFrame(cameraControls, factor);
@@ -441,9 +471,9 @@ export function ThreeNetgraphCanvas({
           : null;
       const target = focus?.center ?? center;
       const span = focus?.span ?? radius;
-      focusPoint(target, Math.max(8, Math.min(controls.maxDistance, span * (narrowViewport ? 1.55 : 1.28) + 8)), true, new THREE.Vector3(0, 0, 1));
+      focusPoint(target, Math.max(8, Math.min(controls.maxDistance, span * (narrowViewport ? 1.55 : 1.28) + 8)), true, renderGraph.layoutMode === "geo" ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, 1));
     };
-    frameCamera(false, renderTier.guidedIntro);
+    frameCamera(false, false);
     if (nodeFocusActive && selectedNodeId) {
       const node = renderGraph.nodeById.get(selectedNodeId);
       if (node) focusNode(node, false);
@@ -526,11 +556,21 @@ export function ThreeNetgraphCanvas({
     let framedToContainer = false;
     let lastAspect = camera.aspect;
     let userInteracted = false;
+    let introTimer: number | null = null;
     const targetFrameMs = denseGraph && !narrowViewport ? 33 : 0;
     let frameTiming = createNetgraphFrameTimingState();
     let hadLiveNodeFlashes = false;
+    const cancelIntro = () => {
+      if (introTimer != null) window.clearTimeout(introTimer);
+      introTimer = null;
+      setIntroActive(false);
+    };
     const markUserInteracted = () => {
       userInteracted = true;
+      cameraTween = null;
+      cancelIntro();
+      setOrbit(false);
+      onUserInteraction?.();
     };
     const viewDirection = new THREE.Vector3();
     const viewRight = new THREE.Vector3();
@@ -551,11 +591,26 @@ export function ThreeNetgraphCanvas({
       onCameraTweenCancel: () => {
         cameraTween = null;
       },
+      onFlightError: (message) => setFlightError(message),
       setControlMode,
       setHovered,
       setOrbit,
       syncOrbitTargetToCamera,
     });
+
+    const beginGuidedIntro = () => {
+      cancelIntro();
+      setFlightError(null);
+      setOrbit(false);
+      setIntroActive(true);
+      frameCamera(false, true);
+      introTimer = window.setTimeout(() => {
+        introTimer = null;
+        setIntroActive(false);
+        if (!reducedMotion && !userInteracted) setOrbit(true);
+        onIntroComplete?.();
+      }, narrowViewport ? 1500 : 2450);
+    };
 
     commandsRef.current = {
       flyRoute: () => flyRoute(selectedRouteId),
@@ -573,10 +628,40 @@ export function ThreeNetgraphCanvas({
         }
         frameCamera(true);
       },
+      overview: () => {
+        cancelIntro();
+        setOrbit(false);
+        frameCamera(true);
+      },
+      replayIntro: () => beginGuidedIntro(),
+      stopMotion: () => {
+        userInteracted = true;
+        cameraTween = null;
+        cancelIntro();
+        setOrbit(false);
+      },
       reset: () => frameCamera(true),
       toggleOrbit: () => setOrbit(!controls.autoRotate),
-      enterFlight: () => flightCommandHandlers.enterFlightMode(),
-      exitFlight: () => flightCommandHandlers.exitFlightMode(),
+      enterFlight: () => {
+        setFlightError(null);
+        if (narrowViewport) {
+          cancelIntro();
+          setOrbit(false);
+          setControlMode("touch-flight");
+          markUserInteracted();
+          return;
+        }
+        flightCommandHandlers.enterFlightMode();
+      },
+      exitFlight: () => {
+        if (narrowViewport && !flightControls.isLocked) {
+          setControlMode("orbit");
+          controls.enabled = true;
+          syncOrbitTargetToCamera();
+          return;
+        }
+        flightCommandHandlers.exitFlightMode();
+      },
       topView,
       zoomIn: () => zoomCamera(0.58),
       zoomOut: () => zoomCamera(1.44),
@@ -594,7 +679,12 @@ export function ThreeNetgraphCanvas({
       camera.aspect = nextAspect;
       lastAspect = nextAspect;
       if (!framedToContainer || (!userInteracted && aspectChanged)) {
-        frameCamera(false, !framedToContainer && renderTier.guidedIntro);
+        if (!framedToContainer && introEnabled && renderTier.guidedIntro && !nodeFocusActive && !routeFocusActive && !liveFocusActive) {
+          beginGuidedIntro();
+        } else if (!nodeFocusActive && !routeFocusActive) {
+          frameCamera(false, false);
+          if (!reducedMotion && !userInteracted) setOrbit(true);
+        }
         framedToContainer = true;
       } else {
         camera.updateProjectionMatrix();
@@ -683,6 +773,11 @@ export function ThreeNetgraphCanvas({
       onCanvasClick: pointerHandlers.onCanvasClick,
       onControlsStart: markUserInteracted,
       onFlightLock: flightCommandHandlers.onFlightLock,
+      onFlightError: () => {
+        setFlightError("Pointer lock was unavailable or declined by the browser.");
+        controls.enabled = true;
+        setControlMode("orbit");
+      },
       onFlightUnlock: flightCommandHandlers.onFlightUnlock,
       onKeyDown: flightCommandHandlers.onKeyDown,
       onKeyUp: flightCommandHandlers.onKeyUp,
@@ -734,6 +829,7 @@ export function ThreeNetgraphCanvas({
         }
       }
       if (liveNodeFlashes.size > 0 || hadLiveNodeFlashes) {
+        applyLiveElevationToRoleMeshes({ roleMeshes, graph: renderGraph, liveNodeFlashes });
         paintRoleMeshes({
           roleMeshes,
           graph: renderGraph,
@@ -820,6 +916,7 @@ export function ThreeNetgraphCanvas({
       commandsRef.current = null;
       stopRenderLoop();
       ro.disconnect();
+      cancelIntro();
       unregisterCanvasEvents();
       if (document.pointerLockElement === renderer.domElement) document.exitPointerLock();
       controls.dispose();
@@ -831,16 +928,33 @@ export function ThreeNetgraphCanvas({
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [graph, onError, onSelectNode, onSelectRoute, qualityMode, reducedMotion, searchMatches, selectedNodeId, selectedRouteId, showDataQuality, touchFlightRef, viewMode, visualProfileProp]);
+  }, [graph, introEnabled, onError, onIntroComplete, onSelectNode, onSelectRoute, onUserInteraction, qualityMode, reducedMotion, searchMatches, selectedNodeId, selectedRouteId, showDataQuality, touchFlightRef, viewMode, visualProfileProp]);
+
+  useEffect(() => {
+    if (routeFlightRequestId <= 0 || handledRouteFlightRequestRef.current === routeFlightRequestId) return;
+    handledRouteFlightRequestRef.current = routeFlightRequestId;
+    const timer = window.setTimeout(() => commandsRef.current?.flyRoute(), 0);
+    return () => window.clearTimeout(timer);
+  }, [routeFlightRequestId]);
+
+  useEffect(() => {
+    if (!externalInteractionAt || handledExternalInteractionRef.current === externalInteractionAt) return;
+    handledExternalInteractionRef.current = externalInteractionAt;
+    commandsRef.current?.stopMotion();
+  }, [externalInteractionAt]);
 
   return (
     <div ref={hostRef} className="netgraph-canvas-host relative h-full min-h-0 flex-1 overflow-hidden bg-bg-base" role="region" aria-label="Animated 3D netgraph topology">
       <NetgraphCanvasHud
         controlMode={controlMode}
+        flightError={flightError}
         hovered={hovered}
+        introActive={introActive}
         orbitActive={displayedOrbitActive}
         reducedMotion={reducedMotion}
+        selectionActive={Boolean(selectedNodeId) || selectedRouteId != null}
         selectedRouteId={selectedRouteId}
+        onDismissFlightError={() => setFlightError(null)}
         onEnterFlight={() => commandsRef.current?.enterFlight()}
         onExitFlight={() => commandsRef.current?.exitFlight()}
         onFocusSelected={() => commandsRef.current?.focusSelected()}
@@ -851,7 +965,9 @@ export function ThreeNetgraphCanvas({
         onMovePadPointerDown={handleMovePadPointerDown}
         onMovePadPointerEnd={handleMovePadPointerEnd}
         onMovePadPointerMove={handleMovePadPointerMove}
-        onReset={() => commandsRef.current?.reset()}
+        onOverview={() => commandsRef.current?.overview()}
+        onReplayIntro={() => commandsRef.current?.replayIntro()}
+        onSkipIntro={() => commandsRef.current?.overview()}
         onToggleOrbit={() => commandsRef.current?.toggleOrbit()}
         onTopView={() => commandsRef.current?.topView()}
         onZoomIn={() => commandsRef.current?.zoomIn()}

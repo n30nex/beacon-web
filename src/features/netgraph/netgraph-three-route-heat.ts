@@ -7,7 +7,7 @@ import {
   routeTrailTextureFile,
   stellarGasTextureFile,
 } from "./netgraph-three-assets";
-import { clamp, nodePosition } from "./netgraph-three-geometry";
+import { clamp, nodePosition, positionOnEdge } from "./netgraph-three-geometry";
 import { routeHeatIntensityAt } from "./netgraph-route-heat";
 
 const MAX_ROUTE_HEAT_BEAMS = 192;
@@ -185,8 +185,10 @@ export function renderRouteHeatFrame(options: {
     const to = options.graph.nodeById.get(edge.toId);
     if (!from || !to) continue;
 
-    start.copy(nodePosition(from));
-    end.copy(nodePosition(to));
+    const curvedStart = options.graph.layoutMode === "geo" ? positionOnEdge(options.graph, edge.id, 0.43, false) : null;
+    const curvedEnd = options.graph.layoutMode === "geo" ? positionOnEdge(options.graph, edge.id, 0.57, false) : null;
+    start.copy(curvedStart ?? nodePosition(from));
+    end.copy(curvedEnd ?? nodePosition(to));
     delta.subVectors(end, start);
     const length = delta.length();
     if (length <= 0.001) continue;
@@ -227,7 +229,9 @@ export function renderRouteHeatFrame(options: {
       const seed = hashString(`${heat.edgeId}:${spark}`);
       const local = ((options.now - heat.startedAt) / 1250 + (seed % 997) / 997 + spark * 0.37) % 1;
       const routeLocal = heat.reverse ? 1 - local : local;
-      sparklePosition.lerpVectors(start, end, routeLocal);
+      const pathPosition = positionOnEdge(options.graph, edge.id, routeLocal, false);
+      if (pathPosition) sparklePosition.copy(pathPosition);
+      else sparklePosition.lerpVectors(start, end, routeLocal);
       sparklePosition.x += Math.sin(options.time / 140 + seed) * (options.nodeFocusActive ? 0.28 : 0.52);
       sparklePosition.y += Math.cos(options.time / 170 + seed * 0.7) * (options.nodeFocusActive ? 0.28 : 0.52);
       sparklePosition.z += Math.sin(options.time / 190 + seed * 0.3) * (options.nodeFocusActive ? 0.38 : 0.72);

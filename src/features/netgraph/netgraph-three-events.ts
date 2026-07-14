@@ -9,6 +9,7 @@ export function registerNetgraphCanvasEvents(options: {
   onCanvasClick: (event: MouseEvent) => void;
   onControlsStart: () => void;
   onFlightLock: () => void;
+  onFlightError: () => void;
   onFlightUnlock: () => void;
   onKeyDown: (event: KeyboardEvent) => void;
   onKeyUp: (event: KeyboardEvent) => void;
@@ -21,6 +22,7 @@ export function registerNetgraphCanvasEvents(options: {
   options.controls.addEventListener("start", options.onControlsStart);
   options.flightControls.addEventListener("lock", options.onFlightLock);
   options.flightControls.addEventListener("unlock", options.onFlightUnlock);
+  options.documentTarget.addEventListener("pointerlockerror", options.onFlightError);
   options.documentTarget.addEventListener("keydown", options.onKeyDown);
   options.documentTarget.addEventListener("keyup", options.onKeyUp);
 
@@ -36,6 +38,7 @@ export function registerNetgraphCanvasEvents(options: {
     options.controls.removeEventListener("start", options.onControlsStart);
     options.flightControls.removeEventListener("lock", options.onFlightLock);
     options.flightControls.removeEventListener("unlock", options.onFlightUnlock);
+    options.documentTarget.removeEventListener("pointerlockerror", options.onFlightError);
     options.documentTarget.removeEventListener("keydown", options.onKeyDown);
     options.documentTarget.removeEventListener("keyup", options.onKeyUp);
     options.canvas.removeEventListener("pointermove", options.onPointerMove);

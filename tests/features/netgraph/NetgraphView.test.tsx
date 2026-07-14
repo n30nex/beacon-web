@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
@@ -16,11 +16,17 @@ vi.mock("../../../src/features/netgraph/ThreeNetgraphCanvas", () => ({
     onSelectNode,
     onSelectRoute,
     onError,
+    graph,
+    introEnabled,
+    routeFlightRequestId,
     searchMatches,
     viewMode,
     qualityMode,
     showDataQuality,
   }: {
+    graph: { layoutMode: string };
+    introEnabled?: boolean;
+    routeFlightRequestId?: number;
     onSelectNode: (nodeId: string) => void;
     onSelectRoute: (routeId: number) => void;
     onError: (message: string) => void;
@@ -32,8 +38,11 @@ vi.mock("../../../src/features/netgraph/ThreeNetgraphCanvas", () => ({
     <div data-testid="mock-netgraph-canvas">
       <output aria-label="search matches">{searchMatches.size}</output>
       <output aria-label="canvas mode">{viewMode}</output>
+      <output aria-label="canvas layout">{graph.layoutMode}</output>
       <output aria-label="canvas quality">{qualityMode}</output>
       <output aria-label="canvas data overlay">{showDataQuality ? "on" : "off"}</output>
+      <output aria-label="canvas intro">{introEnabled ? "on" : "off"}</output>
+      <output aria-label="route flight request">{routeFlightRequestId ?? 0}</output>
       <button type="button" onClick={() => onSelectNode("node-alpha")}>Pick Alpha</button>
       <button type="button" onClick={() => onSelectRoute(42)}>Pick Route</button>
       <button type="button">Blank Canvas</button>
@@ -165,6 +174,7 @@ function stubMatchMedia(matches: (query: string) => boolean) {
 function renderNetgraph(initialSearch = "?tab=Netgraph", wsManager?: WsManager, selectedNodeId: string | null = null) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const onSelectNode = vi.fn();
+  const onImmersiveChange = vi.fn();
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[`/${initialSearch}`]}>
@@ -176,11 +186,13 @@ function renderNetgraph(initialSearch = "?tab=Netgraph", wsManager?: WsManager, 
     </QueryClientProvider>
   );
 
-  render(<NetgraphView selectedNodeId={selectedNodeId} onSelectNode={onSelectNode} wsManager={wsManager} />, { wrapper });
-  return { onSelectNode };
+  render(<NetgraphView selectedNodeId={selectedNodeId} onSelectNode={onSelectNode} onImmersiveChange={onImmersiveChange} wsManager={wsManager} />, { wrapper });
+  return { onImmersiveChange, onSelectNode };
 }
 
 beforeEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
   mockGetLiveBackfill.mockReset().mockResolvedValue({ items: [], nextCursor: null, hasMore: false });
   mockGetNetgraphSnapshot.mockReset().mockResolvedValue(snapshot());
   mockGetRegions.mockReset().mockResolvedValue([]);
@@ -188,6 +200,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -197,7 +210,7 @@ describe("NetgraphView", () => {
 
     expect(await screen.findByRole("heading", { name: "Netgraph" })).toBeInTheDocument();
     expect(await screen.findByTestId("mock-netgraph-canvas")).toBeInTheDocument();
-    expect(screen.getByText(/2 connected nodes/)).toBeInTheDocument();
+    expect(screen.getByText(/2 nodes/)).toBeInTheDocument();
     expect(mockGetNetgraphSnapshot).toHaveBeenCalledWith({ iatas: undefined, routeLimit: 2500 });
   });
 
@@ -222,40 +235,85 @@ describe("NetgraphView", () => {
     await waitFor(() => expect(mockGetNetgraphSnapshot).toHaveBeenCalledWith({ iatas: undefined, routeLimit: 1600 }));
   });
 
-  it("passes Galaxy and Low Power visual modes into the 3D canvas", async () => {
+  it("defaults to Geo and keeps layout independent from quality", async () => {
     renderNetgraph();
     await screen.findByTestId("mock-netgraph-canvas");
 
-    expect(screen.getByLabelText("canvas mode")).toHaveTextContent("galaxy");
+    expect(screen.getByLabelText("canvas mode")).toHaveTextContent("overview");
+    expect(screen.getByLabelText("canvas layout")).toHaveTextContent("geo");
     expect(screen.getByLabelText("canvas quality")).toHaveTextContent("high");
     expect(screen.getByLabelText("canvas data overlay")).toHaveTextContent("on");
 
     fireEvent.click(screen.getByRole("button", { name: "Open netgraph settings" }));
+    fireEvent.click(screen.getByRole("button", { name: /Galaxy/ }));
     fireEvent.click(screen.getByRole("button", { name: /Low Power/ }));
 
+    await waitFor(() => expect(screen.getByLabelText("canvas layout")).toHaveTextContent("galaxy"));
     expect(screen.getByLabelText("canvas quality")).toHaveTextContent("battery");
-    expect(screen.getByLabelText("canvas data overlay")).toHaveTextContent("off");
+    expect(screen.getByLabelText("canvas data overlay")).toHaveTextContent("on");
   });
 
-  it("keeps settings focused on the two visual modes", async () => {
+  it("separates layout and quality settings", async () => {
     renderNetgraph();
     await screen.findByTestId("mock-netgraph-canvas");
 
     fireEvent.click(screen.getByRole("button", { name: "Open netgraph settings" }));
 
-    expect(screen.getByRole("group", { name: "Netgraph visual mode" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Galaxy/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("group", { name: "Netgraph layout" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Netgraph quality" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Geo Constellation/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /Galaxy/ })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: /Cinematic/ })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: /Low Power/ })).toBeInTheDocument();
     expect(screen.queryByText("Advanced")).not.toBeInTheDocument();
+  });
+
+  it("persists the selected Galaxy layout", async () => {
+    renderNetgraph();
+    await screen.findByTestId("mock-netgraph-canvas");
+    fireEvent.click(screen.getByRole("button", { name: "Open netgraph settings" }));
+    fireEvent.click(screen.getByRole("button", { name: /Galaxy/ }));
+    await waitFor(() => expect(screen.getByLabelText("canvas layout")).toHaveTextContent("galaxy"));
+
+    cleanup();
+    renderNetgraph();
+    expect(await screen.findByLabelText("canvas layout")).toHaveTextContent("galaxy");
+  });
+
+  it("offers the desktop reveal once per session and skips it for reduced motion", async () => {
+    stubMatchMedia(() => false);
+    renderNetgraph();
+    expect(await screen.findByLabelText("canvas intro")).toHaveTextContent("on");
+
+    cleanup();
+    renderNetgraph();
+    expect(await screen.findByLabelText("canvas intro")).toHaveTextContent("off");
+
+    cleanup();
+    sessionStorage.clear();
+    stubMatchMedia((query) => query.includes("prefers-reduced-motion"));
+    renderNetgraph();
+    expect(await screen.findByLabelText("canvas intro")).toHaveTextContent("off");
+  });
+
+  it("routes the immersive toggle through the app-level callback", async () => {
+    const { onImmersiveChange } = renderNetgraph();
+    await screen.findByTestId("mock-netgraph-canvas");
+    fireEvent.click(screen.getByRole("button", { name: "Enter immersive Netgraph" }));
+    expect(onImmersiveChange).toHaveBeenCalledWith(true);
   });
 
   it("focuses search matches without leaving the canvas", async () => {
     renderNetgraph();
     await screen.findByTestId("mock-netgraph-canvas");
 
-    fireEvent.change(screen.getByPlaceholderText("Search nodes"), { target: { value: "alpha" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Search Netgraph nodes" }), { target: { value: "alpha" } });
 
     expect(screen.getByLabelText("search matches")).toHaveTextContent("2");
+    expect(screen.getByRole("option", { name: /Alpha/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("option", { name: /Alpha/ }));
+    expect(screen.getByLabelText("canvas mode")).toHaveTextContent("focus");
+    expect(screen.getByLabelText("location")).toHaveTextContent("nodeId=node-alpha");
   });
 
   it("selects nodes and preserves the selected node in the URL", async () => {
@@ -276,6 +334,8 @@ describe("NetgraphView", () => {
 
     expect(screen.getByLabelText("Selected node focus")).toHaveTextContent("Alpha");
     expect(screen.getByText(/1 highlighted pathways/)).toBeInTheDocument();
+    expect(screen.queryByText(/1 first-hop/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Details" }));
     expect(screen.getByText(/1 first-hop/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Focus selected node neighborhood" }));
@@ -290,6 +350,7 @@ describe("NetgraphView", () => {
     renderNetgraph("?tab=Netgraph&nodeId=node-alpha", undefined, "node-alpha");
     await screen.findByTestId("mock-netgraph-canvas");
 
+    fireEvent.click(screen.getByRole("button", { name: "Details" }));
     fireEvent.click(screen.getByRole("button", { name: "View selected node on map" }));
 
     expect(screen.getByLabelText("location")).toHaveTextContent("tab=Map");
@@ -331,7 +392,7 @@ describe("NetgraphView", () => {
       packetHandler?.(packetData(["node-alpha", "node-bravo"]));
     });
 
-    await waitFor(() => expect(screen.getByText("1 live pulses")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("1 live")).toBeInTheDocument());
   });
 
   it("warms live tx/rx pulses from recent backfill", async () => {
@@ -344,7 +405,37 @@ describe("NetgraphView", () => {
     await screen.findByTestId("mock-netgraph-canvas");
 
     await waitFor(() => expect(mockGetLiveBackfill).toHaveBeenCalledWith(undefined, { afterObservationId: 0, limit: 80 }));
-    await waitFor(() => expect(screen.getByText("1 live pulses")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("1 live")).toBeInTheDocument());
+  });
+
+  it("offers an idle multi-hop live route without moving until Follow is clicked", async () => {
+    const baseNow = 1_800_000_000_000;
+    const now = vi.spyOn(Date, "now").mockReturnValue(baseNow);
+    const charlie = node("node-charlie", "Charlie", "Companion");
+    const base = snapshot();
+    mockGetNetgraphSnapshot.mockResolvedValueOnce(snapshot({
+      nodes: [...base.nodes, charlie],
+      edges: [...base.edges, { ...base.edges[0]!, id: "node-bravo>node-charlie", fromNodeId: "node-bravo", toNodeId: "node-charlie" }],
+      stats: { ...base.stats, nodeCount: 3, edgeCount: 2 },
+    }));
+    let packetHandler: ((data: WsPacketObservation["data"]) => void) | null = null;
+    const wsManager = {
+      getStatus: () => "connected",
+      onPacketObservation: vi.fn((handler: (data: WsPacketObservation["data"]) => void) => { packetHandler = handler; return vi.fn(); }),
+      onLagged: vi.fn(() => vi.fn()),
+    } as unknown as WsManager;
+
+    renderNetgraph("?tab=Netgraph", wsManager);
+    await screen.findByTestId("mock-netgraph-canvas");
+    act(() => packetHandler?.(packetData(["node-alpha", "node-bravo", "node-charlie"])));
+    expect(screen.queryByText("Live route available")).not.toBeInTheDocument();
+
+    now.mockReturnValue(baseNow + 8_100);
+    expect(await screen.findByText("Live route available", {}, { timeout: 2_500 })).toBeInTheDocument();
+    expect(screen.getByLabelText("route flight request")).toHaveTextContent("0");
+    fireEvent.click(screen.getByRole("button", { name: "Follow" }));
+    expect(screen.getByLabelText("route flight request")).toHaveTextContent("1");
+    expect(screen.getByLabelText("location")).toHaveTextContent("routeId=42");
   });
 
   it("falls back to route lists when WebGL fails", async () => {
@@ -368,6 +459,7 @@ describe("NetgraphView", () => {
     expect(screen.getByLabelText("location")).not.toHaveTextContent("nodeId=node-alpha");
     fireEvent.click(screen.getByRole("button", { name: "Replay selected route in 3D" }));
     expect(screen.getByLabelText("canvas mode")).toHaveTextContent("routes");
+    fireEvent.click(screen.getByRole("button", { name: "Details" }));
     fireEvent.click(screen.getByRole("button", { name: "View on map" }));
 
     expect(screen.getByLabelText("location")).toHaveTextContent("tab=Map");
