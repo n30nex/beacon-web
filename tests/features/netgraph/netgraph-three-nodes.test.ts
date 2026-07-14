@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { paintRoleMeshes, ROLE_COLORS, type RoleMesh } from "../../../src/features/netgraph/netgraph-three-nodes";
+import { nodeScaleFactorForLayout } from "../../../src/features/netgraph/netgraph-three-geometry";
 import type { NetgraphGraph, NetgraphNode } from "../../../src/features/netgraph/netgraph-model";
 
 function node(): NetgraphNode {
@@ -62,6 +63,11 @@ function roleMesh(): RoleMesh {
 }
 
 describe("paintRoleMeshes", () => {
+  it("keeps geographic nodes compact against the globe while preserving Galaxy scale", () => {
+    expect(nodeScaleFactorForLayout("geo", 2.12)).toBeCloseTo(0.3816);
+    expect(nodeScaleFactorForLayout("galaxy", 2.12)).toBe(2.12);
+  });
+
   it("recolors the actual node instance during a live tx/rx flash", () => {
     const item = node();
     const topology = graph(item);

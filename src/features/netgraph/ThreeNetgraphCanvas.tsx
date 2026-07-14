@@ -28,6 +28,7 @@ import {
   graphWithPositions,
   nodePosition,
   nodeScale,
+  nodeScaleFactorForLayout,
   selectedNodeFocus,
   selectedRouteFocus,
   selectedRouteWaypoints,
@@ -221,6 +222,7 @@ export function ThreeNetgraphCanvas({
     const muted = cssColor(host, "--color-text-dim", "#697386");
     const focusLayout = focusVisibility.focusLayout;
     const renderGraph = focusLayout ? graphWithPositions(graph, focusLayout.positions) : graph;
+    const renderedNodeScaleFactor = nodeScaleFactorForLayout(renderGraph.layoutMode, nodeScaleFactor);
     const visibleNodeIds = focusVisibility.visibleNodeIds;
     const visibleEdgeIds = focusVisibility.visibleEdgeIds;
     const pickableNodeIds = focusVisibility.pickableNodeIds;
@@ -402,7 +404,7 @@ export function ThreeNetgraphCanvas({
       const renderedNode = renderGraph.nodeById.get(node.id) ?? node;
       const target = nodePosition(renderedNode);
       const neighborhood = selectedNodeFocus(renderGraph, node.id);
-      let span = neighborhood?.span ?? nodeScale(node, nodeScaleFactor) * 8;
+      let span = neighborhood?.span ?? nodeScale(node, renderedNodeScaleFactor) * 8;
       if (nodeFocusActive) {
         const layoutSpan = focusLayoutSpan(selectedNodes);
         if (layoutSpan > 0) {
@@ -518,7 +520,7 @@ export function ThreeNetgraphCanvas({
       lowPower,
       narrowViewport,
       nodeFocusActive,
-      nodeScaleFactor,
+      nodeScaleFactor: renderedNodeScaleFactor,
       primary,
       pulseDensity,
       reducedMotion,
@@ -711,7 +713,7 @@ export function ThreeNetgraphCanvas({
       host,
       muted,
       nodeFocusActive,
-      nodeScaleFactor,
+      nodeScaleFactor: renderedNodeScaleFactor,
       onSelectNode,
       onSelectRoute,
       pickableEdgeIds,
@@ -882,7 +884,7 @@ export function ThreeNetgraphCanvas({
         isVisiblePoint,
         narrowViewport,
         nodeFocusActive,
-        nodeScaleFactor,
+        nodeScaleFactor: renderedNodeScaleFactor,
         now: nowMs,
         packetTextureVariant,
         pulseBeamMeshes,

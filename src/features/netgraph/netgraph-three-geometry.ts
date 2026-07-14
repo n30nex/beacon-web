@@ -3,6 +3,7 @@ import * as THREE from "three";
 import {
   selectedNodeRouteEdgeIds,
   type NetgraphGraph,
+  type NetgraphLayoutMode,
   type NetgraphNode,
   type NetgraphPoint,
   type NetgraphPulse,
@@ -13,6 +14,7 @@ import { buildEdgePathMap, pointOnSampledPath } from "./netgraph-geo";
 const EDGE_LOW = new THREE.Color("#25b7a8");
 const EDGE_MID = new THREE.Color("#78d641");
 const EDGE_HIGH = new THREE.Color("#ffd45a");
+const GEO_NODE_VISUAL_SCALE = 0.18;
 
 export function roleGeometry(role: NetgraphRole, highFidelity: boolean): THREE.BufferGeometry {
   switch (role) {
@@ -77,6 +79,10 @@ export function edgeBeamOpacityForDensity(visibleDensity: number, selected: bool
 
 export function nodeScale(node: NetgraphNode, visualScale = 1): number {
   return node.radius * visualScale;
+}
+
+export function nodeScaleFactorForLayout(layoutMode: NetgraphLayoutMode, visualScale = 1): number {
+  return visualScale * (layoutMode === "geo" ? GEO_NODE_VISUAL_SCALE : 1);
 }
 
 export function colorForEdge(edgeObservationCount: number): THREE.Color {

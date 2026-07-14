@@ -14,6 +14,7 @@ const MAX_ROUTE_HEAT_BEAMS = 192;
 const MAX_ROUTE_GAS_SPRITES = 64;
 const MAX_ROUTE_SPARKLES = 180;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
+const GEO_ROUTE_GAS_SCALE = 0.28;
 
 export interface RouteHeatVisuals {
   beamMeshes: THREE.Mesh[];
@@ -60,6 +61,18 @@ export function routeHeatModeProfile(nodeFocusActive: boolean): {
   return nodeFocusActive
     ? { beamOpacityScale: 0.46, beamRadiusScale: 0.42, gasEnabled: false, sparkleCount: 1, sparkleOpacityScale: 0.58, sparkleScale: 0.62 }
     : { beamOpacityScale: 0.82, beamRadiusScale: 0.78, gasEnabled: true, sparkleCount: 2, sparkleOpacityScale: 0.86, sparkleScale: 0.84 };
+}
+
+export function routeHeatGasSize(options: {
+  layoutMode: NetgraphGraph["layoutMode"];
+  narrowViewport: boolean;
+  length: number;
+  intensity: number;
+  pulse: number;
+}): number {
+  const base = Math.min(options.narrowViewport ? 28 : 48, Math.max(12, options.length * 0.74));
+  const layoutScale = options.layoutMode === "geo" ? GEO_ROUTE_GAS_SCALE : 1;
+  return base * (1 + options.intensity * 0.2) * options.pulse * layoutScale;
 }
 
 export function createRouteHeatVisuals(options: {
@@ -216,7 +229,13 @@ export function renderRouteHeatFrame(options: {
       spriteMaterial.opacity = Math.min(0.36, (0.05 + intensity * 0.1) * clamp(options.glowIntensityScale, 0.25, 3));
       sprite.position.copy(midpoint);
       sprite.position.z += Math.sin((hashString(heat.edgeId) % 991) + options.time / 1300) * 1.2;
-      const gasSize = Math.min(options.narrowViewport ? 28 : 48, Math.max(12, length * 0.74)) * (1 + intensity * 0.2) * pulse;
+      const gasSize = routeHeatGasSize({
+        layoutMode: options.graph.layoutMode,
+        narrowViewport: options.narrowViewport,
+        length,
+        intensity,
+        pulse,
+      });
       sprite.scale.set(gasSize, gasSize, 1);
       sprite.visible = true;
       gasIndex += 1;

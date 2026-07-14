@@ -4,7 +4,7 @@ import {
   pruneRouteHeat,
   routeHeatIntensityAt,
 } from "../../../src/features/netgraph/netgraph-route-heat";
-import { routeHeatEffectsEnabled, routeHeatModeProfile, routeHeatVisualBudgets } from "../../../src/features/netgraph/netgraph-three-route-heat";
+import { routeHeatEffectsEnabled, routeHeatGasSize, routeHeatModeProfile, routeHeatVisualBudgets } from "../../../src/features/netgraph/netgraph-three-route-heat";
 import type { NetgraphPulse } from "../../../src/features/netgraph/netgraph-model";
 
 function pulse(overrides: Partial<NetgraphPulse> = {}): NetgraphPulse {
@@ -73,6 +73,15 @@ describe("netgraph route heat", () => {
     expect(focus.beamOpacityScale).toBeLessThan(galaxy.beamOpacityScale);
     expect(focus.beamRadiusScale).toBeLessThan(galaxy.beamRadiusScale);
     expect(focus.sparkleCount).toBeLessThan(galaxy.sparkleCount);
+  });
+
+  it("keeps geographic route gas subordinate to the globe", () => {
+    const options = { narrowViewport: false, length: 80, intensity: 1.4, pulse: 1.08 };
+    const geo = routeHeatGasSize({ ...options, layoutMode: "geo" });
+    const galaxy = routeHeatGasSize({ ...options, layoutMode: "galaxy" });
+
+    expect(geo).toBeLessThan(galaxy * 0.3);
+    expect(geo).toBeLessThan(20);
   });
 
   it("uses lean route heat budgets when disabled or non-cinematic", () => {
