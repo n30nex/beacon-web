@@ -76,6 +76,11 @@ export function NetgraphCanvasHud(props: NetgraphCanvasHudProps) {
     return () => document.removeEventListener("pointerdown", close);
   }, [moreOpen]);
 
+  const runMoreAction = (action: () => void) => {
+    setMoreOpen(false);
+    action();
+  };
+
   return (
     <>
       <div className="netgraph-control-rail pointer-events-auto absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-border bg-bg-surface/55 p-1.5 shadow-2xl backdrop-blur-xl" aria-label="Netgraph camera controls">
@@ -86,12 +91,12 @@ export function NetgraphCanvasHud(props: NetgraphCanvasHudProps) {
           <ControlButton label="More netgraph camera controls" active={moreOpen} onClick={() => setMoreOpen((open) => !open)}><Icon>•••</Icon><span className="hidden sm:inline">More</span></ControlButton>
           {moreOpen && (
             <div className="netgraph-more-menu absolute right-0 grid min-w-48 gap-1 rounded-xl border border-border bg-bg-surface/95 p-2 shadow-2xl backdrop-blur-xl" role="menu" aria-label="More netgraph controls">
-              <MenuButton onClick={props.onZoomIn}>Zoom in</MenuButton>
-              <MenuButton onClick={props.onZoomOut}>Zoom out</MenuButton>
-              <MenuButton onClick={props.onTopView}>Top view</MenuButton>
-              <MenuButton disabled={props.selectedRouteId == null} onClick={props.onFlyRoute}>Replay selected route</MenuButton>
-              <MenuButton onClick={props.onReplayIntro}>Replay reveal</MenuButton>
-              <MenuButton onClick={() => setFlightGuideOpen(true)}>Free flight</MenuButton>
+              <MenuButton onClick={() => runMoreAction(props.onZoomIn)}>Zoom in</MenuButton>
+              <MenuButton onClick={() => runMoreAction(props.onZoomOut)}>Zoom out</MenuButton>
+              <MenuButton onClick={() => runMoreAction(props.onTopView)}>Top view</MenuButton>
+              <MenuButton disabled={props.selectedRouteId == null} onClick={() => runMoreAction(props.onFlyRoute)}>Replay selected route</MenuButton>
+              <MenuButton onClick={() => runMoreAction(props.onReplayIntro)}>Replay reveal</MenuButton>
+              <MenuButton onClick={() => runMoreAction(() => setFlightGuideOpen(true))}>Free flight</MenuButton>
             </div>
           )}
         </div>

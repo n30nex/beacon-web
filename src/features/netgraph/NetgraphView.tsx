@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type KeyboardEvent, type SVGProps } from "react";
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type SVGProps } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import "./netgraph.css";
 import { getNetgraphSnapshot } from "../../api/client";
@@ -128,6 +128,11 @@ export function NetgraphView({ immersive = false, onImmersiveChange, selectedNod
     setLastInteractionAt(Date.now());
     setLivePrompt(null);
   }, []);
+  const markWorkspaceInteraction = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    const target = event.target;
+    if (target instanceof Element && target.closest(".netgraph-canvas-host")) return;
+    markInteraction();
+  }, [markInteraction]);
 
   useEffect(() => writeNetgraphLayoutMode(layoutMode), [layoutMode]);
   useEffect(() => writeNetgraphQualityPreference(qualityPreference), [qualityPreference]);
@@ -271,7 +276,7 @@ export function NetgraphView({ immersive = false, onImmersiveChange, selectedNod
   }
 
   return (
-    <section className="netgraph-workspace relative h-full min-h-0 w-full min-w-0 overflow-hidden bg-bg-base" aria-label="Netgraph" onPointerDownCapture={markInteraction}>
+    <section className="netgraph-workspace relative h-full min-h-0 w-full min-w-0 overflow-hidden bg-bg-base" aria-label="Netgraph" onPointerDownCapture={markWorkspaceInteraction}>
       <header className="netgraph-toolbar pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 p-2 md:p-3">
         <div className="pointer-events-auto hidden min-w-0 rounded-2xl border border-border bg-bg-surface/72 px-3 py-2 shadow-2xl backdrop-blur-xl sm:block">
           <div className="flex items-baseline gap-2"><h1 className="text-sm font-semibold text-text-bright">Netgraph</h1><span className="font-mono text-[9px] font-bold uppercase tracking-widest text-primary">{layoutMode === "geo" ? "Geo constellation" : "Galaxy"}</span></div>
